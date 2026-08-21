@@ -1,0 +1,86 @@
+services:
+  tutor_db:
+    image: postgres:16-alpine
+    container_name: tutor_db
+    restart: always
+    environment:
+      POSTGRES_DB: tutor_bot_db
+      POSTGRES_USER: tutor_user
+      POSTGRES_PASSWORD: tutor_password_2026
+    volumes:
+      - tutor_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tutor_user -d tutor_bot_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  tutor_redis:
+    image: redis:7-alpine
+    container_name: tutor_redis
+    restart: always
+    volumes:
+      - tutor_redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  tutor_web:
+    build: .
+    container_name: tutor_web
+    restart: always
+    env_file: .env
+    environment:
+      POSTGRES_HOST: tutor_db
+      POSTGRES_PORT: "5432"
+      POSTGRES_DB: tutor_bot_db
+      POSTGRES_USER: tutor_user
+      POSTGRES_PASSWORD: tutor_password_2026
+      REDIS_URL: redis://tutor_redis:6379/0
+    ports:
+      - "0.0.0.0:8005:8005"
+    depends_on:
+      tutor_db:
+        condition: service_healthy
+      tutor_redis:
+        condition: service_healthy
+
+  tutor_bot:
+    build: .
+    container_name: tutor_bot
+    restart: always
+    command: python telegram.py
+    env_file: .env
+    environment:
+      POSTGRES_HOST: tutor_db
+      POSTGRES_PORT: "5432"
+      POSTGRES_DB: tutor_bot_db
+      POSTGRES_USER: tutor_user
+      POSTGRES_PASSWORD: tutor_password_2026
+      REDIS_URL: redis://tutor_redis:6379/0
+    depends_on:
+      tutor_web:
+        condition: service_started
+
+  tutor_celery:
+    build: .
+    container_name: tutor_celery
+    restart: always
+    command: celery -A tutor_bot worker --loglevel=info
+    env_file: .env
+    environment:
+      POSTGRES_HOST: tutor_db
+      POSTGRES_PORT: "5432"
+      POSTGRES_DB: tutor_bot_db
+      POSTGRES_USER: tutor_user
+      POSTGRES_PASSWORD: tutor_password_2026
+      REDIS_URL: redis://tutor_redis:6379/0
+    depends_on:
+      tutor_web:
+        condition: service_started
+
+volumes:
+  tutor_db_data:
+  tutor_redis_data:

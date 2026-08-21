@@ -1,0 +1,119 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
+cover/
+
+# Translations
+*.mo
+*.pot
+
+# Django & Database backups
+*.log
+local_settings.py
+db.sqlite3
+db.sqlite3-journal
+db_backup_*.json
+backups/
+
+# Celery
+celerybeat-schedule
+celerybeat.pid
+
+# Environments
+.env
+.env_docker
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# IDE & OS
+.idea/
+.vscode/
+.cursor/
+.cursorj/
+.cursorrules
+.DS_Store
+
+# Media & Uploads
+media/
+
+# Binaries & Scans
+bin/
+materials/
+
+# Внутренняя конфиденциальная документация и роадмапы (НЕ КОММИТИТЬ)
+project_docs/
+PITCH_DECK.md
+PRESENTATION.md
+ROADMAP.md
+content_expansion_roadmap.md
+database_content_roadmap.md
+sources_and_books_catalog.md
+tutor-bot-cursor.md
+
+# Тяжелые сканы, картинки, документы и архивы
+*.pdf
+*.png
+*.jpg
+*.jpeg
+*.docx
+*.doc
+*.tgz
+*.zip
+*.tar.gz
+
+# Крупные геодампы
+data/BY.zip
+data/BY.txt
+data/readme.txt
+data/osm_schools.json
+data/osm_cities.json
+data/osm_cities_by.json
+data/geonames_cities.json
+data/admin1CodesASCII.txt
+data/wiki_cities.html

@@ -1,0 +1,40 @@
+# Django
+Django==4.2.16
+adrf==0.1.8
+djangorestframework==3.15.2
+drf-spectacular==0.27.2
+django-cors-headers==4.6.0
+whitenoise==6.8.2
+python-dotenv==1.0.1
+httpx>=0.25.0
+
+# Admin
+django-unfold
+django-import-export==4.3.3
+
+# Telegram bot
+aiogram==3.14.0
+aiohttp==3.10.10
+
+# ASGI / WSGI Server
+uvicorn==0.32.0
+gunicorn>=21.2.0
+
+# Database
+psycopg2-binary==2.9.10
+
+# Media
+pillow==11.0.0
+
+# PDF import
+pypdf>=4.0.0
+cryptography>=3.1
+python-docx>=1.0.0
+
+# AI (ИИ-разбор ошибок и bePaid)
+openai>=1.0.0
+
+# Async Tasks & Queues (Celery + Redis)
+celery>=5.3.6
+redis>=5.0.1
+django-celery-beat>=2.6.0

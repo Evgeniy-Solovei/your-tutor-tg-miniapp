@@ -1,0 +1,130 @@
+{% extends "admin/base_site.html" %}
+{% load i18n %}
+
+{% block content %}
+<style>
+  .guide-grid { display:grid; gap:16px; max-width:960px; }
+  .guide-card {
+    background: var(--body-bg, #fff);
+    border: 1px solid var(--border, #e5e7eb);
+    border-radius: 12px;
+    padding: 16px 18px;
+  }
+  .guide-card h2 { margin: 0 0 8px; font-size: 1.1rem; }
+  .guide-card h3 { margin: 14px 0 6px; font-size: 1rem; }
+  .guide-muted { color: #6b7280; font-size: 0.92rem; line-height: 1.45; }
+  .guide-code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    background: #0f172a0d;
+    padding: 2px 6px;
+    border-radius: 6px;
+    font-size: 0.85rem;
+  }
+  .guide-table { width:100%; border-collapse: collapse; margin-top:8px; font-size:0.9rem; }
+  .guide-table th, .guide-table td { border-bottom:1px solid #e5e7eb; padding:6px 8px; text-align:left; }
+  .guide-stats { display:flex; flex-wrap:wrap; gap:10px; margin: 0 0 8px; }
+  .guide-pill {
+    background:#eef2ff; color:#3730a3; border-radius:999px; padding:6px 12px; font-size:0.85rem;
+  }
+  .guide-flow {
+    white-space: pre-wrap;
+    background:#0f172a;
+    color:#e2e8f0;
+    border-radius:12px;
+    padding:14px 16px;
+    font-size:0.82rem;
+    line-height:1.45;
+    overflow:auto;
+  }
+  ol.guide-steps { margin:8px 0 0 18px; line-height:1.5; }
+</style>
+
+<div class="guide-grid">
+  <div class="guide-card">
+    <h2>Сводка</h2>
+    <div class="guide-stats">
+      <span class="guide-pill">Предметы: {{ totals.subjects }}</span>
+      <span class="guide-pill">Треки: {{ totals.tracks }}</span>
+      <span class="guide-pill">Темы: {{ totals.topics }}</span>
+      <span class="guide-pill">Задания: {{ totals.tasks }}</span>
+      <span class="guide-pill">С картинкой: {{ totals.with_image }}</span>
+    </div>
+    <p class="guide-muted">
+      Отдельных таблиц «на каждый класс» нет. Класс — поле <span class="guide-code">Topic.grade_level</span>.
+      Mini App берёт задания ученика по его классу.
+    </p>
+  </div>
+
+  <div class="guide-card">
+    <h2>Как работает логика</h2>
+    <pre class="guide-flow">Ученик (класс + цель)
+    ↓
+Трек (школа / аттестат 9 / ЦТ / ЦЭ)
+    ↓
+Разделы → Темы (grade_level = 1…11)
+    ↓
+Задания (Task) + варианты + эталон
+    ↓
+Ежедневная сессия в Mini App</pre>
+    <ol class="guide-steps">
+      <li><b>materials/russian/0N_klass/</b> — PDF учебников и сборников (файлы).</li>
+      <li><b>python manage.py import_…</b> — читает PDF / программу → пишет в БД.</li>
+      <li><b>Тема</b> привязана к классу. Задание висит на теме.</li>
+      <li><b>Практика</b> в приложении фильтрует темы по <span class="guide-code">student.grade</span>.</li>
+    </ol>
+  </div>
+
+  <div class="guide-card">
+    <h2>Команды наполнения (на сервере)</h2>
+    <p class="guide-muted">Запускать из корня проекта с активированным venv, папка <span class="guide-code">materials/</span> должна быть на сервере.</p>
+    <table class="guide-table">
+      <thead><tr><th>Команда</th><th>Что делает</th></tr></thead>
+      <tbody>
+      {% for cmd, desc in commands %}
+        <tr>
+          <td><span class="guide-code">python manage.py {{ cmd }}</span></td>
+          <td>{{ desc }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="guide-card">
+    <h2>Где что править руками</h2>
+    <ul class="guide-muted">
+      <li><b>Задания</b> → раздел «Задания» (Task): вопрос, картинка, варианты, эталон.</li>
+      <li><b>Темы</b> → «Темы»: название + класс (grade_level).</li>
+      <li><b>Треки</b> → «Экзаменационные треки»: школа / ЦТ / ЦЭ / аттестат.</li>
+      <li><b>Ученики</b> → приложение Students: класс и цель ученика.</li>
+    </ul>
+  </div>
+
+  {% for block in subjects %}
+  <div class="guide-card">
+    <h2>{{ block.subject.name }}</h2>
+    {% for t in block.tracks %}
+      <h3>{{ t.track.name }} <span class="guide-muted">({{ t.track.track_type }}, классы {{ t.track.grade_from }}–{{ t.track.grade_to }}, разделов: {{ t.sections }})</span></h3>
+      {% if t.by_grade %}
+      <table class="guide-table">
+        <thead><tr><th>Класс</th><th>Тем</th><th>Заданий</th></tr></thead>
+        <tbody>
+        {% for row in t.by_grade %}
+          <tr>
+            <td>{{ row.grade_level|default:"—" }}</td>
+            <td>{{ row.topics }}</td>
+            <td>{{ row.tasks }}</td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <p class="guide-muted">Пока нет тем на этом треке.</p>
+      {% endif %}
+    {% endfor %}
+  </div>
+  {% empty %}
+  <div class="guide-card"><p class="guide-muted">Предметов пока нет — запусти seed_exam_tracks и импорты.</p></div>
+  {% endfor %}
+</div>
+{% endblock %}

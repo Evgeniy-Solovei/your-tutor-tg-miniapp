@@ -1,0 +1,158 @@
+{% extends "admin/base_site.html" %}
+
+{% block content %}
+<div style="max-width: 1200px; margin: 0 auto; padding: 20px; font-family: system-ui, -apple-system, sans-serif; color: #1e293b;">
+    
+    <!-- Заголовок -->
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+        <div>
+            <h1 style="font-size: 28px; font-weight: 800; margin: 0; color: #0f172a;">📊 Аналитика и Метрики Проекта</h1>
+            <p style="color: #64748b; margin-top: 4px; font-size: 14px;">Еженедельный и месячный отчёт по активностям, времени в приложении и доходу.</p>
+        </div>
+        <div style="display: flex; gap: 12px;">
+            <div style="background: #f1f5f9; padding: 10px 16px; border-radius: 10px; text-align: center;">
+                <span style="font-size: 12px; color: #64748b; display: block;">Всего учеников</span>
+                <strong style="font-size: 18px; color: #0f172a;">{{ total_students }}</strong>
+            </div>
+            <div style="background: #eff6ff; padding: 10px 16px; border-radius: 10px; text-align: center; border: 1px solid #bfdbfe;">
+                <span style="font-size: 12px; color: #1d4ed8; display: block;">Pro-подписчиков</span>
+                <strong style="font-size: 18px; color: #1e40af;">{{ pro_students }} ⭐</strong>
+            </div>
+            <div style="background: #f0fdf4; padding: 10px 16px; border-radius: 10px; text-align: center; border: 1px solid #bbf7d0;">
+                <span style="font-size: 12px; color: #15803d; display: block;">Общая Выручка</span>
+                <strong style="font-size: 18px; color: #166534;">{{ total_revenue }} BYN</strong>
+            </div>
+        </div>
+    </div>
+
+    <!-- Раздел 1: Недельная Аналитика (WoW) -->
+    <h2 style="font-size: 20px; font-weight: 700; margin-bottom: 14px; color: #1e293b;">📆 Активность за эту Неделю (WoW)</h2>
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; margin-bottom: 32px;">
+        
+        <!-- WAU -->
+        <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 14px; padding: 18px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+            <span style="font-size: 13px; color: #64748b; font-weight: 500;">Активных учеников (WAU)</span>
+            <div style="display: flex; justify-content: space-between; align-items: baseline; margin-top: 8px;">
+                <span style="font-size: 28px; font-weight: 800; color: #0f172a;">{{ wau_curr }}</span>
+                <span style="padding: 4px 8px; border-radius: 20px; font-size: 12px; font-weight: 700; {% if wau_growth.positive %}background: #dcfce7; color: #15803d;{% else %}background: #fee2e2; color: #b91c1c;{% endif %}">
+                    {{ wau_growth.val }}
+                </span>
+            </div>
+            <span style="font-size: 11px; color: #94a3b8; display: block; margin-top: 6px;">По сравнению с прошлой неделей</span>
+        </div>
+
+        <!-- Новые ученики -->
+        <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 14px; padding: 18px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+            <span style="font-size: 13px; color: #64748b; font-weight: 500;">Новых регистраций</span>
+            <div style="display: flex; justify-content: space-between; align-items: baseline; margin-top: 8px;">
+                <span style="font-size: 28px; font-weight: 800; color: #0f172a;">+{{ new_users_week_curr }}</span>
+                <span style="padding: 4px 8px; border-radius: 20px; font-size: 12px; font-weight: 700; {% if new_users_week_growth.positive %}background: #dcfce7; color: #15803d;{% else %}background: #fee2e2; color: #b91c1c;{% endif %}">
+                    {{ new_users_week_growth.val }}
+                </span>
+            </div>
+            <span style="font-size: 11px; color: #94a3b8; display: block; margin-top: 6px;">Прирост базы</span>
+        </div>
+
+        <!-- Время в приложении -->
+        <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 14px; padding: 18px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+            <span style="font-size: 13px; color: #64748b; font-weight: 500;">Проведено времени</span>
+            <div style="display: flex; justify-content: space-between; align-items: baseline; margin-top: 8px;">
+                <span style="font-size: 28px; font-weight: 800; color: #0f172a;">{{ hours_week_curr }} ч.</span>
+                <span style="padding: 4px 8px; border-radius: 20px; font-size: 12px; font-weight: 700; {% if time_week_growth.positive %}background: #dcfce7; color: #15803d;{% else %}background: #fee2e2; color: #b91c1c;{% endif %}">
+                    {{ time_week_growth.val }}
+                </span>
+            </div>
+            <span style="font-size: 11px; color: #94a3b8; display: block; margin-top: 6px;">Суммарно в Mini App</span>
+        </div>
+
+        <!-- Недельная выручка -->
+        <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 14px; padding: 18px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+            <span style="font-size: 13px; color: #64748b; font-weight: 500;">Доход за неделю</span>
+            <div style="display: flex; justify-content: space-between; align-items: baseline; margin-top: 8px;">
+                <span style="font-size: 28px; font-weight: 800; color: #166534;">{{ rev_week_curr }} BYN</span>
+                <span style="padding: 4px 8px; border-radius: 20px; font-size: 12px; font-weight: 700; {% if rev_week_growth.positive %}background: #dcfce7; color: #15803d;{% else %}background: #fee2e2; color: #b91c1c;{% endif %}">
+                    {{ rev_week_growth.val }}
+                </span>
+            </div>
+            <span style="font-size: 11px; color: #94a3b8; display: block; margin-top: 6px;">Оплат: {{ count_week_curr }} шт.</span>
+        </div>
+    </div>
+
+    <!-- Раздел 2: Месячная Аналитика (MoM) -->
+    <h2 style="font-size: 20px; font-weight: 700; margin-bottom: 14px; color: #1e293b;">📅 Показатели за Месяц (MoM)</h2>
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; margin-bottom: 36px;">
+        
+        <!-- MAU -->
+        <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 14px; padding: 18px;">
+            <span style="font-size: 13px; color: #64748b; font-weight: 500;">Месячная аудитория (MAU)</span>
+            <div style="display: flex; justify-content: space-between; align-items: baseline; margin-top: 8px;">
+                <span style="font-size: 28px; font-weight: 800; color: #0f172a;">{{ mau_curr }}</span>
+                <span style="padding: 4px 8px; border-radius: 20px; font-size: 12px; font-weight: 700; {% if mau_growth.positive %}background: #dcfce7; color: #15803d;{% else %}background: #fee2e2; color: #b91c1c;{% endif %}">
+                    {{ mau_growth.val }}
+                </span>
+            </div>
+            <span style="font-size: 11px; color: #94a3b8; display: block; margin-top: 6px;">Уникальных учеников за 30 дней</span>
+        </div>
+
+        <!-- Время в приложении за месяц -->
+        <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 14px; padding: 18px;">
+            <span style="font-size: 13px; color: #64748b; font-weight: 500;">Время в приложении</span>
+            <div style="display: flex; justify-content: space-between; align-items: baseline; margin-top: 8px;">
+                <span style="font-size: 28px; font-weight: 800; color: #0f172a;">{{ hours_month_curr }} ч.</span>
+                <span style="padding: 4px 8px; border-radius: 20px; font-size: 12px; font-weight: 700; {% if time_month_growth.positive %}background: #dcfce7; color: #15803d;{% else %}background: #fee2e2; color: #b91c1c;{% endif %}">
+                    {{ time_month_growth.val }}
+                </span>
+            </div>
+            <span style="font-size: 11px; color: #94a3b8; display: block; margin-top: 6px;">Суммарное время за 30 дней</span>
+        </div>
+
+        <!-- Выручка за месяц -->
+        <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 14px; padding: 18px;">
+            <span style="font-size: 13px; color: #64748b; font-weight: 500;">Месячная выручка</span>
+            <div style="display: flex; justify-content: space-between; align-items: baseline; margin-top: 8px;">
+                <span style="font-size: 28px; font-weight: 800; color: #166534;">{{ rev_month_curr }} BYN</span>
+                <span style="padding: 4px 8px; border-radius: 20px; font-size: 12px; font-weight: 700; {% if rev_month_growth.positive %}background: #dcfce7; color: #15803d;{% else %}background: #fee2e2; color: #b91c1c;{% endif %}">
+                    {{ rev_month_growth.val }}
+                </span>
+            </div>
+            <span style="font-size: 11px; color: #94a3b8; display: block; margin-top: 6px;">Оплат: {{ count_month_curr }} шт.</span>
+        </div>
+    </div>
+
+    <!-- Раздел 3: Таблица по Неделям -->
+    <h2 style="font-size: 20px; font-weight: 700; margin-bottom: 14px; color: #1e293b;">📋 Динамика по Неделям (Последние 8 недель)</h2>
+    <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 14px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+        <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 14px;">
+            <thead>
+                <tr style="background: #f8fafc; border-bottom: 1px solid #e2e8f0; color: #64748b; font-weight: 600;">
+                    <th style="padding: 12px 16px;">Период (Неделя)</th>
+                    <th style="padding: 12px 16px;">WAU (Активные)</th>
+                    <th style="padding: 12px 16px;">Прирост WAU</th>
+                    <th style="padding: 12px 16px;">Новые ученики</th>
+                    <th style="padding: 12px 16px;">Время (Часы)</th>
+                    <th style="padding: 12px 16px;">Оплаты (шт)</th>
+                    <th style="padding: 12px 16px;">Выручка (BYN)</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in weekly_breakdown %}
+                <tr style="border-bottom: 1px solid #f1f5f9;">
+                    <td style="padding: 12px 16px; font-weight: 600; color: #0f172a;">{{ row.period }}</td>
+                    <td style="padding: 12px 16px;">{{ row.wau }}</td>
+                    <td style="padding: 12px 16px;">
+                        <span style="font-weight: 700; font-size: 12px; {% if row.wau_growth.positive %}color: #15803d;{% else %}color: #b91c1c;{% endif %}">
+                            {{ row.wau_growth.val }}
+                        </span>
+                    </td>
+                    <td style="padding: 12px 16px;">+{{ row.new_reg }}</td>
+                    <td style="padding: 12px 16px;">{{ row.hours }} ч.</td>
+                    <td style="padding: 12px 16px;">{{ row.orders_count }}</td>
+                    <td style="padding: 12px 16px; font-weight: 700; color: #166534;">{{ row.revenue }} BYN</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+</div>
+{% endblock %}

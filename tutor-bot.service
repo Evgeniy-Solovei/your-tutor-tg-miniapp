@@ -1,0 +1,13 @@
+[Unit]
+Description=Tutor Bot Telegram Polling Service
+After=network.target tutor-web.service
+
+[Service]
+User=root
+WorkingDirectory=/var/www/Tutor_bot
+ExecStart=/var/www/Tutor_bot/venv/bin/python manage.py run_bot
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

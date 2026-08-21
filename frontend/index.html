@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="ru" data-theme="calm">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
+    />
+    <title>Твой Репетитор — ЦТ / ЦЭ</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700;800&family=Unbounded:wght@600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div id="atmosphere" class="atmosphere" aria-hidden="true"></div>
+    <div class="app-shell">
+      <header class="topbar">
+        <div class="brand">
+          <span class="brand-mark">Т</span>
+          <div>
+            <p class="brand-name">Твой Репетитор</p>
+            <p class="brand-sub" id="brand-sub">ЦТ · ЦЭ</p>
+          </div>
+        </div>
+        <button type="button" class="theme-toggle" id="theme-toggle" aria-label="Сменить тему">
+          <span id="theme-toggle-label">Вайб</span>
+        </button>
+      </header>
+
+      <main id="view" class="view"></main>
+
+      <nav class="tabbar">
+        <button type="button" class="tab active" data-route="home">Главная</button>
+        <button type="button" class="tab" data-route="courses">Курсы</button>
+        <button type="button" class="tab" data-route="practice">Практика</button>
+        <button type="button" class="tab" data-route="stats">Статистика</button>
+        <button type="button" class="tab" data-route="rating">Рейтинг</button>
+        <button type="button" class="tab" data-route="family">Семья</button>
+      </nav>
+    </div>
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>

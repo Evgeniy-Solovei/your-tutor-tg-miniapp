@@ -1,0 +1,692 @@
+[
+  {
+    "name": "Минск",
+    "region": "Минская",
+    "population": 1995091,
+    "district": "Минский"
+  },
+  {
+    "name": "Гомель",
+    "region": "Гомельская",
+    "population": 499853,
+    "district": "Гомельский"
+  },
+  {
+    "name": "Гродно",
+    "region": "Гродненская",
+    "population": 364902,
+    "district": "Гродненский"
+  },
+  {
+    "name": "Витебск",
+    "region": "Витебская",
+    "population": 357899,
+    "district": "Витебский"
+  },
+  {
+    "name": "Могилёв",
+    "region": "Могилёвская",
+    "population": 352891,
+    "district": "Могилёвский"
+  },
+  {
+    "name": "Брест",
+    "region": "Брестская",
+    "population": 347138,
+    "district": "Брестский"
+  },
+  {
+    "name": "Бобруйск",
+    "region": "Могилёвская",
+    "population": 204103,
+    "district": "Бобруйский"
+  },
+  {
+    "name": "Барановичи",
+    "region": "Брестская",
+    "population": 170039,
+    "district": "Барановичский"
+  },
+  {
+    "name": "Борисов",
+    "region": "Минская",
+    "population": 133700,
+    "district": "Борисовский"
+  },
+  {
+    "name": "Пинск",
+    "region": "Брестская",
+    "population": 123283,
+    "district": "Пинский"
+  },
+  {
+    "name": "Мозырь",
+    "region": "Гомельская",
+    "population": 104302,
+    "district": "Мозырский"
+  },
+  {
+    "name": "Лида",
+    "region": "Гродненская",
+    "population": 102603,
+    "district": "Лидский"
+  },
+  {
+    "name": "Орша",
+    "region": "Витебская",
+    "population": 100422,
+    "district": "Оршанский"
+  },
+  {
+    "name": "Солигорск",
+    "region": "Минская",
+    "population": 96418,
+    "district": "Солигорский"
+  },
+  {
+    "name": "Новополоцк",
+    "region": "Витебская",
+    "population": 94666,
+    "district": "Полоцкий"
+  },
+  {
+    "name": "Молодечно",
+    "region": "Минская",
+    "population": 87339,
+    "district": "Молодечненский"
+  },
+  {
+    "name": "Полоцк",
+    "region": "Витебская",
+    "population": 79105,
+    "district": "Полоцкий"
+  },
+  {
+    "name": "Жлобин",
+    "region": "Гомельская",
+    "population": 75732,
+    "district": "Жлобинский"
+  },
+  {
+    "name": "Речица",
+    "region": "Гомельская",
+    "population": 64508,
+    "district": "Речицкий"
+  },
+  {
+    "name": "Жодино",
+    "region": "Минская",
+    "population": 62983,
+    "district": "Смолевичский"
+  },
+  {
+    "name": "Светлогорск",
+    "region": "Гомельская",
+    "population": 61280,
+    "district": "Светлогорский"
+  },
+  {
+    "name": "Слуцк",
+    "region": "Минская",
+    "population": 58995,
+    "district": "Слуцкий"
+  },
+  {
+    "name": "Кобрин",
+    "region": "Брестская",
+    "population": 52235,
+    "district": "Кобринский"
+  },
+  {
+    "name": "Слоним",
+    "region": "Гродненская",
+    "population": 48001,
+    "district": "Слонимский"
+  },
+  {
+    "name": "Волковыск",
+    "region": "Гродненская",
+    "population": 40541,
+    "district": "Волковысский"
+  },
+  {
+    "name": "Калинковичи",
+    "region": "Гомельская",
+    "population": 36549,
+    "district": "Калинковичский"
+  },
+  {
+    "name": "Сморгонь",
+    "region": "Гродненская",
+    "population": 34564,
+    "district": "Сморгонский"
+  },
+  {
+    "name": "Рогачёв",
+    "region": "Гомельская",
+    "population": 31323,
+    "district": "Рогачёвский"
+  },
+  {
+    "name": "Дзержинск",
+    "region": "Минская",
+    "population": 29607,
+    "district": "Дзержинский"
+  },
+  {
+    "name": "Осиповичи",
+    "region": "Могилёвская",
+    "population": 28715,
+    "district": "Осиповичский"
+  },
+  {
+    "name": "Горки",
+    "region": "Могилёвская",
+    "population": 28334,
+    "district": "Горецкий"
+  },
+  {
+    "name": "Берёза",
+    "region": "Брестская",
+    "population": 27986,
+    "district": "Берёзовский"
+  },
+  {
+    "name": "Новогрудок",
+    "region": "Гродненская",
+    "population": 27298,
+    "district": "Новогрудский"
+  },
+  {
+    "name": "Вилейка",
+    "region": "Минская",
+    "population": 26015,
+    "district": "Вилейский"
+  },
+  {
+    "name": "Смолевичи",
+    "region": "Минская",
+    "population": 24402,
+    "district": "Смолевичский"
+  },
+  {
+    "name": "Лунинец",
+    "region": "Брестская",
+    "population": 23396,
+    "district": "Лунинецкий"
+  },
+  {
+    "name": "Кричев",
+    "region": "Могилёвская",
+    "population": 22764,
+    "district": "Кричевский"
+  },
+  {
+    "name": "Ивацевичи",
+    "region": "Брестская",
+    "population": 22189,
+    "district": "Ивацевичский"
+  },
+  {
+    "name": "Марьина Горка",
+    "region": "Минская",
+    "population": 19892,
+    "district": "Пуховичский"
+  },
+  {
+    "name": "Фаниполь",
+    "region": "Минская",
+    "population": 19006,
+    "district": "Дзержинский"
+  },
+  {
+    "name": "Пружаны",
+    "region": "Брестская",
+    "population": 18703,
+    "district": "Пружанский"
+  },
+  {
+    "name": "Поставы",
+    "region": "Витебская",
+    "population": 18143,
+    "district": "Поставский"
+  },
+  {
+    "name": "Добруш",
+    "region": "Гомельская",
+    "population": 17790,
+    "district": "Добрушский"
+  },
+  {
+    "name": "Глубокое",
+    "region": "Витебская",
+    "population": 17720,
+    "district": "Глубокский"
+  },
+  {
+    "name": "Столбцы",
+    "region": "Минская",
+    "population": 17603,
+    "district": "Столбцовский"
+  },
+  {
+    "name": "Заславль",
+    "region": "Минская",
+    "population": 17166,
+    "district": "Минский"
+  },
+  {
+    "name": "Лепель",
+    "region": "Витебская",
+    "population": 16736,
+    "district": "Лепельский"
+  },
+  {
+    "name": "Ошмяны",
+    "region": "Гродненская",
+    "population": 16721,
+    "district": "Ошмянский"
+  },
+  {
+    "name": "Быхов",
+    "region": "Могилёвская",
+    "population": 16111,
+    "district": "Быховский"
+  },
+  {
+    "name": "Несвиж",
+    "region": "Минская",
+    "population": 15897,
+    "district": "Несвижский"
+  },
+  {
+    "name": "Иваново",
+    "region": "Брестская",
+    "population": 15833,
+    "district": "Ивановский"
+  },
+  {
+    "name": "Житковичи",
+    "region": "Гомельская",
+    "population": 15697,
+    "district": "Житковичский"
+  },
+  {
+    "name": "Логойск",
+    "region": "Минская",
+    "population": 15543,
+    "district": "Логойский"
+  },
+  {
+    "name": "Островец",
+    "region": "Гродненская",
+    "population": 15530,
+    "district": "Островецкий"
+  },
+  {
+    "name": "Щучин",
+    "region": "Гродненская",
+    "population": 14868,
+    "district": "Щучинский"
+  },
+  {
+    "name": "Климовичи",
+    "region": "Могилёвская",
+    "population": 14663,
+    "district": "Климовичский"
+  },
+  {
+    "name": "Дрогичин",
+    "region": "Брестская",
+    "population": 14659,
+    "district": "Дрогичинский"
+  },
+  {
+    "name": "Шклов",
+    "region": "Могилёвская",
+    "population": 14580,
+    "district": "Шкловский"
+  },
+  {
+    "name": "Костюковичи",
+    "region": "Могилёвская",
+    "population": 14578,
+    "district": "Костюковичский"
+  },
+  {
+    "name": "Жабинка",
+    "region": "Брестская",
+    "population": 14430,
+    "district": "Жабинковский"
+  },
+  {
+    "name": "Мосты",
+    "region": "Гродненская",
+    "population": 14091,
+    "district": "Мостовский"
+  },
+  {
+    "name": "Столин",
+    "region": "Брестская",
+    "population": 13981,
+    "district": "Столинский"
+  },
+  {
+    "name": "Ганцевичи",
+    "region": "Брестская",
+    "population": 13155,
+    "district": "Ганцевичский"
+  },
+  {
+    "name": "Хойники",
+    "region": "Гомельская",
+    "population": 12873,
+    "district": "Хойникский"
+  },
+  {
+    "name": "Малорита",
+    "region": "Брестская",
+    "population": 12593,
+    "district": "Малоритский"
+  },
+  {
+    "name": "Микашевичи",
+    "region": "Брестская",
+    "population": 11823,
+    "district": "Лунинецкий"
+  },
+  {
+    "name": "Новолукомль",
+    "region": "Витебская",
+    "population": 11422,
+    "district": "Чашникский"
+  },
+  {
+    "name": "Городок",
+    "region": "Витебская",
+    "population": 11216,
+    "district": "Городокский"
+  },
+  {
+    "name": "Любань",
+    "region": "Минская",
+    "population": 11165,
+    "district": "Любанский"
+  },
+  {
+    "name": "Березино",
+    "region": "Минская",
+    "population": 11125,
+    "district": "Березинский"
+  },
+  {
+    "name": "Клецк",
+    "region": "Минская",
+    "population": 11072,
+    "district": "Клецкий"
+  },
+  {
+    "name": "Белоозёрск",
+    "region": "Брестская",
+    "population": 10747,
+    "district": "Берёзовский"
+  },
+  {
+    "name": "Старые Дороги",
+    "region": "Минская",
+    "population": 10683,
+    "district": "Стародорожский"
+  },
+  {
+    "name": "Червень",
+    "region": "Минская",
+    "population": 10617,
+    "district": "Червенский"
+  },
+  {
+    "name": "Узда",
+    "region": "Минская",
+    "population": 10474,
+    "district": "Узденский"
+  },
+  {
+    "name": "Ляховичи",
+    "region": "Брестская",
+    "population": 10473,
+    "district": "Ляховичский"
+  },
+  {
+    "name": "Петриков",
+    "region": "Гомельская",
+    "population": 10145,
+    "district": "Петриковский"
+  },
+  {
+    "name": "Барань",
+    "region": "Витебская",
+    "population": 9985,
+    "district": "Оршанский"
+  },
+  {
+    "name": "Воложин",
+    "region": "Минская",
+    "population": 9840,
+    "district": "Воложинский"
+  },
+  {
+    "name": "Копыль",
+    "region": "Минская",
+    "population": 9767,
+    "district": "Копыльский"
+  },
+  {
+    "name": "Мстиславль",
+    "region": "Могилёвская",
+    "population": 9753,
+    "district": "Мстиславский"
+  },
+  {
+    "name": "Чаусы",
+    "region": "Могилёвская",
+    "population": 9554,
+    "district": "Чаусский"
+  },
+  {
+    "name": "Скидель",
+    "region": "Гродненская",
+    "population": 9545,
+    "district": "Гродненский"
+  },
+  {
+    "name": "Толочин",
+    "region": "Витебская",
+    "population": 9411,
+    "district": "Толочинский"
+  },
+  {
+    "name": "Белыничи",
+    "region": "Могилёвская",
+    "population": 9391,
+    "district": "Белыничский"
+  },
+  {
+    "name": "Браслав",
+    "region": "Витебская",
+    "population": 9266,
+    "district": "Браславский"
+  },
+  {
+    "name": "Берёзовка",
+    "region": "Гродненская",
+    "population": 9172,
+    "district": "Лидский"
+  },
+  {
+    "name": "Чечерск",
+    "region": "Гомельская",
+    "population": 8958,
+    "district": "Чечерский"
+  },
+  {
+    "name": "Ельск",
+    "region": "Гомельская",
+    "population": 8554,
+    "district": "Ельский"
+  },
+  {
+    "name": "Ветка",
+    "region": "Гомельская",
+    "population": 8510,
+    "district": "Ветковский"
+  },
+  {
+    "name": "Буда-Кошелёво",
+    "region": "Гомельская",
+    "population": 8506,
+    "district": "Буда- Кошелёвский"
+  },
+  {
+    "name": "Наровля",
+    "region": "Гомельская",
+    "population": 8369,
+    "district": "Наровлянский"
+  },
+  {
+    "name": "Крупки",
+    "region": "Минская",
+    "population": 8276,
+    "district": "Крупский"
+  },
+  {
+    "name": "Каменец",
+    "region": "Брестская",
+    "population": 8114,
+    "district": "Каменецкий"
+  },
+  {
+    "name": "Миоры",
+    "region": "Витебская",
+    "population": 7652,
+    "district": "Миорский"
+  },
+  {
+    "name": "Чериков",
+    "region": "Могилёвская",
+    "population": 7611,
+    "district": "Чериковский"
+  },
+  {
+    "name": "Кировск",
+    "region": "Могилёвская",
+    "population": 7607,
+    "district": "Кировский"
+  },
+  {
+    "name": "Славгород",
+    "region": "Могилёвская",
+    "population": 7580,
+    "district": "Славгородский"
+  },
+  {
+    "name": "Дятлово",
+    "region": "Гродненская",
+    "population": 7563,
+    "district": "Дятловский"
+  },
+  {
+    "name": "Чашники",
+    "region": "Витебская",
+    "population": 7489,
+    "district": "Чашникский"
+  },
+  {
+    "name": "Кличев",
+    "region": "Могилёвская",
+    "population": 7114,
+    "district": "Кличевский"
+  },
+  {
+    "name": "Дубровно",
+    "region": "Витебская",
+    "population": 6946,
+    "district": "Дубровенский"
+  },
+  {
+    "name": "Круглое",
+    "region": "Могилёвская",
+    "population": 6911,
+    "district": "Круглянский"
+  },
+  {
+    "name": "Сенно",
+    "region": "Витебская",
+    "population": 6874,
+    "district": "Сенненский"
+  },
+  {
+    "name": "Мядель",
+    "region": "Минская",
+    "population": 6822,
+    "district": "Мядельский"
+  },
+  {
+    "name": "Ивье",
+    "region": "Гродненская",
+    "population": 6784,
+    "district": "Ивьевский"
+  },
+  {
+    "name": "Верхнедвинск",
+    "region": "Витебская",
+    "population": 6679,
+    "district": "Верхнедвинский"
+  },
+  {
+    "name": "Докшицы",
+    "region": "Витебская",
+    "population": 6568,
+    "district": "Докшицкий"
+  },
+  {
+    "name": "Свислочь",
+    "region": "Гродненская",
+    "population": 5709,
+    "district": "Свислочский"
+  },
+  {
+    "name": "Давид-Городок",
+    "region": "Брестская",
+    "population": 5634,
+    "district": "Столинский"
+  },
+  {
+    "name": "Высокое",
+    "region": "Брестская",
+    "population": 4940,
+    "district": "Каменецкий"
+  },
+  {
+    "name": "Василевичи",
+    "region": "Гомельская",
+    "population": 3089,
+    "district": "Речицкий"
+  },
+  {
+    "name": "Туров",
+    "region": "Гомельская",
+    "population": 2726,
+    "district": "Житковичский"
+  },
+  {
+    "name": "Коссово",
+    "region": "Брестская",
+    "population": 1770,
+    "district": "Ивацевичский"
+  },
+  {
+    "name": "Дисна",
+    "region": "Витебская",
+    "population": 1339,
+    "district": "Миорский"
+  }
+]
