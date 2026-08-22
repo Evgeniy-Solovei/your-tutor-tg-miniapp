@@ -7,6 +7,7 @@ from students.models import Parent, ParentChildLink, ParentInvite, PaymentOrder,
 
 @admin.register(Student)
 class StudentAdmin(ExportActionMixin, ModelAdmin):
+    list_select_related = ['subject', 'exam_track', 'city']
     list_display = [
         'display_name',
         'tg_id',
@@ -39,6 +40,7 @@ class ParentAdmin(ModelAdmin):
 
 @admin.register(ParentInvite)
 class ParentInviteAdmin(ModelAdmin):
+    list_select_related = ['student']
     list_display = ['code', 'student', 'is_active', 'expires_at', 'created_at']
     list_filter = ['is_active']
     search_fields = ['code', 'student__display_name']
@@ -46,6 +48,7 @@ class ParentInviteAdmin(ModelAdmin):
 
 @admin.register(ParentChildLink)
 class ParentChildLinkAdmin(ModelAdmin):
+    list_select_related = ['parent', 'student']
     list_display = ['parent', 'student', 'notify_weekly', 'linked_at']
     list_filter = ['notify_weekly']
     search_fields = ['parent__tg_id', 'student__display_name']
@@ -53,6 +56,7 @@ class ParentChildLinkAdmin(ModelAdmin):
 
 @admin.register(PaymentOrder)
 class PaymentOrderAdmin(ModelAdmin):
+    list_select_related = ['student']
     list_display = ['order_id', 'student', 'plan_code', 'amount_byn', 'days', 'status', 'created_at', 'paid_at']
     list_filter = ['status', 'plan_code', 'created_at']
     search_fields = ['order_id', 'student__display_name', 'student__tg_id', 'bepaid_token']

@@ -68,9 +68,17 @@ async def grade_task_answer(task: Task, answer_text: str) -> tuple[bool, int, in
 
     # Длинный текстовый ответ (изложение): пока без автопроверки смысла —
     # оцениваем по объёму как тренировку (эталон хранится для разбора/ИИ).
-    if task.answer_format == Task.AnswerFormat.TEXT:
+    solution = task._state.fields_cache.get('solution')
+    if solution is None:
         try:
             solution = await TaskSolution.objects.aget(task_id=task.id)
+        except TaskSolution.DoesNotExist:
+            solution = None
+
+    if task.answer_format == Task.AnswerFormat.TEXT:
+        try:
+            if solution is None:
+                raise TaskSolution.DoesNotExist
             etalon_words = len((solution.correct_answer or '').split())
         except TaskSolution.DoesNotExist:
             solution = None
@@ -87,7 +95,8 @@ async def grade_task_answer(task: Task, answer_text: str) -> tuple[bool, int, in
 
     correct_set: set[str] = set()
     try:
-        solution = await TaskSolution.objects.aget(task_id=task.id)
+        if solution is None:
+            raise TaskSolution.DoesNotExist
         correct_set = parse_token_set(solution.correct_answer)
     except TaskSolution.DoesNotExist:
         solution = None
@@ -96,7 +105,12 @@ async def grade_task_answer(task: Task, answer_text: str) -> tuple[bool, int, in
         Task.AnswerFormat.SINGLE_CHOICE,
         Task.AnswerFormat.MULTIPLE_CHOICE,
     ):
-        async for opt in TaskOption.objects.filter(task_id=task.id, is_correct=True):
+        options = getattr(task, '_prefetched_objects_cache', {}).get('options')
+        if options is None:
+            options = [opt async for opt in TaskOption.objects.filter(task_id=task.id)]
+        for opt in options:
+            if not opt.is_correct:
+                continue
             # предпочитаем номер варианта, если есть order
             token = str(opt.order) if opt.order else normalize_answer(opt.text)
             correct_set.add(token)
@@ -105,7 +119,10 @@ async def grade_task_answer(task: Task, answer_text: str) -> tuple[bool, int, in
     if student_set and correct_set:
         # если ученик ответил текстом опций — сопоставим с order
         option_map = {}
-        async for opt in TaskOption.objects.filter(task_id=task.id):
+        options = getattr(task, '_prefetched_objects_cache', {}).get('options')
+        if options is None:
+            options = [opt async for opt in TaskOption.objects.filter(task_id=task.id)]
+        for opt in options:
             option_map[normalize_answer(opt.text)] = str(opt.order) if opt.order else normalize_answer(opt.text)
         mapped = set()
         for token in student_set:

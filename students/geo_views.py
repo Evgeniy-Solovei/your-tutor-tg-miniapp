@@ -5,6 +5,7 @@ from __future__ import annotations
 import re
 from adrf.views import APIView
 from rest_framework import status
+from rest_framework.permissions import IsAdminUser
 from rest_framework.response import Response
 
 from core.api import telegram_auth_classes
@@ -34,6 +35,8 @@ class PublicConfigView(APIView):
 
 
 class WebAppUrlSettingsView(APIView):
+    permission_classes = [IsAdminUser]
+
     async def post(self, request):
         url = (request.data.get('url') or '').strip().rstrip('/')
         if url and not (url.startswith('http://') or url.startswith('https://')):
@@ -56,11 +59,16 @@ class CitySearchView(APIView):
     async def get(self, request):
         raw_q = (request.query_params.get('q') or '').strip()
         clean_q = re.sub(r'^(г\.|город|пгт|пос[её]лок|аг\.|агрогородок)\s+', '', raw_q, flags=re.I).strip()
-        limit = min(int(request.query_params.get('limit') or 20), 40)
+        try:
+            limit = max(1, min(int(request.query_params.get('limit') or 20), 40))
+        except (TypeError, ValueError):
+            limit = 20
 
         if not await City.objects.filter(is_active=True).aexists():
+            from asgiref.sync import sync_to_async
             from django.core.management import call_command
-            call_command('seed_geo')
+
+            await sync_to_async(call_command, thread_sensitive=True)('seed_geo')
 
         qs = City.objects.filter(is_active=True)
         if clean_q:
@@ -81,7 +89,10 @@ class SchoolSearchView(APIView):
 
     async def get(self, request, city_id: int):
         q = (request.query_params.get('q') or '').strip()
-        limit = min(int(request.query_params.get('limit') or 20), 40)
+        try:
+            limit = max(1, min(int(request.query_params.get('limit') or 20), 40))
+        except (TypeError, ValueError):
+            limit = 20
         city = await City.objects.filter(id=city_id, is_active=True).afirst()
         if not city:
             return Response({'results': [], 'city': {'id': city_id, 'name': ''}, 'q': q})

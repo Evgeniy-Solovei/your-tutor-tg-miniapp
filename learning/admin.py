@@ -21,6 +21,7 @@ class SessionTaskInline(TabularInline):
 
 @admin.register(DailySession)
 class DailySessionAdmin(ModelAdmin):
+    list_select_related = ['student']
     list_display = [
         'student',
         'session_date',
@@ -40,6 +41,7 @@ class DailySessionAdmin(ModelAdmin):
 
 @admin.register(StudentVariantProgress)
 class StudentVariantProgressAdmin(ModelAdmin):
+    list_select_related = ['student', 'variant', 'variant__collection']
     list_display = [
         'student',
         'variant',
@@ -56,6 +58,7 @@ class StudentVariantProgressAdmin(ModelAdmin):
 
 @admin.register(TaskAttempt)
 class TaskAttemptAdmin(ModelAdmin):
+    list_select_related = ['student', 'task']
     list_display = [
         'student',
         'task',
@@ -70,6 +73,7 @@ class TaskAttemptAdmin(ModelAdmin):
 
 @admin.register(TopicMastery)
 class TopicMasteryAdmin(ModelAdmin):
+    list_select_related = ['student', 'topic']
     list_display = ['student', 'topic', 'mastery_score', 'correct_count', 'wrong_count', 'last_attempt_at']
     list_filter = ['topic__section__exam_track']
     search_fields = ['student__display_name', 'topic__name']
@@ -109,6 +113,7 @@ class WeeklyLeagueAdmin(ModelAdmin):
 
 @admin.register(LeagueEntry)
 class LeagueEntryAdmin(ModelAdmin):
+    list_select_related = ['student', 'league']
     list_display = ['student', 'league', 'test_score', 'primary_score', 'weekly_xp', 'rank']
     list_filter = ['league__period_type', 'league']
     search_fields = ['student__display_name', 'student__tg_id', 'league__title']

@@ -5,6 +5,7 @@ After=network.target
 [Service]
 User=root
 WorkingDirectory=/var/www/Tutor_bot
+EnvironmentFile=/var/www/Tutor_bot/.env
 ExecStart=/var/www/Tutor_bot/venv/bin/gunicorn --workers 3 --bind 127.0.0.1:8005 tutor_bot.wsgi:application
 Restart=always
 RestartSec=5

@@ -132,6 +132,10 @@ class Topic(models.Model):
         verbose_name = 'Тема'
         verbose_name_plural = 'Темы'
         ordering = ['order', 'name']
+        indexes = [
+            models.Index(fields=['grade_level', 'is_active']),
+            models.Index(fields=['section', 'is_active']),
+        ]
 
     def __str__(self):
         return self.name
@@ -369,6 +373,10 @@ class Task(models.Model):
         verbose_name = 'Задание'
         verbose_name_plural = 'Задания'
         ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['topic', 'is_active', 'id']),
+            models.Index(fields=['answer_format', 'is_active', 'id']),
+        ]
 
     def __str__(self):
         return self.question[:80]

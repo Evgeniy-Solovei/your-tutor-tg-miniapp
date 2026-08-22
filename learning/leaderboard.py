@@ -113,7 +113,7 @@ async def get_leaderboard(scope: str = 'all', student: Student | None = None, li
     entries = []
     async for entry in qs:
         st = entry.student
-        name = (st.first_name or 'Ученик') if st else 'Ученик'
+        name = (st.display_name or 'Ученик') if st else 'Ученик'
         entries.append({
             'student_id': st.id if st else None,
             'display_name': name,

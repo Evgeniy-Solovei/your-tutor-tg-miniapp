@@ -79,6 +79,9 @@ class Student(models.Model):
             models.Index(fields=['-xp', 'created_at']),
             models.Index(fields=['city', '-xp']),
             models.Index(fields=['school', '-xp']),
+            models.Index(fields=['registration_completed', 'grade']),
+            models.Index(fields=['-last_activity_date']),
+            models.Index(fields=['-created_at']),
         ]
 
     def __str__(self):
@@ -228,6 +231,10 @@ class PaymentOrder(models.Model):
         verbose_name = 'Счёт bePaid / ЕРИП'
         verbose_name_plural = 'Счета bePaid / ЕРИП'
         ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['status', '-paid_at']),
+            models.Index(fields=['student', '-created_at']),
+        ]
 
     def __str__(self):
         return f'Заказ {self.order_id} ({self.student.display_name}) — {self.amount_byn} BYN'
@@ -257,4 +264,3 @@ class UserSessionLog(models.Model):
     def __str__(self):
         mins = self.duration_seconds // 60
         return f'{self.student.display_name} — {self.date}: {mins} мин ({self.duration_seconds} сек)'
-

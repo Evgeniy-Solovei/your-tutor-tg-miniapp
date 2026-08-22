@@ -93,6 +93,10 @@ class DailySession(models.Model):
                 name='uniq_daily_session_per_student_date',
             )
         ]
+        indexes = [
+            models.Index(fields=['student', 'status', 'kind', '-id']),
+            models.Index(fields=['student', '-session_date']),
+        ]
 
     def __str__(self):
         return f'{self.student.display_name} — {self.session_date} ({self.kind})'
@@ -182,6 +186,9 @@ class SessionTask(models.Model):
         verbose_name_plural = 'Задания сессии'
         ordering = ['order']
         unique_together = [('session', 'task')]
+        indexes = [
+            models.Index(fields=['session', 'is_answered', 'order']),
+        ]
 
     def __str__(self):
         return f'Сессия {self.session_id}: задание {self.task_id}'
@@ -227,6 +234,10 @@ class TaskAttempt(models.Model):
         verbose_name = 'Попытка ответа'
         verbose_name_plural = 'Попытки ответов'
         ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['student', '-created_at']),
+            models.Index(fields=['student', 'task', 'is_correct']),
+        ]
 
     def __str__(self):
         status = '✓' if self.is_correct else '✗'
@@ -258,6 +269,10 @@ class TopicMastery(models.Model):
         verbose_name = 'Освоение темы'
         verbose_name_plural = 'Освоение тем'
         unique_together = [('student', 'topic')]
+        indexes = [
+            models.Index(fields=['student', 'mastery_score']),
+            models.Index(fields=['student', 'wrong_count']),
+        ]
 
     def __str__(self):
         return f'{self.student.display_name} — {self.topic.name}: {self.mastery_score:.0%}'
@@ -339,6 +354,15 @@ class WeeklyLeague(models.Model):
         verbose_name = 'Лига / Турнир'
         verbose_name_plural = 'Лиги и Турниры'
         ordering = ['-week_start']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['period_type', 'week_start'],
+                name='uniq_league_period_start',
+            ),
+        ]
+        indexes = [
+            models.Index(fields=['period_type', 'is_active', '-week_start']),
+        ]
 
     def __str__(self):
         return f'{self.title} ({self.week_start} — {self.week_end})'

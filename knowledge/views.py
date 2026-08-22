@@ -1,4 +1,5 @@
 from adrf.views import APIView
+from django.db.models import Count
 from rest_framework.response import Response
 
 from knowledge.models import ExamTrack, Subject, Task, Topic
@@ -59,18 +60,27 @@ class CatalogView(APIView):
             10: 'Систематизация орфографии и синтаксиса для старшей школы',
             11: 'Полный банк заданий ЦТ и ЦЭ (А1–А18, Б1–Б10)',
         }
+        subjects = [
+            subject
+            async for subject in Subject.objects.filter(is_active=True).order_by('order', 'name')
+        ]
+        counts = {
+            (row['topic__section__exam_track__subject_id'], row['topic__grade_level']): row['count']
+            async for row in Task.objects.filter(
+                is_active=True,
+                topic__section__exam_track__subject_id__in=[s.id for s in subjects],
+                topic__grade_level__range=(1, 11),
+            )
+            .values('topic__section__exam_track__subject_id', 'topic__grade_level')
+            .annotate(count=Count('id'))
+        }
         res = []
-        async for subject in Subject.objects.filter(is_active=True).order_by('order', 'name'):
+        for subject in subjects:
             grades_data = []
             for g in range(1, 12):
-                cnt = await Task.objects.filter(
-                    topic__section__exam_track__subject=subject,
-                    topic__grade_level=g,
-                    is_active=True,
-                ).acount()
                 grades_data.append({
                     'grade': g,
-                    'task_count': cnt,
+                    'task_count': counts.get((subject.id, g), 0),
                     'hint': grade_hints.get(g, ''),
                 })
             res.append({

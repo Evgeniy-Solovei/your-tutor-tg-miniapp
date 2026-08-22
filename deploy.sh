@@ -20,16 +20,17 @@ pip install gunicorn
 
 echo "🗄 3/6 Выполнение миграций базы данных и сборка статики..."
 python manage.py migrate --noinput
-python manage.py collectstatic --noinput
+python manage.py collectstatic --noinput --clear
 
-echo "👤 4/6 Проверка администратора..."
-python manage.py create_admin || true
+echo "👤 4/6 Проверка Django..."
+python manage.py check --deploy
 
 echo "🌐 5/6 Настройка Nginx..."
 if [ -f "nginx.conf.example" ]; then
     sudo cp nginx.conf.example /etc/nginx/sites-available/tutorbot
     sudo ln -sf /etc/nginx/sites-available/tutorbot /etc/nginx/sites-enabled/tutorbot
-    sudo systemctl restart nginx
+    sudo nginx -t
+    sudo systemctl reload nginx
 fi
 
 echo "⚙️ 6/6 Регистрация и Автозапуск системных служб (Systemd Services)..."
@@ -45,6 +46,7 @@ echo "======================================================================"
 echo "🎉 ВСЁ ГОТОВО И ЗАПУЩЕНО В ФОНЕ (Systemd Автозапуск)!"
 echo "- Сайт/API: systemctl status tutor-web"
 echo "- Бот:      systemctl status tutor-bot"
+echo "- Админ:    python manage.py createsuperuser (один раз, если ещё не создан)"
 echo "----------------------------------------------------------------------"
 echo "Осталось только получить SSL (HTTPS) сертификат:"
 echo "   sudo certbot --nginx -d your-tutor.live-dev.by"

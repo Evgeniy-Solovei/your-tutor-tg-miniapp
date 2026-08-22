@@ -4,13 +4,13 @@ services:
     container_name: tutor_db
     restart: always
     environment:
-      POSTGRES_DB: tutor_bot_db
-      POSTGRES_USER: tutor_user
-      POSTGRES_PASSWORD: tutor_password_2026
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     volumes:
       - tutor_db_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U tutor_user -d tutor_bot_db"]
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -35,14 +35,13 @@ services:
     environment:
       POSTGRES_HOST: tutor_db
       POSTGRES_PORT: "5432"
-      POSTGRES_DB: tutor_bot_db
-      POSTGRES_USER: tutor_user
-      POSTGRES_PASSWORD: tutor_password_2026
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       REDIS_URL: redis://tutor_redis:6379/0
     ports:
-      - "0.0.0.0:8005:8005"
+      - "127.0.0.1:8005:8005"
     volumes:
-      - ./static:/app/static
       - ./media:/app/media
     depends_on:
       tutor_db:
@@ -59,9 +58,9 @@ services:
     environment:
       POSTGRES_HOST: tutor_db
       POSTGRES_PORT: "5432"
-      POSTGRES_DB: tutor_bot_db
-      POSTGRES_USER: tutor_user
-      POSTGRES_PASSWORD: tutor_password_2026
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       REDIS_URL: redis://tutor_redis:6379/0
     depends_on:
       tutor_web:
@@ -76,9 +75,9 @@ services:
     environment:
       POSTGRES_HOST: tutor_db
       POSTGRES_PORT: "5432"
-      POSTGRES_DB: tutor_bot_db
-      POSTGRES_USER: tutor_user
-      POSTGRES_PASSWORD: tutor_password_2026
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       REDIS_URL: redis://tutor_redis:6379/0
     depends_on:
       tutor_web:

@@ -1,4 +1,7 @@
 from datetime import timedelta
+import base64
+from decimal import Decimal
+import hmac
 import logging
 import uuid
 import httpx
@@ -578,16 +581,21 @@ class DashboardView(APIView):
             return err
 
         from asgiref.sync import sync_to_async
-        from django.db.models import Count, Q, Max, Sum, Value
+        from django.db.models import Avg, Count, Q, Max, Value
         from django.db.models.functions import Coalesce
+        from django.db.models.functions import TruncDate
         from learning.models import TaskAttempt, TopicMastery, DailySession
         from knowledge.models import Section
 
         @sync_to_async
         def get_dashboard_stats():
             attempts = TaskAttempt.objects.filter(student=student)
-            total = attempts.count()
-            correct = attempts.filter(is_correct=True).count()
+            attempt_totals = attempts.aggregate(
+                total=Count('id'),
+                correct=Count('id', filter=Q(is_correct=True)),
+            )
+            total = attempt_totals['total']
+            correct = attempt_totals['correct']
             accuracy = round((correct / total * 100)) if total > 0 else 0
 
             best_test = DailySession.objects.filter(student=student).aggregate(
@@ -595,33 +603,46 @@ class DashboardView(APIView):
             )['best'] or 0
 
             # Разбивка по разделам предмета
+            mastery_by_section = {
+                row['topic__section_id']: row
+                for row in TopicMastery.objects.filter(
+                    student=student,
+                    topic__section__exam_track_id=student.exam_track_id,
+                )
+                .values('topic__section_id')
+                .annotate(topics_count=Count('topic_id'), avg_mastery=Avg('mastery_score'))
+            }
             sections = []
-            for sec in Section.objects.filter(exam_track_id=student.exam_track_id):
-                topics = TopicMastery.objects.filter(student=student, topic__section=sec)
-                t_count = topics.count()
-                avg_mastery = 0
-                if t_count > 0:
-                    avg_mastery = round(sum(m.mastery_score for m in topics) / t_count * 100)
+            for sec in Section.objects.filter(exam_track_id=student.exam_track_id).only('id', 'name'):
+                mastery = mastery_by_section.get(sec.id, {})
                 sections.append({
                     'id': sec.id,
                     'title': sec.name,
-                    'topics_count': t_count,
-                    'mastery_percent': avg_mastery,
+                    'topics_count': mastery.get('topics_count', 0),
+                    'mastery_percent': round((mastery.get('avg_mastery') or 0) * 100),
                 })
 
             # Активность за последние 7 дней
             end_d = timezone.localdate()
             start_d = end_d - timedelta(days=6)
+            activity_by_date = {
+                row['day']: row
+                for row in attempts.filter(created_at__date__range=(start_d, end_d))
+                .annotate(day=TruncDate('created_at'))
+                .values('day')
+                .annotate(
+                    total=Count('id'),
+                    correct=Count('id', filter=Q(is_correct=True)),
+                )
+            }
             daily_activity = []
             cur = start_d
             while cur <= end_d:
-                day_attempts = attempts.filter(created_at__date=cur)
-                d_total = day_attempts.count()
-                d_correct = day_attempts.filter(is_correct=True).count()
+                day = activity_by_date.get(cur, {})
                 daily_activity.append({
                     'date': cur.strftime('%d.%m'),
-                    'total': d_total,
-                    'correct': d_correct,
+                    'total': day.get('total', 0),
+                    'correct': day.get('correct', 0),
                 })
                 cur += timedelta(days=1)
 
@@ -677,22 +698,25 @@ class BePaidCheckoutView(APIView):
         amount_cents = int(round(plan['amount'] * 100))
 
         shop_id = getattr(settings, 'BEPAID_SHOP_ID', '4225')
-        secret_key = getattr(settings, 'BEPAID_SECRET_KEY', '3834fbef1fe6ea024ef77f5c79ec7ff1ba710ea6241c08c2f341afda8af4c1c4')
+        secret_key = getattr(settings, 'BEPAID_SECRET_KEY', '')
         test_mode = getattr(settings, 'BEPAID_TEST_MODE', True)
 
-        checkout_url = f'https://checkout.bepaid.by/v2/checkout?token=test_{order_id}'
-        bepaid_token = f'test_{order_id}'
+        if not shop_id or not secret_key:
+            logger.error('bePaid credentials are not configured')
+            return Response({'detail': 'Оплата временно недоступна'}, status=503)
 
-        notification_url = request.build_absolute_uri('/api/tutor/payments/bepaid/webhook/').replace('http://', 'https://') if not settings.DEBUG else request.build_absolute_uri('/api/tutor/payments/bepaid/webhook/')
-        return_url = request.build_absolute_uri('/app/').replace('http://', 'https://') if not settings.DEBUG else request.build_absolute_uri('/app/')
+        checkout_url = ''
+        bepaid_token = ''
+
+        notification_url = request.build_absolute_uri('/api/tutor/payments/bepaid/webhook/')
+        return_url = request.build_absolute_uri('/app/')
 
         payload = {
             "checkout": {
                 "test": test_mode,
                 "transaction_type": "payment",
                 "attempts": 3,
-                "notification_url": notification_url,
-                "return_url": return_url,
+                "version": 2,
                 "order": {
                     "amount": amount_cents,
                     "currency": "BYN",
@@ -702,8 +726,15 @@ class BePaidCheckoutView(APIView):
                 "customer": {
                     "first_name": student.display_name or "Ученик",
                 },
+                "settings": {
+                    "success_url": return_url,
+                    "decline_url": return_url,
+                    "fail_url": return_url,
+                    "notification_url": notification_url,
+                    "language": "ru",
+                },
                 "payment_method": {
-                    "types": ["card", "erip"]
+                    "types": ["credit_card", "erip"]
                 }
             }
         }
@@ -711,17 +742,23 @@ class BePaidCheckoutView(APIView):
         try:
             async with httpx.AsyncClient(timeout=10.0) as client:
                 res = await client.post(
-                    'https://checkout.bepaid.by/v2/checkout',
+                    settings.BEPAID_CHECKOUT_URL,
                     json=payload,
                     auth=(str(shop_id), str(secret_key)),
                     headers={'Accept': 'application/json', 'Content-Type': 'application/json'}
                 )
-                if res.status_code in (200, 201):
-                    res_data = res.json().get('checkout', {})
-                    bepaid_token = res_data.get('token', bepaid_token)
-                    checkout_url = res_data.get('redirect_url', checkout_url)
+                if res.status_code not in (200, 201):
+                    logger.error('bePaid checkout failed: status=%s body=%s', res.status_code, res.text[:500])
+                    return Response({'detail': 'Платёжный сервис временно недоступен'}, status=502)
+                res_data = res.json().get('checkout', {})
+                bepaid_token = res_data.get('token', '')
+                checkout_url = res_data.get('redirect_url', '')
+                if not bepaid_token or not checkout_url:
+                    logger.error('bePaid returned incomplete checkout response')
+                    return Response({'detail': 'Платёжный сервис вернул некорректный ответ'}, status=502)
         except Exception as e:
-            logger.warning('bePaid API call exception: %s. Using fallback checkout URL.', e)
+            logger.exception('bePaid API call exception: %s', e)
+            return Response({'detail': 'Платёжный сервис временно недоступен'}, status=502)
 
         order = await PaymentOrder.objects.acreate(
             order_id=order_id,
@@ -751,6 +788,13 @@ class BePaidWebhookView(APIView):
     authentication_classes = []
 
     async def post(self, request):
+        shop_id = str(getattr(settings, 'BEPAID_SHOP_ID', '') or '')
+        secret_key = str(getattr(settings, 'BEPAID_SECRET_KEY', '') or '')
+        authorization = request.headers.get('Authorization', '')
+        expected = 'Basic ' + base64.b64encode(f'{shop_id}:{secret_key}'.encode()).decode()
+        if not secret_key or not hmac.compare_digest(authorization, expected):
+            return Response({'detail': 'Invalid webhook credentials'}, status=401)
+
         data = request.data or {}
         transaction = data.get('transaction', {})
         order_id = transaction.get('tracking_id') or data.get('order_id')
@@ -764,24 +808,46 @@ class BePaidWebhookView(APIView):
             return Response({'detail': 'Order not found'}, status=404)
 
         if status in ('successful', 'paid'):
-            order.status = PaymentOrder.Status.PAID
-            order.paid_at = timezone.now()
-            await order.asave(update_fields=['status', 'paid_at'])
+            expected_amount = int(order.amount_byn * Decimal('100'))
+            amount = transaction.get('amount')
+            currency = transaction.get('currency')
+            is_test = transaction.get('test')
+            if amount != expected_amount or currency != 'BYN':
+                logger.warning('Rejected bePaid webhook with mismatched amount/currency for %s', order_id)
+                return Response({'detail': 'Payment parameters mismatch'}, status=400)
+            if is_test is not None and bool(is_test) != bool(settings.BEPAID_TEST_MODE):
+                return Response({'detail': 'Payment mode mismatch'}, status=400)
 
-            # Активируем Pro ученику
-            student = order.student
-            student.is_pro = True
-            base_date = student.pro_until if (student.pro_until and student.pro_until > timezone.now()) else timezone.now()
-            student.pro_until = base_date + timedelta(days=order.days)
-            await student.asave(update_fields=['is_pro', 'pro_until'])
+            from asgiref.sync import sync_to_async
+            from django.db import transaction as db_transaction
+
+            @sync_to_async
+            def activate_once():
+                with db_transaction.atomic():
+                    locked_order = PaymentOrder.objects.select_for_update().select_related('student').get(pk=order.pk)
+                    if locked_order.status == PaymentOrder.Status.PAID:
+                        return locked_order.student, False
+                    now = timezone.now()
+                    locked_order.status = PaymentOrder.Status.PAID
+                    locked_order.paid_at = now
+                    locked_order.save(update_fields=['status', 'paid_at'])
+                    student = locked_order.student
+                    student.is_pro = True
+                    base_date = student.pro_until if student.pro_until and student.pro_until > now else now
+                    student.pro_until = base_date + timedelta(days=locked_order.days)
+                    student.save(update_fields=['is_pro', 'pro_until'])
+                    return student, True
+
+            student, activated = await activate_once()
 
             # Уведомление родителю/ученику в бот
-            msg = (
-                f'🎉 **Оплата успешно получена!**\n\n'
-                f'Вам активирована **Pro-подписка** на **{order.days} дней**.\n'
-                f'Доступны безлимитные упражнения, симулятор ЦТ/ЦЭ и ИИ-помощник!'
-            )
-            await send_telegram_message(student.tg_id, msg, parse_mode='Markdown')
+            if activated:
+                msg = (
+                    f'🎉 **Оплата успешно получена!**\n\n'
+                    f'Вам активирована **Pro-подписка** на **{order.days} дней**.\n'
+                    f'Доступны безлимитные упражнения, симулятор ЦТ/ЦЭ и ИИ-помощник!'
+                )
+                await send_telegram_message(student.tg_id, msg, parse_mode='Markdown')
 
         return Response({'status': 'ok'})
 
@@ -811,8 +877,15 @@ class PingSessionView(APIView):
             defaults={'duration_seconds': duration, 'session_count': 1},
         )
         if not created:
-            log.duration_seconds += duration
-            await log.asave(update_fields=['duration_seconds', 'updated_at'])
+            from django.db.models import F
+
+            await UserSessionLog.objects.filter(pk=log.pk).aupdate(
+                duration_seconds=F('duration_seconds') + duration,
+                updated_at=timezone.now(),
+            )
+            log.duration_seconds = await UserSessionLog.objects.filter(pk=log.pk).values_list(
+                'duration_seconds', flat=True
+            ).aget()
 
         if student.last_activity_date != today:
             student.last_activity_date = today

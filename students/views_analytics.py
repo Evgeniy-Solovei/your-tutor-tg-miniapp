@@ -1,173 +1,133 @@
 """Аналитический дашборд для админки (Unfold Admin)."""
 
-from datetime import timedelta
+from datetime import datetime, time, timedelta
 
-from django.db.models import Count, Sum
+from django.db.models import Count, Q, Sum
 from django.shortcuts import render
 from django.utils import timezone
 
 from students.models import PaymentOrder, Student, UserSessionLog
 
 
-def admin_analytics_view(request):
-    """Отображает метрики WAU, MAU, время в Mini App, выручку и прирост WoW/MoM."""
-    today = timezone.localdate()
+def _datetime_range(start_date, end_date):
+    """Полуоткрытый диапазон использует индекс timestamp без DATE(column)."""
+    start = timezone.make_aware(datetime.combine(start_date, time.min))
+    end = timezone.make_aware(datetime.combine(end_date + timedelta(days=1), time.min))
+    return start, end
 
-    # --- 1. РАСЧЕТ ДАННЫХ ПО НЕДЕЛЯМ (WoW) ---
-    # Текущая неделя (последние 7 дней)
+
+def admin_analytics_view(request):
+    """Метрики админки за три агрегирующих SQL-запроса вместо десятков N+1."""
+    today = timezone.localdate()
     week_curr_start = today - timedelta(days=6)
     week_prev_start = today - timedelta(days=13)
     week_prev_end = today - timedelta(days=7)
-
-    # WAU (Unique Active Users)
-    wau_curr = Student.objects.filter(last_activity_date__gte=week_curr_start).count()
-    wau_prev = Student.objects.filter(
-        last_activity_date__range=[week_prev_start, week_prev_end]
-    ).count()
-    wau_growth = _calc_growth(wau_curr, wau_prev)
-
-    # Новые регистрации
-    new_users_week_curr = Student.objects.filter(created_at__date__gte=week_curr_start).count()
-    new_users_week_prev = Student.objects.filter(
-        created_at__date__range=[week_prev_start, week_prev_end]
-    ).count()
-    new_users_week_growth = _calc_growth(new_users_week_curr, new_users_week_prev)
-
-    # Время в приложении (в секундах)
-    sec_week_curr = UserSessionLog.objects.filter(date__gte=week_curr_start).aggregate(
-        total=Sum('duration_seconds')
-    )['total'] or 0
-    sec_week_prev = UserSessionLog.objects.filter(
-        date__range=[week_prev_start, week_prev_end]
-    ).aggregate(total=Sum('duration_seconds'))['total'] or 0
-    time_week_growth = _calc_growth(sec_week_curr, sec_week_prev)
-
-    # Оплаты и Выручка
-    paid_orders_week_curr = PaymentOrder.objects.filter(
-        status=PaymentOrder.Status.PAID, paid_at__date__gte=week_curr_start
-    )
-    rev_week_curr = paid_orders_week_curr.aggregate(total=Sum('amount_byn'))['total'] or 0
-    count_week_curr = paid_orders_week_curr.count()
-
-    paid_orders_week_prev = PaymentOrder.objects.filter(
-        status=PaymentOrder.Status.PAID,
-        paid_at__date__range=[week_prev_start, week_prev_end],
-    )
-    rev_week_prev = paid_orders_week_prev.aggregate(total=Sum('amount_byn'))['total'] or 0
-    rev_week_growth = _calc_growth(rev_week_curr, rev_week_prev)
-
-    # --- 2. РАСЧЕТ ДАННЫХ ПО МЕСЯЦАМ (MoM) ---
-    # Текущий месяц (30 дней)
     month_curr_start = today - timedelta(days=29)
     month_prev_start = today - timedelta(days=59)
     month_prev_end = today - timedelta(days=30)
 
-    # MAU (Monthly Active Users)
-    mau_curr = Student.objects.filter(last_activity_date__gte=month_curr_start).count()
-    mau_prev = Student.objects.filter(
-        last_activity_date__range=[month_prev_start, month_prev_end]
-    ).count()
-    mau_growth = _calc_growth(mau_curr, mau_prev)
+    student_aggregates = {
+        'total_students': Count('id'),
+        'pro_students': Count('id', filter=Q(is_pro=True)),
+        'wau_curr': Count('id', filter=Q(last_activity_date__gte=week_curr_start)),
+        'wau_prev': Count('id', filter=Q(last_activity_date__range=(week_prev_start, week_prev_end))),
+        'mau_curr': Count('id', filter=Q(last_activity_date__gte=month_curr_start)),
+        'mau_prev': Count('id', filter=Q(last_activity_date__range=(month_prev_start, month_prev_end))),
+    }
+    session_aggregates = {
+        'week_curr': Sum('duration_seconds', filter=Q(date__gte=week_curr_start)),
+        'week_prev': Sum('duration_seconds', filter=Q(date__range=(week_prev_start, week_prev_end))),
+        'month_curr': Sum('duration_seconds', filter=Q(date__gte=month_curr_start)),
+        'month_prev': Sum('duration_seconds', filter=Q(date__range=(month_prev_start, month_prev_end))),
+    }
+    paid = Q(status=PaymentOrder.Status.PAID)
+    payment_aggregates = {
+        'total_revenue': Sum('amount_byn', filter=paid),
+    }
 
-    # Новые регистрации за месяц
-    new_users_month_curr = Student.objects.filter(created_at__date__gte=month_curr_start).count()
-    new_users_month_prev = Student.objects.filter(
-        created_at__date__range=[month_prev_start, month_prev_end]
-    ).count()
-    new_users_month_growth = _calc_growth(new_users_month_curr, new_users_month_prev)
+    for key, start_date, end_date in (
+        ('new_week_curr', week_curr_start, today),
+        ('new_week_prev', week_prev_start, week_prev_end),
+        ('new_month_curr', month_curr_start, today),
+        ('new_month_prev', month_prev_start, month_prev_end),
+    ):
+        start_dt, end_dt = _datetime_range(start_date, end_date)
+        student_aggregates[key] = Count('id', filter=Q(created_at__gte=start_dt, created_at__lt=end_dt))
 
-    # Время за месяц
-    sec_month_curr = UserSessionLog.objects.filter(date__gte=month_curr_start).aggregate(
-        total=Sum('duration_seconds')
-    )['total'] or 0
-    sec_month_prev = UserSessionLog.objects.filter(
-        date__range=[month_prev_start, month_prev_end]
-    ).aggregate(total=Sum('duration_seconds'))['total'] or 0
-    time_month_growth = _calc_growth(sec_month_curr, sec_month_prev)
+    for prefix, start_date, end_date in (
+        ('week_curr', week_curr_start, today),
+        ('week_prev', week_prev_start, week_prev_end),
+        ('month_curr', month_curr_start, today),
+        ('month_prev', month_prev_start, month_prev_end),
+    ):
+        start_dt, end_dt = _datetime_range(start_date, end_date)
+        payment_filter = paid & Q(paid_at__gte=start_dt, paid_at__lt=end_dt)
+        payment_aggregates[f'{prefix}_revenue'] = Sum('amount_byn', filter=payment_filter)
+        payment_aggregates[f'{prefix}_count'] = Count('id', filter=payment_filter)
 
-    # Выручка за месяц
-    paid_orders_month_curr = PaymentOrder.objects.filter(
-        status=PaymentOrder.Status.PAID, paid_at__date__gte=month_curr_start
-    )
-    rev_month_curr = paid_orders_month_curr.aggregate(total=Sum('amount_byn'))['total'] or 0
-    count_month_curr = paid_orders_month_curr.count()
-
-    paid_orders_month_prev = PaymentOrder.objects.filter(
-        status=PaymentOrder.Status.PAID,
-        paid_at__date__range=[month_prev_start, month_prev_end],
-    )
-    rev_month_prev = paid_orders_month_prev.aggregate(total=Sum('amount_byn'))['total'] or 0
-    rev_month_growth = _calc_growth(rev_month_curr, rev_month_prev)
-
-    # --- 3. ТАБЛИЦА ПО НЕДЕЛЯМ (ПОСЛЕДНИЕ 8 НЕДЕЛЬ) ---
-    weekly_breakdown = []
-    for i in range(8):
-        w_start = today - timedelta(days=(i * 7) + 6)
-        w_end = today - timedelta(days=i * 7)
-        prev_w_start = w_start - timedelta(days=7)
-        prev_w_end = w_end - timedelta(days=7)
-
-        wau = Student.objects.filter(
-            last_activity_date__range=[w_start, w_end]
-        ).count()
-        p_wau = Student.objects.filter(
-            last_activity_date__range=[prev_w_start, prev_w_end]
-        ).count()
-
-        new_reg = Student.objects.filter(created_at__date__range=[w_start, w_end]).count()
-        dur_sec = UserSessionLog.objects.filter(date__range=[w_start, w_end]).aggregate(
-            t=Sum('duration_seconds')
-        )['t'] or 0
-
-        p_orders = PaymentOrder.objects.filter(
-            status=PaymentOrder.Status.PAID, paid_at__date__range=[w_start, w_end]
+    # Девять недель нужны, чтобы посчитать рост для самой старой из 8 строк.
+    weeks = []
+    for i in range(9):
+        start_date = today - timedelta(days=(i * 7) + 6)
+        end_date = today - timedelta(days=i * 7)
+        weeks.append((start_date, end_date))
+        start_dt, end_dt = _datetime_range(start_date, end_date)
+        student_aggregates[f'w{i}_active'] = Count(
+            'id', filter=Q(last_activity_date__range=(start_date, end_date))
         )
-        rev = p_orders.aggregate(t=Sum('amount_byn'))['t'] or 0
-        p_rev = PaymentOrder.objects.filter(
-            status=PaymentOrder.Status.PAID, paid_at__date__range=[prev_w_start, prev_w_end]
-        ).aggregate(t=Sum('amount_byn'))['t'] or 0
+        student_aggregates[f'w{i}_new'] = Count(
+            'id', filter=Q(created_at__gte=start_dt, created_at__lt=end_dt)
+        )
+        session_aggregates[f'w{i}_seconds'] = Sum(
+            'duration_seconds', filter=Q(date__range=(start_date, end_date))
+        )
+        week_payment_filter = paid & Q(paid_at__gte=start_dt, paid_at__lt=end_dt)
+        payment_aggregates[f'w{i}_revenue'] = Sum('amount_byn', filter=week_payment_filter)
+        payment_aggregates[f'w{i}_count'] = Count('id', filter=week_payment_filter)
 
+    students = Student.objects.aggregate(**student_aggregates)
+    sessions = UserSessionLog.objects.aggregate(**session_aggregates)
+    payments = PaymentOrder.objects.aggregate(**payment_aggregates)
+
+    weekly_breakdown = []
+    for i, (start_date, end_date) in enumerate(weeks[:8]):
+        revenue = payments[f'w{i}_revenue'] or 0
+        previous_revenue = payments[f'w{i + 1}_revenue'] or 0
         weekly_breakdown.append({
-            'period': f'{w_start.strftime("%d.%m")} – {w_end.strftime("%d.%m.%Y")}',
-            'wau': wau,
-            'wau_growth': _calc_growth(wau, p_wau),
-            'new_reg': new_reg,
-            'hours': round(dur_sec / 3600, 1),
-            'orders_count': p_orders.count(),
-            'revenue': rev,
-            'revenue_growth': _calc_growth(rev, p_rev),
+            'period': f'{start_date.strftime("%d.%m")} – {end_date.strftime("%d.%m.%Y")}',
+            'wau': students[f'w{i}_active'],
+            'wau_growth': _calc_growth(students[f'w{i}_active'], students[f'w{i + 1}_active']),
+            'new_reg': students[f'w{i}_new'],
+            'hours': round((sessions[f'w{i}_seconds'] or 0) / 3600, 1),
+            'orders_count': payments[f'w{i}_count'],
+            'revenue': revenue,
+            'revenue_growth': _calc_growth(revenue, previous_revenue),
         })
 
     context = {
         'title': '📊 Аналитика и Метрики',
-        # Неделя
-        'wau_curr': wau_curr,
-        'wau_growth': wau_growth,
-        'new_users_week_curr': new_users_week_curr,
-        'new_users_week_growth': new_users_week_growth,
-        'hours_week_curr': round(sec_week_curr / 3600, 1),
-        'time_week_growth': time_week_growth,
-        'count_week_curr': count_week_curr,
-        'rev_week_curr': rev_week_curr,
-        'rev_week_growth': rev_week_growth,
-        # Месяц
-        'mau_curr': mau_curr,
-        'mau_growth': mau_growth,
-        'new_users_month_curr': new_users_month_curr,
-        'new_users_month_growth': new_users_month_growth,
-        'hours_month_curr': round(sec_month_curr / 3600, 1),
-        'time_month_growth': time_month_growth,
-        'count_month_curr': count_month_curr,
-        'rev_month_curr': rev_month_curr,
-        'rev_month_growth': rev_month_growth,
-        # Таблицы
+        'wau_curr': students['wau_curr'],
+        'wau_growth': _calc_growth(students['wau_curr'], students['wau_prev']),
+        'new_users_week_curr': students['new_week_curr'],
+        'new_users_week_growth': _calc_growth(students['new_week_curr'], students['new_week_prev']),
+        'hours_week_curr': round((sessions['week_curr'] or 0) / 3600, 1),
+        'time_week_growth': _calc_growth(sessions['week_curr'] or 0, sessions['week_prev'] or 0),
+        'count_week_curr': payments['week_curr_count'],
+        'rev_week_curr': payments['week_curr_revenue'] or 0,
+        'rev_week_growth': _calc_growth(payments['week_curr_revenue'] or 0, payments['week_prev_revenue'] or 0),
+        'mau_curr': students['mau_curr'],
+        'mau_growth': _calc_growth(students['mau_curr'], students['mau_prev']),
+        'new_users_month_curr': students['new_month_curr'],
+        'new_users_month_growth': _calc_growth(students['new_month_curr'], students['new_month_prev']),
+        'hours_month_curr': round((sessions['month_curr'] or 0) / 3600, 1),
+        'time_month_growth': _calc_growth(sessions['month_curr'] or 0, sessions['month_prev'] or 0),
+        'count_month_curr': payments['month_curr_count'],
+        'rev_month_curr': payments['month_curr_revenue'] or 0,
+        'rev_month_growth': _calc_growth(payments['month_curr_revenue'] or 0, payments['month_prev_revenue'] or 0),
         'weekly_breakdown': weekly_breakdown,
-        # Общие цифры
-        'total_students': Student.objects.count(),
-        'pro_students': Student.objects.filter(is_pro=True).count(),
-        'total_revenue': PaymentOrder.objects.filter(status=PaymentOrder.Status.PAID).aggregate(
-            t=Sum('amount_byn')
-        )['t'] or 0,
+        'total_students': students['total_students'],
+        'pro_students': students['pro_students'],
+        'total_revenue': payments['total_revenue'] or 0,
     }
     return render(request, 'admin/analytics.html', context)
 
@@ -180,8 +140,4 @@ def _calc_growth(curr, prev) -> dict:
         return {'val': '0%', 'positive': True}
 
     diff = ((curr - prev) / prev) * 100
-    formatted = f'{diff:+.1f}%'
-    return {
-        'val': formatted,
-        'positive': diff >= 0,
-    }
+    return {'val': f'{diff:+.1f}%', 'positive': diff >= 0}

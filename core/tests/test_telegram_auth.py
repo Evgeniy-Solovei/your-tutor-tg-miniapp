@@ -37,3 +37,16 @@ class TelegramAuthTests(SimpleTestCase):
         bad = init.replace('Ivan', 'Hacker')
         with self.assertRaises(AuthenticationFailed):
             validate_init_data(bad, bot_token='123456:TEST')
+
+    def test_expired_init_data_is_rejected(self):
+        init = make_init_data(
+            {'id': 42, 'first_name': 'Ivan'},
+            '123456:TEST',
+            auth_date=int(time.time()) - 3600,
+        )
+        with self.assertRaisesMessage(AuthenticationFailed, 'expired'):
+            validate_init_data(init, bot_token='123456:TEST', max_age_seconds=60)
+
+    def test_missing_token_is_rejected(self):
+        with self.assertRaisesMessage(AuthenticationFailed, 'token'):
+            validate_init_data('auth_date=1', bot_token='')

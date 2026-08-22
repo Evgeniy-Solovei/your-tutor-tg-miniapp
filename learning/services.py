@@ -1,5 +1,6 @@
 """Сервисы обучения: сессии, адаптивный подбор, проверка ответов."""
 
+import logging
 import random
 
 from django.db.models import Q, Sum
@@ -9,6 +10,24 @@ from core.services import aget_app_settings
 from knowledge.models import ExamVariant, Task, TaskSolution, Topic, VariantTask
 from learning.models import DailySession, SessionTask, TaskAttempt, TopicMastery
 from students.models import Student
+
+logger = logging.getLogger(__name__)
+
+
+async def _sample_tasks(queryset, count: int) -> list[Task]:
+    """Выбирает небольшой случайный срез без дорогого PostgreSQL ORDER BY random()."""
+    if count <= 0:
+        return []
+    total = await queryset.order_by().acount()
+    if total <= count:
+        return [task async for task in queryset.order_by('id')]
+    start = random.randint(0, total - 1)
+    first = [task async for task in queryset.order_by('id')[start : start + count]]
+    if len(first) < count:
+        first.extend(
+            [task async for task in queryset.order_by('id')[: count - len(first)]]
+        )
+    return first
 
 
 async def get_or_create_daily_session(student: Student) -> DailySession:
@@ -60,23 +79,22 @@ async def create_mistakes_session(student: Student, count: int = 15) -> DailySes
     for topic_id in topic_ids:
         if len(tasks) >= count:
             break
-        task = await (
-            Task.objects.filter(topic_id=topic_id, is_active=True)
-            .exclude(id__in=used)
-            .order_by('?')
-            .afirst()
-        )
+        candidates = Task.objects.filter(topic_id=topic_id, is_active=True).exclude(id__in=used)
+        sampled = await _sample_tasks(candidates, 1)
+        task = sampled[0] if sampled else None
         if task:
             tasks.append(task)
             used.add(task.id)
 
-    for order, task in enumerate(tasks):
-        await SessionTask.objects.acreate(
+    await SessionTask.objects.abulk_create([
+        SessionTask(
             session=session,
             task=task,
             purpose=SessionTask.Purpose.WEAK_TOPIC,
             order=order,
         )
+        for order, task in enumerate(tasks)
+    ])
     session.tasks_total = len(tasks)
     session.status = (
         DailySession.Status.IN_PROGRESS if tasks else DailySession.Status.COMPLETED
@@ -146,13 +164,15 @@ async def _populate_session_tasks(
 
     await SessionTask.objects.filter(session=session).adelete()
 
-    for order, (task, purpose) in enumerate(selected_tasks):
-        await SessionTask.objects.acreate(
+    await SessionTask.objects.abulk_create([
+        SessionTask(
             session=session,
             task=task,
             purpose=purpose,
             order=order,
         )
+        for order, (task, purpose) in enumerate(selected_tasks)
+    ])
 
     session.tasks_total = len(selected_tasks)
     session.status = DailySession.Status.IN_PROGRESS if selected_tasks else DailySession.Status.COMPLETED
@@ -231,15 +251,15 @@ async def _select_tasks_by_mastery(
     for topic_id in priority_topic_ids:
         if len(tasks) >= count:
             break
-        task = await (
+        candidates = (
             Task.objects.filter(
                 topic_id=topic_id,
                 is_active=True,
             )
             .exclude(id__in=exclude_ids | {t.id for t in tasks})
-            .order_by('?')
-            .afirst()
         )
+        sampled = await _sample_tasks(candidates, 1)
+        task = sampled[0] if sampled else None
         if task:
             tasks.append(task)
 
@@ -271,12 +291,12 @@ async def _select_new_tasks(student: Student, count: int, exclude_ids: set[int])
     for topic_id in new_topic_ids:
         if len(tasks) >= count:
             break
-        task = await (
+        candidates = (
             Task.objects.filter(topic_id=topic_id, is_active=True)
             .exclude(id__in=exclude_ids | {t.id for t in tasks})
-            .order_by('?')
-            .afirst()
         )
+        sampled = await _sample_tasks(candidates, 1)
+        task = sampled[0] if sampled else None
         if task:
             tasks.append(task)
 
@@ -298,12 +318,13 @@ async def _fill_tasks_from_topics(
     if count <= 0 or not topic_ids:
         return []
     qs = Task.objects.filter(topic_id__in=topic_ids, is_active=True).exclude(id__in=exclude_ids)
-    return [task async for task in qs.order_by('?')[:count]]
+    return await _sample_tasks(qs, count)
 
 
 async def get_next_session_task(session: DailySession) -> SessionTask | None:
     return await (
         SessionTask.objects.select_related('task', 'task__topic', 'task__solution')
+        .prefetch_related('task__options')
         .filter(session=session, is_answered=False)
         .order_by('order')
         .afirst()
@@ -462,19 +483,21 @@ async def create_topic_practice_session(student: Student, topic: Topic, count: i
         async for tid in SessionTask.objects.filter(session=session).values_list('task_id', flat=True)
     ]
     tasks = [
-        t
-        async for t in Task.objects.filter(topic=topic, is_active=True)
-        .exclude(id__in=existing_ids)
-        .order_by('?')[:count]
+        t for t in await _sample_tasks(
+            Task.objects.filter(topic=topic, is_active=True).exclude(id__in=existing_ids),
+            count,
+        )
     ]
     start_order = await SessionTask.objects.filter(session=session).acount()
-    for i, task in enumerate(tasks):
-        await SessionTask.objects.acreate(
+    await SessionTask.objects.abulk_create([
+        SessionTask(
             session=session,
             task=task,
             purpose=SessionTask.Purpose.NEW,
             order=start_order + i,
         )
+        for i, task in enumerate(tasks)
+    ])
     session.tasks_total = start_order + len(tasks)
     session.status = DailySession.Status.IN_PROGRESS
     await session.asave(update_fields=['tasks_total', 'status'])
@@ -495,7 +518,7 @@ async def create_izlozhenie_session(
         qs = qs.filter(id=task_id)
         count = 1
 
-    tasks = [t async for t in qs.order_by('?')[:count]]
+    tasks = await _sample_tasks(qs, count)
     session = await DailySession.objects.acreate(
         student=student,
         session_date=today,
@@ -505,13 +528,15 @@ async def create_izlozhenie_session(
         ),
         tasks_total=len(tasks),
     )
-    for i, task in enumerate(tasks):
-        await SessionTask.objects.acreate(
+    await SessionTask.objects.abulk_create([
+        SessionTask(
             session=session,
             task=task,
             purpose=SessionTask.Purpose.NEW,
             order=i,
         )
+        for i, task in enumerate(tasks)
+    ])
     return session
 
 
@@ -636,24 +661,25 @@ async def create_exam_simulator_session(
         ).exclude(id__in=existing_ids)
         if topic_ids:
             part_a_qs = part_a_qs.filter(topic_id__in=topic_ids)
-        part_a = [t async for t in part_a_qs.order_by('?')[: 30 - len(tasks)]]
+        part_a = await _sample_tasks(part_a_qs, 30 - len(tasks))
         tasks.extend(part_a)
 
         existing_ids = {t.id for t in tasks}
         part_b_qs = Task.objects.filter(
             is_active=True,
-            answer_format=Task.AnswerFormat.SHORT_TEXT,
+            answer_format__in=[Task.AnswerFormat.TEXT, Task.AnswerFormat.NUMBER],
         ).exclude(id__in=existing_ids)
         if topic_ids:
             part_b_qs = part_b_qs.filter(topic_id__in=topic_ids)
-        part_b = [t async for t in part_b_qs.order_by('?')[: 40 - len(tasks)]]
+        part_b = await _sample_tasks(part_b_qs, 40 - len(tasks))
         tasks.extend(part_b)
 
         if len(tasks) < 40:
             existing_ids = {t.id for t in tasks}
-            extra = [
-                t async for t in Task.objects.filter(is_active=True).exclude(id__in=existing_ids).order_by('?')[: 40 - len(tasks)]
-            ]
+            extra = await _sample_tasks(
+                Task.objects.filter(is_active=True).exclude(id__in=existing_ids),
+                40 - len(tasks),
+            )
             tasks.extend(extra)
 
     session = await DailySession.objects.acreate(
@@ -666,13 +692,15 @@ async def create_exam_simulator_session(
         time_limit_seconds=10800,  # 180 минут
     )
 
-    for order, task in enumerate(tasks):
-        await SessionTask.objects.acreate(
+    await SessionTask.objects.abulk_create([
+        SessionTask(
             session=session,
             task=task,
             purpose=SessionTask.Purpose.NEW,
             order=order,
         )
+        for order, task in enumerate(tasks)
+    ])
 
     return session
 
@@ -702,16 +730,18 @@ async def submit_exam_simulator(
     session_tasks = [
         st
         async for st in SessionTask.objects.filter(session=session)
-        .select_related('task')
+        .select_related('task', 'task__solution')
+        .prefetch_related('task__options')
         .order_by('order')
     ]
+    attempts = []
     for st in session_tasks:
         user_answer = answer_map.get(st.id, '')
         is_correct, points, max_pts = await grade_task_answer(st.task, user_answer)
         primary_score += points
         max_primary += max_pts
 
-        await TaskAttempt.objects.acreate(
+        attempts.append(TaskAttempt(
             student=student,
             task=st.task,
             session_task=st,
@@ -720,9 +750,7 @@ async def submit_exam_simulator(
             points_earned=points,
             max_points=max_pts,
             time_spent_seconds=0,
-        )
-        st.is_answered = True
-        await st.asave(update_fields=['is_answered'])
+        ))
 
         task_num_str = f'B{(st.order + 1) - 30}' if (st.order + 1) > 30 else f'A{st.order + 1}'
         results.append({
@@ -735,6 +763,10 @@ async def submit_exam_simulator(
             'points_earned': points,
             'max_points': max_pts,
         })
+
+    if attempts:
+        await TaskAttempt.objects.abulk_create(attempts)
+        await SessionTask.objects.filter(session=session).aupdate(is_answered=True)
 
     test_score = await primary_to_test_score(primary_score, exam_track_id=student.exam_track_id)
 

@@ -24,7 +24,12 @@ async def serialize_current_task(next_task: SessionTask | None) -> dict | None:
         return None
     task = next_task.task
     options = []
-    async for o in TaskOption.objects.filter(task_id=task.id).order_by('order'):
+    cached_options = getattr(task, '_prefetched_objects_cache', {}).get('options')
+    if cached_options is None:
+        cached_options = [
+            option async for option in TaskOption.objects.filter(task_id=task.id).order_by('order')
+        ]
+    for o in cached_options:
         img = ''
         try:
             if o.image:
@@ -248,7 +253,10 @@ class ExamStartView(APIView):
         session = await create_exam_simulator_session(student, variant_id=variant_id)
 
         session_tasks = [
-            st async for st in SessionTask.objects.filter(session=session).select_related('task').order_by('order')
+            st async for st in SessionTask.objects.filter(session=session)
+            .select_related('task')
+            .prefetch_related('task__options')
+            .order_by('order')
         ]
         tasks_payload = []
         for st in session_tasks:
@@ -286,6 +294,9 @@ class ExamSubmitView(APIView):
             )
         except DailySession.DoesNotExist:
             return Response({'detail': 'Сессия симулятора не найдена'}, status=status.HTTP_404_NOT_FOUND)
+
+        if session.status == DailySession.Status.COMPLETED:
+            return Response({'detail': 'Сессия уже отправлена'}, status=status.HTTP_400_BAD_REQUEST)
 
         protocol = await submit_exam_simulator(student, session, answers, time_spent_seconds=time_spent_seconds)
         return Response(protocol)

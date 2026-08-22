@@ -11,6 +11,7 @@ class AppSettingsAdmin(ModelAdmin):
         'free_daily_tasks_limit',
         'free_ai_explanations_enabled',
         'daily_session_tasks_count',
+        'max_daily_xp',
         'web_app_url',
         'updated_at',
     ]
@@ -25,6 +26,7 @@ class AppSettingsAdmin(ModelAdmin):
         'weak_topic_task_ratio',
         'xp_per_correct_answer',
         'streak_bonus_xp',
+        'max_daily_xp',
     ]
 
     def has_add_permission(self, request):

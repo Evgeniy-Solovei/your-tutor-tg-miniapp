@@ -97,6 +97,16 @@ class ExamSimulatorTestCase(TestCase):
         self.assertEqual(protocol['tasks_total'], 40)
         self.assertGreater(protocol['test_score'], 0)
 
+    async def test_exam_without_variant_uses_text_tasks_for_part_b(self):
+        session = await create_exam_simulator_session(self.student)
+        self.assertEqual(session.tasks_total, 40)
+        formats = [
+            value
+            async for value in SessionTask.objects.filter(session=session)
+            .values_list('task__answer_format', flat=True)
+        ]
+        self.assertEqual(formats.count(Task.AnswerFormat.TEXT), 10)
+
 
 from learning.models import WeeklyLeague
 from students.models import PaymentOrder
@@ -162,5 +172,4 @@ class NewFeaturesTestCase(TestCase):
         self.student.save()
 
         self.assertTrue(self.student.has_active_pro)
-
 

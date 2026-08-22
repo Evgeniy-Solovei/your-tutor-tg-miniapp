@@ -1,4 +1,5 @@
 import os
+import sys
 from pathlib import Path
 
 from corsheaders.defaults import default_headers
@@ -9,10 +10,20 @@ load_dotenv()
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-tutor-bot-dev-key-change-in-production')
-DEBUG = os.getenv('DEBUG', 'True') == 'True'
+def env_bool(name: str, default: bool = False) -> bool:
+    return os.getenv(name, str(default)).strip().lower() in {'1', 'true', 'yes', 'on'}
 
-ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', 'your-tutor.live-dev.by,localhost,127.0.0.1').split(',')
+
+DEBUG = env_bool('DEBUG', False)
+SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-tutor-bot-dev-key-change-in-production')
+if not DEBUG and (SECRET_KEY.startswith('django-insecure-') or len(SECRET_KEY) < 50):
+    raise ImproperlyConfigured('Для production задай надёжный SECRET_KEY в .env.')
+
+ALLOWED_HOSTS = [
+    host.strip()
+    for host in os.getenv('ALLOWED_HOSTS', 'your-tutor.live-dev.by,localhost,127.0.0.1').split(',')
+    if host.strip()
+]
 CORS_ALLOWED_ORIGINS = [
     origin.strip()
     for origin in os.getenv(
@@ -28,7 +39,7 @@ CORS_ALLOW_HEADERS = list(default_headers) + [
 CSRF_TRUSTED_ORIGINS = CORS_ALLOWED_ORIGINS
 TELEGRAM_BOT_TOKEN = os.getenv('TOKEN', '')
 # Для локальной отладки Mini App вне Telegram (только при DEBUG=True)
-TELEGRAM_AUTH_BYPASS = os.getenv('TELEGRAM_AUTH_BYPASS', 'False') == 'True'
+TELEGRAM_AUTH_BYPASS = env_bool('TELEGRAM_AUTH_BYPASS', False)
 
 # Локалка + туннели: не упираться в CORS / host
 if DEBUG:
@@ -83,7 +94,7 @@ ROOT_URLCONF = 'tutor_bot.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        'DIRS': [BASE_DIR / 'templates'],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -99,23 +110,36 @@ TEMPLATES = [
 WSGI_APPLICATION = 'tutor_bot.wsgi.application'
 ASGI_APPLICATION = 'tutor_bot.asgi.application'
 
+RUNNING_TESTS = 'test' in sys.argv
+# Production и полноценные интеграционные тесты используют PostgreSQL.
+# SQLite разрешён только явным флагом для быстрого локального smoke-прогона.
+USE_SQLITE = RUNNING_TESTS and env_bool('TEST_USE_SQLITE', False)
+
 _required_pg = ('POSTGRES_DB', 'POSTGRES_USER', 'POSTGRES_HOST')
-if any(os.getenv(key) in (None, '') for key in _required_pg):
+if not USE_SQLITE and any(os.getenv(key) in (None, '') for key in _required_pg):
     raise ImproperlyConfigured(
         'PostgreSQL обязателен. Задай POSTGRES_DB, POSTGRES_USER, POSTGRES_HOST в .env '
         '(POSTGRES_PASSWORD можно оставить пустым для локальной разработки).'
     )
 
-DATABASES = {
-    'default': {
+if USE_SQLITE:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'test.sqlite3',
+        }
+    }
+else:
+    DATABASES = {'default': {
         'ENGINE': 'django.db.backends.postgresql',
         'NAME': os.getenv('POSTGRES_DB'),
         'USER': os.getenv('POSTGRES_USER'),
         'PASSWORD': os.getenv('POSTGRES_PASSWORD', ''),
         'HOST': os.getenv('POSTGRES_HOST'),
         'PORT': os.getenv('POSTGRES_PORT', '5432'),
-    }
-}
+        'CONN_MAX_AGE': int(os.getenv('DB_CONN_MAX_AGE', '60')),
+        'CONN_HEALTH_CHECKS': True,
+    }}
 
 AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},
@@ -139,11 +163,20 @@ STORAGES = {
         "BACKEND": "django.core.files.storage.FileSystemStorage",
     },
     "staticfiles": {
-        "BACKEND": "whitenoise.storage.CompressedStaticFilesStorage",
+        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
     },
 }
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# HTTPS завершается на nginx, поэтому Django должен доверять forwarded-заголовку.
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+USE_X_FORWARDED_HOST = True
+SECURE_SSL_REDIRECT = not DEBUG
+SESSION_COOKIE_SECURE = not DEBUG
+CSRF_COOKIE_SECURE = not DEBUG
+SECURE_CONTENT_TYPE_NOSNIFF = True
+SECURE_HSTS_SECONDS = int(os.getenv('SECURE_HSTS_SECONDS', '3600')) if not DEBUG else 0
 
 REST_FRAMEWORK = {
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
@@ -226,8 +259,12 @@ CELERY_TIMEZONE = 'Europe/Minsk'
 
 # bePaid Payment Settings (Тестовый магазин 4225)
 BEPAID_SHOP_ID = os.getenv('BEPAID_SHOP_ID', '4225')
-BEPAID_SECRET_KEY = os.getenv('BEPAID_SECRET_KEY', '3834fbef1fe6ea024ef77f5c79ec7ff1ba710ea6241c08c2f341afda8af4c1c4')
-BEPAID_TEST_MODE = os.getenv('BEPAID_TEST_MODE', 'True') == 'True'
+BEPAID_SECRET_KEY = os.getenv('BEPAID_SECRET_KEY', '')
+BEPAID_TEST_MODE = env_bool('BEPAID_TEST_MODE', True)
+BEPAID_CHECKOUT_URL = os.getenv(
+    'BEPAID_CHECKOUT_URL',
+    'https://checkout.bepaid.by/ctp/api/checkouts',
+)
 
 # Подробное логирование запросов и ошибок в stdout (для docker logs)
 LOGGING = {
@@ -272,6 +309,3 @@ LOGGING = {
         },
     },
 }
-
-
-
