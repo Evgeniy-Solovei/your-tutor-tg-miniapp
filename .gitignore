@@ -111,3 +111,12 @@ tutor-bot-cursor.md
 # Крупные архивы
 data/BY.zip
 data/BY.txt
+
+# Версионируемые иллюстрации учебных заданий. Остальной media/ остаётся
+# runtime-хранилищем и в Git не попадает.
+!media/
+media/*
+!media/tasks/
+!media/task_options/
+!media/tasks/**
+!media/task_options/**

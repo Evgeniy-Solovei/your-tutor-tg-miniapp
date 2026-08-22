@@ -75,6 +75,10 @@ function esc(s) {
     .replaceAll('"', '&quot;');
 }
 
+function escAttr(s) {
+  return esc(s).replaceAll("'", '&#39;');
+}
+
 function setRoute(route) {
   state.route = route;
   state.panel = null;
