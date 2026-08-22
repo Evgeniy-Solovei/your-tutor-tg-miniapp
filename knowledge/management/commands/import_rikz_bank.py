@@ -53,7 +53,7 @@ class Command(BaseCommand):
         if not info_dir.is_absolute():
             info_dir = Path(settings.BASE_DIR) / info_dir
         if not info_dir.exists():
-            self.stderr.write(self.style.ERROR(f'Папка не найдена: {info_dir}'))
+            self.stdout.write(self.style.WARNING(f'Папка с PDF не найдена: {info_dir} (пропускаем импорт файлов)'))
             return
 
         with transaction.atomic():
