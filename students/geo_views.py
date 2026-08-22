@@ -84,26 +84,9 @@ class SchoolSearchView(APIView):
         limit = min(int(request.query_params.get('limit') or 20), 40)
         city = await City.objects.filter(id=city_id, is_active=True).afirst()
         if not city:
-            city = await City.objects.filter(is_active=True).afirst()
-            if not city:
-                from django.core.management import call_command
-                call_command('seed_geo')
-                city = await City.objects.filter(is_active=True).afirst()
-
-        if not city:
             return Response({'results': [], 'city': {'id': city_id, 'name': ''}, 'q': q})
 
         qs = School.objects.filter(city_id=city.id, is_active=True)
-        if not await qs.aexists():
-            # Запасные школы для небольших НП
-            for n in (1, 2, 3, 5):
-                await School.objects.aget_or_create(
-                    city=city, name=f'Средняя школа №{n}', defaults={'is_active': True}
-                )
-            await School.objects.aget_or_create(
-                city=city, name=f'Гимназия №1 г. {city.name}', defaults={'is_active': True}
-            )
-            qs = School.objects.filter(city_id=city.id, is_active=True)
 
         if q:
             qs = qs.filter(name__icontains=q)
@@ -127,7 +110,6 @@ class RegisterView(APIView):
         payload = request.data if isinstance(request.data, dict) else {}
         role = payload.get('role') or 'student'
 
-        # Если регистрируется родитель
         if role == 'parent':
             from students import parent_service
             display_name = (payload.get('display_name') or '').strip() or user.display_name or 'Родитель'

@@ -107,13 +107,6 @@ tutor-bot-cursor.md
 *.zip
 *.tar.gz
 
-# Крупные геодампы
+# Крупные архивы
 data/BY.zip
 data/BY.txt
-data/readme.txt
-data/osm_schools.json
-data/osm_cities.json
-data/osm_cities_by.json
-data/geonames_cities.json
-data/admin1CodesASCII.txt
-data/wiki_cities.html

@@ -1,0 +1,1972 @@
+[
+  {
+    "geonameid": 625144,
+    "name": "Минск",
+    "region": "Гродненская",
+    "lat": 53.90019,
+    "lon": 27.56653,
+    "fcode": "PPLC",
+    "population": 1742124,
+    "admin1": "04"
+  },
+  {
+    "geonameid": 627907,
+    "name": "Гомел",
+    "region": "Витебская",
+    "lat": 52.4345,
+    "lon": 30.9754,
+    "fcode": "PPLA",
+    "population": 501193,
+    "admin1": "02"
+  },
+  {
+    "geonameid": 627904,
+    "name": "Гародня",
+    "region": "Гомельская",
+    "lat": 53.6758,
+    "lon": 23.82887,
+    "fcode": "PPLA",
+    "population": 363718,
+    "admin1": "03"
+  },
+  {
+    "geonameid": 620127,
+    "name": "Витебск",
+    "region": "г. Минск",
+    "lat": 55.1904,
+    "lon": 30.2049,
+    "fcode": "PPLA",
+    "population": 358927,
+    "admin1": "07"
+  },
+  {
+    "geonameid": 625665,
+    "name": "Могилев",
+    "region": "Могилёвская",
+    "lat": 53.90876,
+    "lon": 30.34044,
+    "fcode": "PPLA",
+    "population": 352896,
+    "admin1": "06"
+  },
+  {
+    "geonameid": 629634,
+    "name": "Берасьце",
+    "region": "Брестская",
+    "lat": 52.10894,
+    "lon": 23.71749,
+    "fcode": "PPLA",
+    "population": 347138,
+    "admin1": "01"
+  },
+  {
+    "geonameid": 630468,
+    "name": "Бабруйск",
+    "region": "Могилёвская",
+    "lat": 53.14676,
+    "lon": 29.20548,
+    "fcode": "PPLA2",
+    "population": 205502,
+    "admin1": "06"
+  },
+  {
+    "geonameid": 630429,
+    "name": "Барановичи",
+    "region": "Брестская",
+    "lat": 53.13255,
+    "lon": 26.00775,
+    "fcode": "PPLA2",
+    "population": 170039,
+    "admin1": "01"
+  },
+  {
+    "geonameid": 630376,
+    "name": "Борисов",
+    "region": "Минская",
+    "lat": 54.2279,
+    "lon": 28.505,
+    "fcode": "PPLA2",
+    "population": 133700,
+    "admin1": "05"
+  },
+  {
+    "geonameid": 623549,
+    "name": "Пинск",
+    "region": "Брестская",
+    "lat": 52.12153,
+    "lon": 26.06726,
+    "fcode": "PPLA2",
+    "population": 123283,
+    "admin1": "01"
+  },
+  {
+    "geonameid": 625324,
+    "name": "Мазыр",
+    "region": "Витебская",
+    "lat": 52.04162,
+    "lon": 29.21631,
+    "fcode": "PPLA2",
+    "population": 104517,
+    "admin1": "02"
+  },
+  {
+    "geonameid": 626081,
+    "name": "Лида",
+    "region": "Гомельская",
+    "lat": 53.88333,
+    "lon": 25.29972,
+    "fcode": "PPLA2",
+    "population": 103262,
+    "admin1": "03"
+  },
+  {
+    "geonameid": 624079,
+    "name": "Орша",
+    "region": "г. Минск",
+    "lat": 54.51362,
+    "lon": 30.40365,
+    "fcode": "PPLA2",
+    "population": 101662,
+    "admin1": "07"
+  },
+  {
+    "geonameid": 622428,
+    "name": "Салигорск",
+    "region": "Минская",
+    "lat": 52.78981,
+    "lon": 27.53583,
+    "fcode": "PPLA2",
+    "population": 96418,
+    "admin1": "05"
+  },
+  {
+    "geonameid": 624784,
+    "name": "Наваполацк",
+    "region": "г. Минск",
+    "lat": 55.52618,
+    "lon": 28.59308,
+    "fcode": "PPLA2",
+    "population": 95370,
+    "admin1": "07"
+  },
+  {
+    "geonameid": 625625,
+    "name": "Маладзечна",
+    "region": "Минская",
+    "lat": 54.3167,
+    "lon": 26.854,
+    "fcode": "PPLA2",
+    "population": 87339,
+    "admin1": "05"
+  },
+  {
+    "geonameid": 623317,
+    "name": "Полацк",
+    "region": "г. Минск",
+    "lat": 55.4879,
+    "lon": 28.7856,
+    "fcode": "PPLA2",
+    "population": 79285,
+    "admin1": "07"
+  },
+  {
+    "geonameid": 618806,
+    "name": "Жлобин",
+    "region": "Витебская",
+    "lat": 52.8926,
+    "lon": 30.024,
+    "fcode": "PPLA2",
+    "population": 76304,
+    "admin1": "02"
+  },
+  {
+    "geonameid": 622794,
+    "name": "Речица",
+    "region": "Витебская",
+    "lat": 52.3617,
+    "lon": 30.3916,
+    "fcode": "PPLA2",
+    "population": 64733,
+    "admin1": "02"
+  },
+  {
+    "geonameid": 618800,
+    "name": "Жодино",
+    "region": "Минская",
+    "lat": 54.0985,
+    "lon": 28.3331,
+    "fcode": "PPLA2",
+    "population": 62983,
+    "admin1": "05"
+  },
+  {
+    "geonameid": 621074,
+    "name": "Светлагорск",
+    "region": "Витебская",
+    "lat": 52.6329,
+    "lon": 29.7389,
+    "fcode": "PPLA2",
+    "population": 61812,
+    "admin1": "02"
+  },
+  {
+    "geonameid": 621741,
+    "name": "Слуцк",
+    "region": "Минская",
+    "lat": 53.01522,
+    "lon": 27.54159,
+    "fcode": "PPLA2",
+    "population": 58995,
+    "admin1": "05"
+  },
+  {
+    "geonameid": 627145,
+    "name": "Кобрин",
+    "region": "Брестская",
+    "lat": 52.21173,
+    "lon": 24.3563,
+    "fcode": "PPLA2",
+    "population": 52235,
+    "admin1": "01"
+  },
+  {
+    "geonameid": 621754,
+    "name": "Слоним",
+    "region": "Гомельская",
+    "lat": 53.08751,
+    "lon": 25.31707,
+    "fcode": "PPLA2",
+    "population": 48402,
+    "admin1": "03"
+  },
+  {
+    "geonameid": 620391,
+    "name": "Вавкависк",
+    "region": "Гомельская",
+    "lat": 53.1561,
+    "lon": 24.4513,
+    "fcode": "PPLA2",
+    "population": 41020,
+    "admin1": "03"
+  },
+  {
+    "geonameid": 627751,
+    "name": "Калинкавичы",
+    "region": "Витебская",
+    "lat": 52.1323,
+    "lon": 29.3257,
+    "fcode": "PPLA2",
+    "population": 36656,
+    "admin1": "02"
+  },
+  {
+    "geonameid": 621713,
+    "name": "Смаргонь",
+    "region": "Гомельская",
+    "lat": 54.4798,
+    "lon": 26.3957,
+    "fcode": "PPLA2",
+    "population": 35072,
+    "admin1": "03"
+  },
+  {
+    "geonameid": 622739,
+    "name": "Рагачов",
+    "region": "Витебская",
+    "lat": 53.09255,
+    "lon": 30.04862,
+    "fcode": "PPLA2",
+    "population": 31490,
+    "admin1": "02"
+  },
+  {
+    "geonameid": 628634,
+    "name": "Дзержинск",
+    "region": "Минская",
+    "lat": 53.68477,
+    "lon": 27.13171,
+    "fcode": "PPLA2",
+    "population": 29607,
+    "admin1": "05"
+  },
+  {
+    "geonameid": 624034,
+    "name": "Осиповичи",
+    "region": "Могилёвская",
+    "lat": 53.30588,
+    "lon": 28.62872,
+    "fcode": "PPLA2",
+    "population": 28745,
+    "admin1": "06"
+  },
+  {
+    "geonameid": 627905,
+    "name": "Горки",
+    "region": "Могилёвская",
+    "lat": 54.28606,
+    "lon": 30.98604,
+    "fcode": "PPLA2",
+    "population": 28626,
+    "admin1": "06"
+  },
+  {
+    "geonameid": 629454,
+    "name": "Бяроза",
+    "region": "Брестская",
+    "lat": 52.53129,
+    "lon": 24.9782,
+    "fcode": "PPLA2",
+    "population": 27986,
+    "admin1": "01"
+  },
+  {
+    "geonameid": 624785,
+    "name": "Навагрудак",
+    "region": "Гомельская",
+    "lat": 53.5942,
+    "lon": 25.8191,
+    "fcode": "PPLA2",
+    "population": 27624,
+    "admin1": "03"
+  },
+  {
+    "geonameid": 620181,
+    "name": "Вилейка",
+    "region": "Минская",
+    "lat": 54.4914,
+    "lon": 26.9111,
+    "fcode": "PPLA2",
+    "population": 26015,
+    "admin1": "05"
+  },
+  {
+    "geonameid": 621729,
+    "name": "Смолевичи",
+    "region": "Минская",
+    "lat": 54.0249,
+    "lon": 28.0894,
+    "fcode": "PPLA2",
+    "population": 24402,
+    "admin1": "05"
+  },
+  {
+    "geonameid": 625818,
+    "name": "Лунинец",
+    "region": "Брестская",
+    "lat": 52.24864,
+    "lon": 26.80061,
+    "fcode": "PPLA2",
+    "population": 23396,
+    "admin1": "01"
+  },
+  {
+    "geonameid": 626450,
+    "name": "Кричев",
+    "region": "Могилёвская",
+    "lat": 53.71924,
+    "lon": 31.71356,
+    "fcode": "PPLA2",
+    "population": 22973,
+    "admin1": "06"
+  },
+  {
+    "geonameid": 627800,
+    "name": "Ивацевичи",
+    "region": "Брестская",
+    "lat": 52.70793,
+    "lon": 25.33509,
+    "fcode": "PPLA2",
+    "population": 22189,
+    "admin1": "01"
+  },
+  {
+    "geonameid": 625409,
+    "name": "Марьина Горка",
+    "region": "Минская",
+    "lat": 53.509,
+    "lon": 28.147,
+    "fcode": "PPLA2",
+    "population": 19892,
+    "admin1": "05"
+  },
+  {
+    "geonameid": 6846555,
+    "name": "Фаниполь",
+    "region": "Минская",
+    "lat": 53.74998,
+    "lon": 27.33338,
+    "fcode": "PPL",
+    "population": 19006,
+    "admin1": "05"
+  },
+  {
+    "geonameid": 622997,
+    "name": "Пружаны",
+    "region": "Брестская",
+    "lat": 52.55464,
+    "lon": 24.45483,
+    "fcode": "PPLA2",
+    "population": 18994,
+    "admin1": "01"
+  },
+  {
+    "geonameid": 623760,
+    "name": "Пастави",
+    "region": "г. Минск",
+    "lat": 55.11676,
+    "lon": 26.83263,
+    "fcode": "PPL",
+    "population": 18450,
+    "admin1": "07"
+  },
+  {
+    "geonameid": 629018,
+    "name": "Добруш",
+    "region": "Витебская",
+    "lat": 52.41471,
+    "lon": 31.31429,
+    "fcode": "PPLA2",
+    "population": 17901,
+    "admin1": "02"
+  },
+  {
+    "geonameid": 627908,
+    "name": "Глубокое",
+    "region": "г. Минск",
+    "lat": 55.13933,
+    "lon": 27.69143,
+    "fcode": "PPLA2",
+    "population": 17807,
+    "admin1": "07"
+  },
+  {
+    "geonameid": 621266,
+    "name": "Стовпци",
+    "region": "Минская",
+    "lat": 53.47994,
+    "lon": 26.7351,
+    "fcode": "PPLA2",
+    "population": 17603,
+    "admin1": "05"
+  },
+  {
+    "geonameid": 625743,
+    "name": "Лепель",
+    "region": "г. Минск",
+    "lat": 54.8814,
+    "lon": 28.699,
+    "fcode": "PPLA2",
+    "population": 17400,
+    "admin1": "07"
+  },
+  {
+    "geonameid": 619066,
+    "name": "Заславль",
+    "region": "Минская",
+    "lat": 54.0114,
+    "lon": 27.2695,
+    "fcode": "PPL",
+    "population": 17166,
+    "admin1": "05"
+  },
+  {
+    "geonameid": 627083,
+    "name": "Колодищи",
+    "region": "Минская",
+    "lat": 53.944,
+    "lon": 27.7823,
+    "fcode": "PPL",
+    "population": 17000,
+    "admin1": "05"
+  },
+  {
+    "geonameid": 630515,
+    "name": "Ашмяны",
+    "region": "Гомельская",
+    "lat": 54.41815,
+    "lon": 25.93734,
+    "fcode": "PPLA2",
+    "population": 16804,
+    "admin1": "03"
+  },
+  {
+    "geonameid": 629447,
+    "name": "Бихав",
+    "region": "Могилёвская",
+    "lat": 53.52131,
+    "lon": 30.23078,
+    "fcode": "PPLA2",
+    "population": 16296,
+    "admin1": "06"
+  },
+  {
+    "geonameid": 624700,
+    "name": "Несвиж",
+    "region": "Минская",
+    "lat": 53.22186,
+    "lon": 26.67679,
+    "fcode": "PPLA2",
+    "population": 15897,
+    "admin1": "05"
+  },
+  {
+    "geonameid": 627811,
+    "name": "Іванава",
+    "region": "Брестская",
+    "lat": 52.14724,
+    "lon": 25.53198,
+    "fcode": "PPLA2",
+    "population": 15833,
+    "admin1": "01"
+  },
+  {
+    "geonameid": 618815,
+    "name": "Житкавичи",
+    "region": "Витебская",
+    "lat": 52.2168,
+    "lon": 27.8561,
+    "fcode": "PPLA2",
+    "population": 15788,
+    "admin1": "02"
+  },
+  {
+    "geonameid": 625972,
+    "name": "Лагойск",
+    "region": "Минская",
+    "lat": 54.2064,
+    "lon": 27.8512,
+    "fcode": "PPLA2",
+    "population": 15543,
+    "admin1": "05"
+  },
+  {
+    "geonameid": 623941,
+    "name": "Астравец",
+    "region": "Гомельская",
+    "lat": 54.61378,
+    "lon": 25.95537,
+    "fcode": "PPL",
+    "population": 15265,
+    "admin1": "03"
+  },
+  {
+    "geonameid": 622113,
+    "name": "Шчучын",
+    "region": "Гомельская",
+    "lat": 53.6014,
+    "lon": 24.7465,
+    "fcode": "PPLA2",
+    "population": 15127,
+    "admin1": "03"
+  },
+  {
+    "geonameid": 8247407,
+    "name": "Лесной",
+    "region": "Минская",
+    "lat": 54.0072,
+    "lon": 27.6963,
+    "fcode": "PPL",
+    "population": 15000,
+    "admin1": "05"
+  },
+  {
+    "geonameid": 627202,
+    "name": "Климавичи",
+    "region": "Могилёвская",
+    "lat": 53.60492,
+    "lon": 31.95632,
+    "fcode": "PPLA2",
+    "population": 14868,
+    "admin1": "06"
+  },
+  {
+    "geonameid": 626808,
+    "name": "Костюковичи",
+    "region": "Могилёвская",
+    "lat": 53.35488,
+    "lon": 32.05128,
+    "fcode": "PPLA2",
+    "population": 14757,
+    "admin1": "06"
+  },
+  {
+    "geonameid": 622034,
+    "name": "Шклов",
+    "region": "Могилёвская",
+    "lat": 54.21298,
+    "lon": 30.28724,
+    "fcode": "PPLA2",
+    "population": 14738,
+    "admin1": "06"
+  },
+  {
+    "geonameid": 628884,
+    "name": "Дрогичин",
+    "region": "Брестская",
+    "lat": 52.1874,
+    "lon": 25.1597,
+    "fcode": "PPLA2",
+    "population": 14659,
+    "admin1": "01"
+  },
+  {
+    "geonameid": 618913,
+    "name": "Жабинка",
+    "region": "Брестская",
+    "lat": 52.19857,
+    "lon": 24.01064,
+    "fcode": "PPLA2",
+    "population": 14430,
+    "admin1": "01"
+  },
+  {
+    "geonameid": 625367,
+    "name": "Масти",
+    "region": "Гомельская",
+    "lat": 53.4122,
+    "lon": 24.5387,
+    "fcode": "PPLA2",
+    "population": 14239,
+    "admin1": "03"
+  },
+  {
+    "geonameid": 621277,
+    "name": "Столин",
+    "region": "Брестская",
+    "lat": 51.89008,
+    "lon": 26.83596,
+    "fcode": "PPLA2",
+    "population": 14034,
+    "admin1": "01"
+  },
+  {
+    "geonameid": 627909,
+    "name": "Ганцавичи",
+    "region": "Брестская",
+    "lat": 52.75874,
+    "lon": 26.43096,
+    "fcode": "PPLA2",
+    "population": 13155,
+    "admin1": "01"
+  },
+  {
+    "geonameid": 627362,
+    "name": "Хойники",
+    "region": "Витебская",
+    "lat": 51.90773,
+    "lon": 29.98258,
+    "fcode": "PPLA2",
+    "population": 13001,
+    "admin1": "02"
+  },
+  {
+    "geonameid": 625539,
+    "name": "Маларыта",
+    "region": "Брестская",
+    "lat": 51.79467,
+    "lon": 24.07461,
+    "fcode": "PPLA2",
+    "population": 12593,
+    "admin1": "01"
+  },
+  {
+    "geonameid": 625228,
+    "name": "Микашевичи",
+    "region": "Брестская",
+    "lat": 52.2173,
+    "lon": 27.476,
+    "fcode": "PPL",
+    "population": 11823,
+    "admin1": "01"
+  },
+  {
+    "geonameid": 630166,
+    "name": "Берёзовка",
+    "region": "Гомельская",
+    "lat": 53.72406,
+    "lon": 25.49709,
+    "fcode": "PPL",
+    "population": 11800,
+    "admin1": "03"
+  },
+  {
+    "geonameid": 624494,
+    "name": "Новолукомль",
+    "region": "г. Минск",
+    "lat": 54.66192,
+    "lon": 29.15016,
+    "fcode": "PPL",
+    "population": 11598,
+    "admin1": "07"
+  },
+  {
+    "geonameid": 628155,
+    "name": "Гарадок",
+    "region": "г. Минск",
+    "lat": 55.4624,
+    "lon": 29.98451,
+    "fcode": "PPLA2",
+    "population": 11321,
+    "admin1": "07"
+  },
+  {
+    "geonameid": 625721,
+    "name": "Любань",
+    "region": "Минская",
+    "lat": 52.7985,
+    "lon": 28.0048,
+    "fcode": "PPLA2",
+    "population": 11165,
+    "admin1": "05"
+  },
+  {
+    "geonameid": 630197,
+    "name": "Березино",
+    "region": "Минская",
+    "lat": 53.8391,
+    "lon": 28.9879,
+    "fcode": "PPL",
+    "population": 11125,
+    "admin1": "05"
+  },
+  {
+    "geonameid": 627214,
+    "name": "Клецк",
+    "region": "Минская",
+    "lat": 53.06379,
+    "lon": 26.63922,
+    "fcode": "PPLA2",
+    "population": 11072,
+    "admin1": "05"
+  },
+  {
+    "geonameid": 630279,
+    "name": "Белоозерск",
+    "region": "Брестская",
+    "lat": 52.4731,
+    "lon": 25.1784,
+    "fcode": "PPL",
+    "population": 10984,
+    "admin1": "01"
+  },
+  {
+    "geonameid": 625671,
+    "name": "Мачулищи",
+    "region": "Минская",
+    "lat": 53.7788,
+    "lon": 27.5948,
+    "fcode": "PPL",
+    "population": 10869,
+    "admin1": "05"
+  },
+  {
+    "geonameid": 621396,
+    "name": "Старые Дороги",
+    "region": "Минская",
+    "lat": 53.0402,
+    "lon": 28.267,
+    "fcode": "PPLA2",
+    "population": 10683,
+    "admin1": "05"
+  },
+  {
+    "geonameid": 629273,
+    "name": "Игумен",
+    "region": "Минская",
+    "lat": 53.7059,
+    "lon": 28.4313,
+    "fcode": "PPL",
+    "population": 10617,
+    "admin1": "05"
+  },
+  {
+    "geonameid": 626806,
+    "name": "Костюковка",
+    "region": "Витебская",
+    "lat": 52.5387,
+    "lon": 30.9173,
+    "fcode": "PPL",
+    "population": 10552,
+    "admin1": "02"
+  },
+  {
+    "geonameid": 620483,
+    "name": "Узда",
+    "region": "Минская",
+    "lat": 53.4627,
+    "lon": 27.2137,
+    "fcode": "PPLA2",
+    "population": 10474,
+    "admin1": "05"
+  },
+  {
+    "geonameid": 625772,
+    "name": "Ляховичи",
+    "region": "Брестская",
+    "lat": 53.03931,
+    "lon": 26.26311,
+    "fcode": "PPLA2",
+    "population": 10473,
+    "admin1": "01"
+  },
+  {
+    "geonameid": 623581,
+    "name": "Петриков",
+    "region": "Витебская",
+    "lat": 52.1299,
+    "lon": 28.49625,
+    "fcode": "PPLA2",
+    "population": 10278,
+    "admin1": "02"
+  },
+  {
+    "geonameid": 630431,
+    "name": "Барань",
+    "region": "г. Минск",
+    "lat": 54.47737,
+    "lon": 30.30936,
+    "fcode": "PPL",
+    "population": 10131,
+    "admin1": "07"
+  },
+  {
+    "geonameid": 624889,
+    "name": "Мстиславль",
+    "region": "Могилёвская",
+    "lat": 54.0185,
+    "lon": 31.7217,
+    "fcode": "PPLA2",
+    "population": 9959,
+    "admin1": "06"
+  },
+  {
+    "geonameid": 620445,
+    "name": "Валожын",
+    "region": "Минская",
+    "lat": 54.08911,
+    "lon": 26.52731,
+    "fcode": "PPLA2",
+    "population": 9840,
+    "admin1": "05"
+  },
+  {
+    "geonameid": 626956,
+    "name": "Капыль",
+    "region": "Минская",
+    "lat": 53.1516,
+    "lon": 27.0913,
+    "fcode": "PPLA2",
+    "population": 9767,
+    "admin1": "05"
+  },
+  {
+    "geonameid": 611866,
+    "name": "Скидель",
+    "region": "Гомельская",
+    "lat": 53.5904,
+    "lon": 24.2478,
+    "fcode": "PPL",
+    "population": 9707,
+    "admin1": "03"
+  },
+  {
+    "geonameid": 629395,
+    "name": "Чавуси",
+    "region": "Могилёвская",
+    "lat": 53.80737,
+    "lon": 30.96584,
+    "fcode": "PPLA2",
+    "population": 9690,
+    "admin1": "06"
+  },
+  {
+    "geonameid": 630245,
+    "name": "Белыничи",
+    "region": "Могилёвская",
+    "lat": 53.9952,
+    "lon": 29.7091,
+    "fcode": "PPLA2",
+    "population": 9553,
+    "admin1": "06"
+  },
+  {
+    "geonameid": 620833,
+    "name": "Талачын",
+    "region": "г. Минск",
+    "lat": 54.40988,
+    "lon": 29.69348,
+    "fcode": "PPLA2",
+    "population": 9542,
+    "admin1": "07"
+  },
+  {
+    "geonameid": 629640,
+    "name": "Браслав",
+    "region": "г. Минск",
+    "lat": 55.64387,
+    "lon": 27.05715,
+    "fcode": "PPLA2",
+    "population": 9338,
+    "admin1": "07"
+  },
+  {
+    "geonameid": 8020004,
+    "name": "Дружны",
+    "region": "Минская",
+    "lat": 53.6238,
+    "lon": 27.8977,
+    "fcode": "PPL",
+    "population": 8978,
+    "admin1": "05"
+  },
+  {
+    "geonameid": 629390,
+    "name": "Чачерск",
+    "region": "Витебская",
+    "lat": 52.9164,
+    "lon": 30.9179,
+    "fcode": "PPL",
+    "population": 8926,
+    "admin1": "02"
+  },
+  {
+    "geonameid": 619598,
+    "name": "Ельск",
+    "region": "Витебская",
+    "lat": 51.81363,
+    "lon": 29.1544,
+    "fcode": "PPLA2",
+    "population": 8623,
+    "admin1": "02"
+  },
+  {
+    "geonameid": 620214,
+    "name": "Ветка",
+    "region": "Витебская",
+    "lat": 52.55428,
+    "lon": 31.18067,
+    "fcode": "PPLA2",
+    "population": 8580,
+    "admin1": "02"
+  },
+  {
+    "geonameid": 629564,
+    "name": "Буда Кашаљова",
+    "region": "Витебская",
+    "lat": 52.71725,
+    "lon": 30.5679,
+    "fcode": "PPLA2",
+    "population": 8534,
+    "admin1": "02"
+  },
+  {
+    "geonameid": 624799,
+    "name": "Наровля",
+    "region": "Витебская",
+    "lat": 51.79724,
+    "lon": 29.49784,
+    "fcode": "PPLA2",
+    "population": 8388,
+    "admin1": "02"
+  },
+  {
+    "geonameid": 626471,
+    "name": "Крупки",
+    "region": "Минская",
+    "lat": 54.3178,
+    "lon": 29.1374,
+    "fcode": "PPLA2",
+    "population": 8276,
+    "admin1": "05"
+  },
+  {
+    "geonameid": 627711,
+    "name": "Каменец",
+    "region": "Брестская",
+    "lat": 52.40013,
+    "lon": 23.81,
+    "fcode": "PPLA2",
+    "population": 8114,
+    "admin1": "01"
+  },
+  {
+    "geonameid": 628511,
+    "name": "Гатава",
+    "region": "Минская",
+    "lat": 53.7829,
+    "lon": 27.6407,
+    "fcode": "PPL",
+    "population": 8000,
+    "admin1": "05"
+  },
+  {
+    "geonameid": 627272,
+    "name": "Кировск",
+    "region": "Могилёвская",
+    "lat": 53.27003,
+    "lon": 29.47064,
+    "fcode": "PPLA2",
+    "population": 7806,
+    "admin1": "06"
+  },
+  {
+    "geonameid": 628387,
+    "name": "Глуск",
+    "region": "Могилёвская",
+    "lat": 52.90197,
+    "lon": 28.68308,
+    "fcode": "PPLA2",
+    "population": 7800,
+    "admin1": "06"
+  },
+  {
+    "geonameid": 623512,
+    "name": "Плещеницы",
+    "region": "Минская",
+    "lat": 54.4235,
+    "lon": 27.8301,
+    "fcode": "PPL",
+    "population": 7800,
+    "admin1": "05"
+  },
+  {
+    "geonameid": 625130,
+    "name": "Миоры",
+    "region": "г. Минск",
+    "lat": 55.6222,
+    "lon": 27.6281,
+    "fcode": "PPLA2",
+    "population": 7756,
+    "admin1": "07"
+  },
+  {
+    "geonameid": 629347,
+    "name": "Чериков",
+    "region": "Могилёвская",
+    "lat": 53.56855,
+    "lon": 31.38467,
+    "fcode": "PPLA2",
+    "population": 7710,
+    "admin1": "06"
+  },
+  {
+    "geonameid": 621838,
+    "name": "Славгарад",
+    "region": "Могилёвская",
+    "lat": 53.44312,
+    "lon": 31.00025,
+    "fcode": "PPLA2",
+    "population": 7647,
+    "admin1": "06"
+  },
+  {
+    "geonameid": 628658,
+    "name": "Дзятлава",
+    "region": "Гомельская",
+    "lat": 53.46215,
+    "lon": 25.40757,
+    "fcode": "PPLA2",
+    "population": 7596,
+    "admin1": "03"
+  },
+  {
+    "geonameid": 629400,
+    "name": "Чашники",
+    "region": "г. Минск",
+    "lat": 54.85096,
+    "lon": 29.16645,
+    "fcode": "PPLA2",
+    "population": 7573,
+    "admin1": "07"
+  },
+  {
+    "geonameid": 626621,
+    "name": "Красное Село",
+    "region": "Гомельская",
+    "lat": 53.26494,
+    "lon": 24.42398,
+    "fcode": "PPL",
+    "population": 7300,
+    "admin1": "03"
+  },
+  {
+    "geonameid": 626491,
+    "name": "Круглае",
+    "region": "Могилёвская",
+    "lat": 54.2531,
+    "lon": 29.79567,
+    "fcode": "PPLA2",
+    "population": 7300,
+    "admin1": "06"
+  },
+  {
+    "geonameid": 627205,
+    "name": "Кличев",
+    "region": "Могилёвская",
+    "lat": 53.4923,
+    "lon": 29.3356,
+    "fcode": "PPLA2",
+    "population": 7249,
+    "admin1": "06"
+  },
+  {
+    "geonameid": 621986,
+    "name": "Шумилино",
+    "region": "г. Минск",
+    "lat": 55.29841,
+    "lon": 29.61279,
+    "fcode": "PPLA2",
+    "population": 7223,
+    "admin1": "07"
+  },
+  {
+    "geonameid": 624199,
+    "name": "Октябрьский",
+    "region": "Витебская",
+    "lat": 52.64844,
+    "lon": 28.87993,
+    "fcode": "PPLA2",
+    "population": 7167,
+    "admin1": "02"
+  },
+  {
+    "geonameid": 620146,
+    "name": "Вишнево",
+    "region": "Гомельская",
+    "lat": 54.7102,
+    "lon": 26.5228,
+    "fcode": "PPL",
+    "population": 7000,
+    "admin1": "03"
+  },
+  {
+    "geonameid": 622258,
+    "name": "Сенно",
+    "region": "г. Минск",
+    "lat": 54.81175,
+    "lon": 29.70061,
+    "fcode": "PPLA2",
+    "population": 6974,
+    "admin1": "07"
+  },
+  {
+    "geonameid": 628758,
+    "name": "Дубровно",
+    "region": "г. Минск",
+    "lat": 54.57187,
+    "lon": 30.69117,
+    "fcode": "PPLA2",
+    "population": 6945,
+    "admin1": "07"
+  },
+  {
+    "geonameid": 627793,
+    "name": "Ивье",
+    "region": "Гомельская",
+    "lat": 53.93173,
+    "lon": 25.7763,
+    "fcode": "PPLA2",
+    "population": 6906,
+    "admin1": "03"
+  },
+  {
+    "geonameid": 624861,
+    "name": "Мядель",
+    "region": "Минская",
+    "lat": 54.87894,
+    "lon": 26.93619,
+    "fcode": "PPLA2",
+    "population": 6822,
+    "admin1": "05"
+  },
+  {
+    "geonameid": 630136,
+    "name": "Бешенковичи",
+    "region": "г. Минск",
+    "lat": 55.04335,
+    "lon": 29.45738,
+    "fcode": "PPLA2",
+    "population": 6819,
+    "admin1": "07"
+  },
+  {
+    "geonameid": 620255,
+    "name": "Верхнедвинск",
+    "region": "г. Минск",
+    "lat": 55.77655,
+    "lon": 27.93657,
+    "fcode": "PPLA2",
+    "population": 6771,
+    "admin1": "07"
+  },
+  {
+    "geonameid": 629002,
+    "name": "Докшици",
+    "region": "г. Минск",
+    "lat": 54.89097,
+    "lon": 27.76654,
+    "fcode": "PPLA2",
+    "population": 6601,
+    "admin1": "07"
+  },
+  {
+    "geonameid": 625931,
+    "name": "Лошница",
+    "region": "Минская",
+    "lat": 54.2796,
+    "lon": 28.7649,
+    "fcode": "PPL",
+    "population": 6524,
+    "admin1": "05"
+  },
+  {
+    "geonameid": 626064,
+    "name": "Лиозно",
+    "region": "г. Минск",
+    "lat": 55.0199,
+    "lon": 30.7969,
+    "fcode": "PPLA2",
+    "population": 6515,
+    "admin1": "07"
+  },
+  {
+    "geonameid": 622849,
+    "name": "Раков",
+    "region": "Минская",
+    "lat": 53.9674,
+    "lon": 27.0562,
+    "fcode": "PPL",
+    "population": 6300,
+    "admin1": "05"
+  },
+  {
+    "geonameid": 622700,
+    "name": "Россь",
+    "region": "Гомельская",
+    "lat": 53.28411,
+    "lon": 24.40721,
+    "fcode": "PPL",
+    "population": 6200,
+    "admin1": "03"
+  },
+  {
+    "geonameid": 618932,
+    "name": "Зельва",
+    "region": "Гомельская",
+    "lat": 53.14931,
+    "lon": 24.81201,
+    "fcode": "PPLA2",
+    "population": 6193,
+    "admin1": "03"
+  },
+  {
+    "geonameid": 626625,
+    "name": "Краснаполле",
+    "region": "Могилёвская",
+    "lat": 53.33578,
+    "lon": 31.40065,
+    "fcode": "PPLA2",
+    "population": 6100,
+    "admin1": "06"
+  },
+  {
+    "geonameid": 622877,
+    "name": "Радашковічы",
+    "region": "Минская",
+    "lat": 54.1554,
+    "lon": 27.2412,
+    "fcode": "PPL",
+    "population": 6100,
+    "admin1": "05"
+  },
+  {
+    "geonameid": 625907,
+    "name": "Лоев",
+    "region": "Витебская",
+    "lat": 51.94115,
+    "lon": 30.79343,
+    "fcode": "PPLA2",
+    "population": 6028,
+    "admin1": "02"
+  },
+  {
+    "geonameid": 621462,
+    "name": "Старобин",
+    "region": "Минская",
+    "lat": 52.7267,
+    "lon": 27.4606,
+    "fcode": "PPL",
+    "population": 6000,
+    "admin1": "05"
+  },
+  {
+    "geonameid": 622179,
+    "name": "Шарковщина",
+    "region": "г. Минск",
+    "lat": 55.36807,
+    "lon": 27.46971,
+    "fcode": "PPLA2",
+    "population": 5945,
+    "admin1": "07"
+  },
+  {
+    "geonameid": 621048,
+    "name": "Свислач",
+    "region": "Гомельская",
+    "lat": 53.03431,
+    "lon": 24.09717,
+    "fcode": "PPLA2",
+    "population": 5851,
+    "admin1": "03"
+  },
+  {
+    "geonameid": 620540,
+    "name": "Ушачи",
+    "region": "г. Минск",
+    "lat": 55.17611,
+    "lon": 28.61949,
+    "fcode": "PPLA2",
+    "population": 5773,
+    "admin1": "07"
+  },
+  {
+    "geonameid": 629159,
+    "name": "Давид Гарадок",
+    "region": "Брестская",
+    "lat": 52.0566,
+    "lon": 27.2161,
+    "fcode": "PPL",
+    "population": 5658,
+    "admin1": "01"
+  },
+  {
+    "geonameid": 629986,
+    "name": "Большая Берестовица",
+    "region": "Гомельская",
+    "lat": 53.19563,
+    "lon": 24.01992,
+    "fcode": "PPLA2",
+    "population": 5647,
+    "admin1": "03"
+  },
+  {
+    "geonameid": 626939,
+    "name": "Кареличи",
+    "region": "Гомельская",
+    "lat": 53.5648,
+    "lon": 26.1406,
+    "fcode": "PPLA2",
+    "population": 5546,
+    "admin1": "03"
+  },
+  {
+    "geonameid": 619979,
+    "name": "Воранава",
+    "region": "Гомельская",
+    "lat": 54.15387,
+    "lon": 25.31226,
+    "fcode": "PPLA2",
+    "population": 5532,
+    "admin1": "03"
+  },
+  {
+    "geonameid": 622690,
+    "name": "Расоны",
+    "region": "г. Минск",
+    "lat": 55.90603,
+    "lon": 28.81332,
+    "fcode": "PPLA2",
+    "population": 5400,
+    "admin1": "07"
+  },
+  {
+    "geonameid": 8247399,
+    "name": "Чисть",
+    "region": "Минская",
+    "lat": 54.2698,
+    "lon": 27.1067,
+    "fcode": "PPL",
+    "population": 5300,
+    "admin1": "05"
+  },
+  {
+    "geonameid": 621732,
+    "name": "Смиловичи",
+    "region": "Минская",
+    "lat": 53.7496,
+    "lon": 28.0115,
+    "fcode": "PPL",
+    "population": 5200,
+    "admin1": "05"
+  },
+  {
+    "geonameid": 8247183,
+    "name": "Боровляны",
+    "region": "Минская",
+    "lat": 54.0022,
+    "lon": 27.6754,
+    "fcode": "PPL",
+    "population": 5000,
+    "admin1": "05"
+  },
+  {
+    "geonameid": 628317,
+    "name": "Гальшаны",
+    "region": "Гомельская",
+    "lat": 54.2585,
+    "lon": 26.0144,
+    "fcode": "PPL",
+    "population": 5000,
+    "admin1": "03"
+  },
+  {
+    "geonameid": 618883,
+    "name": "Ждановичи",
+    "region": "Минская",
+    "lat": 53.9432,
+    "lon": 27.425,
+    "fcode": "PPL",
+    "population": 5000,
+    "admin1": "05"
+  },
+  {
+    "geonameid": 622274,
+    "name": "Сенница",
+    "region": "Минская",
+    "lat": 53.8313,
+    "lon": 27.5343,
+    "fcode": "PPL",
+    "population": 5000,
+    "admin1": "05"
+  },
+  {
+    "geonameid": 619818,
+    "name": "Высокае",
+    "region": "Брестская",
+    "lat": 52.37091,
+    "lon": 23.37083,
+    "fcode": "PPL",
+    "population": 4940,
+    "admin1": "01"
+  },
+  {
+    "geonameid": 8285492,
+    "name": "Михановичи",
+    "region": "Минская",
+    "lat": 53.73937,
+    "lon": 27.69276,
+    "fcode": "PPL",
+    "population": 4800,
+    "admin1": "05"
+  },
+  {
+    "geonameid": 626660,
+    "name": "Красная Слобода",
+    "region": "Минская",
+    "lat": 52.8522,
+    "lon": 27.1698,
+    "fcode": "PPL",
+    "population": 4700,
+    "admin1": "05"
+  },
+  {
+    "geonameid": 629646,
+    "name": "Брагин",
+    "region": "Витебская",
+    "lat": 51.79067,
+    "lon": 30.26709,
+    "fcode": "PPLA2",
+    "population": 4579,
+    "admin1": "02"
+  },
+  {
+    "geonameid": 627123,
+    "name": "Коханава",
+    "region": "г. Минск",
+    "lat": 54.46061,
+    "lon": 29.99935,
+    "fcode": "PPL",
+    "population": 4300,
+    "admin1": "07"
+  },
+  {
+    "geonameid": 627798,
+    "name": "Івянец",
+    "region": "Минская",
+    "lat": 53.8864,
+    "lon": 26.7432,
+    "fcode": "PPL",
+    "population": 4206,
+    "admin1": "05"
+  },
+  {
+    "geonameid": 8020001,
+    "name": "Свіслач",
+    "region": "Минская",
+    "lat": 53.6404,
+    "lon": 27.9199,
+    "fcode": "PPL",
+    "population": 4200,
+    "admin1": "05"
+  },
+  {
+    "geonameid": 624908,
+    "name": "Моталь",
+    "region": "Брестская",
+    "lat": 52.3138,
+    "lon": 25.6072,
+    "fcode": "PPL",
+    "population": 4079,
+    "admin1": "01"
+  },
+  {
+    "geonameid": 629471,
+    "name": "Буйничи",
+    "region": "Могилёвская",
+    "lat": 53.8536,
+    "lon": 30.2671,
+    "fcode": "PPL",
+    "population": 4000,
+    "admin1": "06"
+  },
+  {
+    "geonameid": 626992,
+    "name": "Константиново",
+    "region": "г. Минск",
+    "lat": 54.66036,
+    "lon": 29.2676,
+    "fcode": "PPL",
+    "population": 3800,
+    "admin1": "07"
+  },
+  {
+    "geonameid": 620945,
+    "name": "Телеханы",
+    "region": "Брестская",
+    "lat": 52.5175,
+    "lon": 25.8429,
+    "fcode": "PPL",
+    "population": 3625,
+    "admin1": "01"
+  },
+  {
+    "geonameid": 793279,
+    "name": "Балбасава",
+    "region": "г. Минск",
+    "lat": 54.4168,
+    "lon": 30.28839,
+    "fcode": "PPL",
+    "population": 3600,
+    "admin1": "07"
+  },
+  {
+    "geonameid": 628182,
+    "name": "Гарадзея",
+    "region": "Минская",
+    "lat": 53.31195,
+    "lon": 26.53986,
+    "fcode": "PPL",
+    "population": 3576,
+    "admin1": "05"
+  },
+  {
+    "geonameid": 8247409,
+    "name": "Большевик",
+    "region": "Минская",
+    "lat": 54.0036,
+    "lon": 27.5669,
+    "fcode": "PPL",
+    "population": 3470,
+    "admin1": "05"
+  },
+  {
+    "geonameid": 624804,
+    "name": "Нарач",
+    "region": "Минская",
+    "lat": 54.9102,
+    "lon": 26.708,
+    "fcode": "PPL",
+    "population": 3400,
+    "admin1": "05"
+  },
+  {
+    "geonameid": 620558,
+    "name": "Уречье",
+    "region": "Минская",
+    "lat": 52.9479,
+    "lon": 27.893,
+    "fcode": "PPL",
+    "population": 3300,
+    "admin1": "05"
+  },
+  {
+    "geonameid": 620425,
+    "name": "Василевичи",
+    "region": "Витебская",
+    "lat": 52.2512,
+    "lon": 29.8288,
+    "fcode": "PPL",
+    "population": 3143,
+    "admin1": "02"
+  },
+  {
+    "geonameid": 626548,
+    "name": "Аграгарадок Крэва",
+    "region": "Гомельская",
+    "lat": 54.3118,
+    "lon": 26.2916,
+    "fcode": "PPL",
+    "population": 3100,
+    "admin1": "03"
+  },
+  {
+    "geonameid": 620676,
+    "name": "Туров",
+    "region": "Витебская",
+    "lat": 52.0683,
+    "lon": 27.735,
+    "fcode": "PPL",
+    "population": 3100,
+    "admin1": "02"
+  },
+  {
+    "geonameid": 8019803,
+    "name": "Юбілейны",
+    "region": "Минская",
+    "lat": 53.8191,
+    "lon": 27.5215,
+    "fcode": "PPL",
+    "population": 3000,
+    "admin1": "05"
+  },
+  {
+    "geonameid": 628865,
+    "name": "Дрибин",
+    "region": "Могилёвская",
+    "lat": 54.12063,
+    "lon": 31.09037,
+    "fcode": "PPLA2",
+    "population": 2900,
+    "admin1": "06"
+  },
+  {
+    "geonameid": 626610,
+    "name": "Краснае",
+    "region": "Минская",
+    "lat": 54.2438,
+    "lon": 27.0758,
+    "fcode": "PPL",
+    "population": 2900,
+    "admin1": "05"
+  },
+  {
+    "geonameid": 623129,
+    "name": "Правдинский",
+    "region": "Минская",
+    "lat": 53.5248,
+    "lon": 27.8303,
+    "fcode": "PPL",
+    "population": 2900,
+    "admin1": "05"
+  },
+  {
+    "geonameid": 622614,
+    "name": "Руденск",
+    "region": "Минская",
+    "lat": 53.5983,
+    "lon": 27.8621,
+    "fcode": "PPL",
+    "population": 2900,
+    "admin1": "05"
+  },
+  {
+    "geonameid": 626266,
+    "name": "Логишин",
+    "region": "Брестская",
+    "lat": 52.339,
+    "lon": 25.9867,
+    "fcode": "PPL",
+    "population": 2800,
+    "admin1": "01"
+  },
+  {
+    "geonameid": 622971,
+    "name": "Пуховичи",
+    "region": "Минская",
+    "lat": 53.5297,
+    "lon": 28.2467,
+    "fcode": "PPL",
+    "population": 2800,
+    "admin1": "05"
+  },
+  {
+    "geonameid": 622500,
+    "name": "Ружаны",
+    "region": "Брестская",
+    "lat": 52.86322,
+    "lon": 24.89357,
+    "fcode": "PPL",
+    "population": 2642,
+    "admin1": "01"
+  },
+  {
+    "geonameid": 628175,
+    "name": "Городище",
+    "region": "Брестская",
+    "lat": 53.32462,
+    "lon": 26.00789,
+    "fcode": "PPL",
+    "population": 2600,
+    "admin1": "01"
+  },
+  {
+    "geonameid": 619616,
+    "name": "Елизово",
+    "region": "Могилёвская",
+    "lat": 53.3994,
+    "lon": 29.0048,
+    "fcode": "PPL",
+    "population": 2600,
+    "admin1": "06"
+  },
+  {
+    "geonameid": 621700,
+    "name": "Снов",
+    "region": "Минская",
+    "lat": 53.22076,
+    "lon": 26.40095,
+    "fcode": "PPL",
+    "population": 2600,
+    "admin1": "05"
+  },
+  {
+    "geonameid": 629697,
+    "name": "Баруны",
+    "region": "Гомельская",
+    "lat": 54.3171,
+    "lon": 26.1376,
+    "fcode": "PPL",
+    "population": 2500,
+    "admin1": "03"
+  },
+  {
+    "geonameid": 619217,
+    "name": "Замасточча",
+    "region": "Минская",
+    "lat": 53.8198,
+    "lon": 27.8685,
+    "fcode": "PPL",
+    "population": 2500,
+    "admin1": "05"
+  },
+  {
+    "geonameid": 622420,
+    "name": "Самохваловичи",
+    "region": "Минская",
+    "lat": 53.7396,
+    "lon": 27.5037,
+    "fcode": "PPL",
+    "population": 2500,
+    "admin1": "05"
+  },
+  {
+    "geonameid": 621605,
+    "name": "Сасновый Бор",
+    "region": "Витебская",
+    "lat": 52.5194,
+    "lon": 29.5988,
+    "fcode": "PPL",
+    "population": 2500,
+    "admin1": "02"
+  },
+  {
+    "geonameid": 630343,
+    "name": "Бего́мль",
+    "region": "г. Минск",
+    "lat": 54.7316,
+    "lon": 28.0577,
+    "fcode": "PPL",
+    "population": 2457,
+    "admin1": "07"
+  },
+  {
+    "geonameid": 8019924,
+    "name": "Энергетиков",
+    "region": "Минская",
+    "lat": 53.5871,
+    "lon": 27.0535,
+    "fcode": "PPL",
+    "population": 2445,
+    "admin1": "05"
+  },
+  {
+    "geonameid": 623956,
+    "name": "Астрашыцкі Гарадок",
+    "region": "Минская",
+    "lat": 54.0651,
+    "lon": 27.695,
+    "fcode": "PPL",
+    "population": 2390,
+    "admin1": "05"
+  },
+  {
+    "geonameid": 629338,
+    "name": "Чернавчицы",
+    "region": "Брестская",
+    "lat": 52.21948,
+    "lon": 23.74043,
+    "fcode": "PPL",
+    "population": 2372,
+    "admin1": "01"
+  },
+  {
+    "geonameid": 626598,
+    "name": "Красный Берег",
+    "region": "Могилёвская",
+    "lat": 53.3291,
+    "lon": 30.1929,
+    "fcode": "PPL",
+    "population": 2359,
+    "admin1": "06"
+  },
+  {
+    "geonameid": 623788,
+    "name": "Паричи",
+    "region": "Витебская",
+    "lat": 52.8042,
+    "lon": 29.4176,
+    "fcode": "PPL",
+    "population": 2300,
+    "admin1": "02"
+  },
+  {
+    "geonameid": 625128,
+    "name": "Мир",
+    "region": "Гомельская",
+    "lat": 53.4544,
+    "lon": 26.467,
+    "fcode": "PPL",
+    "population": 2248,
+    "admin1": "03"
+  },
+  {
+    "geonameid": 624297,
+    "name": "Новы Свержань",
+    "region": "Минская",
+    "lat": 53.4542,
+    "lon": 26.7301,
+    "fcode": "PPL",
+    "population": 2200,
+    "admin1": "05"
+  },
+  {
+    "geonameid": 624584,
+    "name": "Нова Гута",
+    "region": "Витебская",
+    "lat": 52.1032,
+    "lon": 30.9837,
+    "fcode": "PPL",
+    "population": 2159,
+    "admin1": "02"
+  },
+  {
+    "geonameid": 629829,
+    "name": "Вялікі Трасцянец",
+    "region": "Минская",
+    "lat": 53.851,
+    "lon": 27.7139,
+    "fcode": "PPL",
+    "population": 2100,
+    "admin1": "05"
+  },
+  {
+    "geonameid": 8331420,
+    "name": "Восход",
+    "region": "Могилёвская",
+    "lat": 53.7766,
+    "lon": 30.3497,
+    "fcode": "PPL",
+    "population": 2000,
+    "admin1": "06"
+  },
+  {
+    "geonameid": 624842,
+    "name": "Мышковичи",
+    "region": "Могилёвская",
+    "lat": 53.2172,
+    "lon": 29.512,
+    "fcode": "PPL",
+    "population": 2000,
+    "admin1": "06"
+  },
+  {
+    "geonameid": 8019860,
+    "name": "Прывольны",
+    "region": "Минская",
+    "lat": 53.7969,
+    "lon": 27.7967,
+    "fcode": "PPL",
+    "population": 2000,
+    "admin1": "05"
+  },
+  {
+    "geonameid": 629468,
+    "name": "Буйновичи",
+    "region": "Витебская",
+    "lat": 51.8682,
+    "lon": 28.54247,
+    "fcode": "PPLA3",
+    "population": 0,
+    "admin1": "02"
+  },
+  {
+    "geonameid": 626917,
+    "name": "Карма",
+    "region": "Витебская",
+    "lat": 53.1301,
+    "lon": 30.8016,
+    "fcode": "PPLA2",
+    "population": 0,
+    "admin1": "02"
+  },
+  {
+    "geonameid": 626188,
+    "name": "Лельчицы",
+    "region": "Витебская",
+    "lat": 51.78613,
+    "lon": 28.32824,
+    "fcode": "PPLA2",
+    "population": 0,
+    "admin1": "02"
+  },
+  {
+    "geonameid": 13192474,
+    "name": "Рагозна",
+    "region": "Брестская",
+    "lat": 52.15732,
+    "lon": 24.08434,
+    "fcode": "PPLA2",
+    "population": 0,
+    "admin1": "01"
+  },
+  {
+    "geonameid": 621286,
+    "name": "Стодоличи",
+    "region": "Витебская",
+    "lat": 51.73114,
+    "lon": 28.49106,
+    "fcode": "PPLA3",
+    "population": 0,
+    "admin1": "02"
+  },
+  {
+    "geonameid": 627381,
+    "name": "Хотимск",
+    "region": "Могилёвская",
+    "lat": 53.40843,
+    "lon": 32.57949,
+    "fcode": "PPLA2",
+    "population": 0,
+    "admin1": "06"
+  }
+]

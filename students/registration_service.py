@@ -199,14 +199,23 @@ async def register_or_update_student(
 
     city_id = clean['city_id']
     school_id = clean['school_id']
+    school_name = (payload.get('school_name') or '').strip()
+
     if school_id:
         from core.models import School
 
         school = await School.objects.filter(id=school_id, is_active=True).afirst()
         if school:
             city_id = school.city_id
-        else:
-            raise ValueError('Выбранная школа не найдена')
+    elif school_name and city_id:
+        from core.models import School
+
+        school, _ = await School.objects.aget_or_create(
+            city_id=city_id,
+            name=school_name[:255],
+            defaults={'is_active': True},
+        )
+        school_id = school.id
 
     if city_id:
         from core.models import City
