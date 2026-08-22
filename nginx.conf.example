@@ -30,10 +30,12 @@ server {
         add_header Cache-Control "public, immutable";
     }
 
-    # Для systemd-развёртывания из /var/www/Tutor_bot.
-    # Каталог /root здесь использовать нельзя: nginx/www-data не сможет в него войти.
+    # Media лежит в bind mount ./media:/app/media. Проксируем его в контейнер:
+    # nginx/www-data не имеет доступа к проекту внутри /root.
     location /media/ {
-        alias /var/www/Tutor_bot/media/;
+        proxy_pass http://127.0.0.1:8005;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-Proto $scheme;
         expires 7d;
         add_header Cache-Control "public";
     }

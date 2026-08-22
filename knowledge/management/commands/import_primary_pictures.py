@@ -42,8 +42,28 @@ def _attach_opt(opt: TaskOption, path) -> None:
         opt.image.save(path.name, File(fh), save=True)
 
 
+def _image_missing(field_file) -> bool:
+    if not field_file or not field_file.name:
+        return True
+    try:
+        return not field_file.storage.exists(field_file.name)
+    except OSError:
+        return True
+
+
 def _mc(topic: Topic, question: str, options: list[str], explanation: str, image_path=None, option_images=None):
-    if Task.objects.filter(topic=topic, source=SOURCE, question=question).exists():
+    existing = (
+        Task.objects.filter(topic=topic, source=SOURCE, question=question)
+        .prefetch_related('options')
+        .first()
+    )
+    if existing:
+        if image_path and _image_missing(existing.image):
+            _attach(existing, image_path)
+        if option_images:
+            for opt, option_path in zip(existing.options.all(), option_images):
+                if option_path and _image_missing(opt.image):
+                    _attach_opt(opt, option_path)
         return False
     task = Task.objects.create(
         topic=topic,
@@ -135,8 +155,25 @@ class Command(BaseCommand):
 
             # задание с картинками в вариантах
             t1 = _topic(1, 'Слово', 'предложен')
-            if t1 and not Task.objects.filter(topic=t1, source=SOURCE, question__startswith='Выбери картинку').exists():
-                task = Task.objects.create(
+            picture_options = [
+                ('кот', cat, True),
+                ('пёс', dog, False),
+                ('рыба', fish, False),
+                ('дом', house, False),
+            ]
+            picture_task = (
+                Task.objects.filter(
+                    topic=t1,
+                    source=SOURCE,
+                    question__startswith='Выбери картинку',
+                )
+                .prefetch_related('options')
+                .first()
+                if t1
+                else None
+            )
+            if t1 and not picture_task:
+                picture_task = Task.objects.create(
                     topic=t1,
                     question='Выбери картинку, где нарисован кот',
                     answer_format=Task.AnswerFormat.SINGLE_CHOICE,
@@ -145,18 +182,26 @@ class Command(BaseCommand):
                     source=SOURCE,
                     is_active=True,
                 )
-                for i, (label, path, ok) in enumerate(
-                    [('кот', cat, True), ('пёс', dog, False), ('рыба', fish, False), ('дом', house, False)],
-                    start=1,
-                ):
-                    opt = TaskOption.objects.create(task=task, text=label, is_correct=ok, order=i)
+                for i, (label, path, ok) in enumerate(picture_options, start=1):
+                    opt = TaskOption.objects.create(
+                        task=picture_task,
+                        text=label,
+                        is_correct=ok,
+                        order=i,
+                    )
                     _attach_opt(opt, path)
                 TaskSolution.objects.create(
-                    task=task,
+                    task=picture_task,
                     correct_answer='1',
                     explanation='На первой картинке кот.',
                 )
                 created += 1
+            elif picture_task:
+                options_by_order = {o.order: o for o in picture_task.options.all()}
+                for order, (_, path, _) in enumerate(picture_options, start=1):
+                    opt = options_by_order.get(order)
+                    if opt and _image_missing(opt.image):
+                        _attach_opt(opt, path)
 
             for grade, hints, q, opts, expl, img, _ in specs:
                 topic = _topic(grade, *hints)

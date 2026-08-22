@@ -51,14 +51,15 @@ class FamilyHubView(APIView):
         invite_payload = None
         parents = []
         if student:
+            # GET должен оставаться быстрым и не менять БД. Новый код создаётся
+            # отдельным POST /family/invite/<tg_id>/ по кнопке интерфейса.
             invite = await parent_service.get_active_invite(student)
-            if not invite:
-                invite = await parent_service.issue_parent_invite(student)
-            invite_payload = {
-                'code': invite.code,
-                'expires_at': invite.expires_at.isoformat(),
-                'student_name': student.display_name,
-            }
+            if invite:
+                invite_payload = {
+                    'code': invite.code,
+                    'expires_at': invite.expires_at.isoformat(),
+                    'student_name': student.display_name,
+                }
             async for link in ParentChildLink.objects.filter(student=student).select_related('parent'):
                 p = link.parent
                 parents.append({

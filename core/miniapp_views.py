@@ -43,6 +43,9 @@ def miniapp(request, path: str = ''):
         content_type = 'text/html; charset=utf-8'
 
     response = FileResponse(target.open('rb'), content_type=content_type or 'application/octet-stream')
+    # Telegram WebView агрессивно кеширует JS/CSS. Всегда перепроверяем версию,
+    # иначе после деплоя пользователь может продолжать исполнять старый frontend.
+    response['Cache-Control'] = 'no-cache, must-revalidate'
     response['Content-Security-Policy'] = (
         "frame-ancestors 'self' https://web.telegram.org https://telegram.org "
         'https://*.telegram.org'

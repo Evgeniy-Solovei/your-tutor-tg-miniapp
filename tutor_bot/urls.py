@@ -5,10 +5,12 @@ from django.urls import include, path, re_path
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 
 from core.miniapp_views import miniapp
+from core.media_views import media_file
 from knowledge.admin_guide import content_guide_view
 from students.views_analytics import admin_analytics_view
 
 urlpatterns = [
+    re_path(r'^media/(?P<path>.+)$', media_file, name='media-file'),
     re_path(r'^app/(?P<path>.*)$', miniapp, name='miniapp-file'),
     re_path(r'^app$', miniapp, name='miniapp-no-slash'),
     path('admin/analytics/', admin.site.admin_view(admin_analytics_view), name='admin_analytics'),

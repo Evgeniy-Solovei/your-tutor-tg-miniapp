@@ -8,7 +8,7 @@ from django.test import RequestFactory
 from django.utils import timezone
 
 from knowledge.models import ExamTrack, Subject
-from students.models import PaymentOrder, Student
+from students.models import ParentInvite, PaymentOrder, Student
 from students.views_analytics import admin_analytics_view
 
 
@@ -126,3 +126,45 @@ class AdminAnalyticsQueryTests(TestCase):
         with self.assertNumQueries(3):
             response = admin_analytics_view(request)
         self.assertEqual(response.status_code, 200)
+
+
+@override_settings(DEBUG=True, TELEGRAM_AUTH_BYPASS=True, SECURE_SSL_REDIRECT=False)
+class FamilyHubTests(TestCase):
+    def setUp(self):
+        subject = Subject.objects.create(name='Русский язык', slug='family-ru')
+        track = ExamTrack.objects.create(
+            subject=subject,
+            name='Школьная программа',
+            track_type=ExamTrack.TrackType.GENERAL,
+        )
+        self.student = Student.objects.create(
+            tg_id=80001,
+            display_name='Ученик',
+            grade=5,
+            goal=Student.Goal.IMPROVE,
+            subject=subject,
+            exam_track=track,
+            registration_completed=True,
+        )
+        self.auth = {'HTTP_TELEGRAM_DEV_USER': str(self.student.tg_id)}
+
+    def test_family_get_is_read_only_and_returns_student_state(self):
+        response = self.client.get('/api/tutor/family/', **self.auth)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.json()['is_student'])
+        self.assertIsNone(response.json()['invite'])
+        self.assertFalse(ParentInvite.objects.exists())
+
+    def test_invite_can_be_created_and_then_loaded(self):
+        created = self.client.post(
+            f'/api/tutor/family/invite/{self.student.tg_id}/',
+            data='{}',
+            content_type='application/json',
+            **self.auth,
+        )
+        self.assertEqual(created.status_code, 200)
+
+        response = self.client.get('/api/tutor/family/', **self.auth)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()['invite']['code'], created.json()['code'])

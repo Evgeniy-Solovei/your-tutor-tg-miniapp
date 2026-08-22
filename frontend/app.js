@@ -23,6 +23,7 @@ const state = {
   streak: null,
   tariffs: null,
   family: null,
+  familyError: '',
   familyCode: '',
   reportChildId: null,
   reportPeriod: 'week',
@@ -161,12 +162,15 @@ async function loadMe() {
 
 async function loadFamily() {
   state.loading = true;
+  state.family = null;
+  state.familyError = '';
   render();
   try {
     state.family = await api.family();
     const kids = state.family.children || [];
     if (!state.reportChildId && kids[0]) state.reportChildId = kids[0].id;
   } catch (e) {
+    state.familyError = e.message || 'Не удалось загрузить семью';
     toast(e.message);
   } finally {
     state.loading = false;
@@ -236,7 +240,7 @@ async function loadCatalog() {
   render();
   try {
     state.catalog = await api.catalog();
-    const items = state.catalog?.items || [];
+    const items = state.catalog?.items || state.catalog?.subjects || [];
     if (!state.coursesSubjectId && items[0]) {
       state.coursesSubjectId = items[0].id;
     }
@@ -435,7 +439,7 @@ function renderCourses() {
   if (!catalog) {
     return `<div class="card empty">${state.loading ? 'Загружаем курсы…' : 'Не удалось загрузить каталог'}</div>`;
   }
-  const items = catalog.items || [];
+  const items = catalog.items || catalog.subjects || [];
   const subject =
     items.find((s) => s.id === Number(state.coursesSubjectId)) || items[0] || null;
   const myGrade = Number(state.me?.grade) || null;
@@ -849,7 +853,10 @@ function renderFamily() {
     return `<section class="card empty">Загружаем семью…</section>`;
   }
   if (!pack) {
-    return `<section class="card empty">Не удалось загрузить. Обнови вкладку.</section>`;
+    return `<section class="card empty">
+      <p>${esc(state.familyError || 'Не удалось загрузить семью.')}</p>
+      <button type="button" class="btn secondary" data-action="family-retry">Попробовать ещё раз</button>
+    </section>`;
   }
 
   const isParent = Boolean(pack.is_parent || (state.me && state.me.is_parent));
@@ -1767,6 +1774,10 @@ function bindUi() {
       } catch (err) {
         toast(err.message);
       }
+      return;
+    }
+    if (action === 'family-retry') {
+      await loadFamily();
       return;
     }
     if (action === 'family-link') {

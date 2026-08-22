@@ -65,22 +65,35 @@ class CatalogView(APIView):
             async for subject in Subject.objects.filter(is_active=True).order_by('order', 'name')
         ]
         counts = {
-            (row['topic__section__exam_track__subject_id'], row['topic__grade_level']): row['count']
+            (row['topic__section__exam_track__subject_id'], row['topic__grade_level']): row
             async for row in Task.objects.filter(
                 is_active=True,
                 topic__section__exam_track__subject_id__in=[s.id for s in subjects],
                 topic__grade_level__range=(1, 11),
             )
             .values('topic__section__exam_track__subject_id', 'topic__grade_level')
-            .annotate(count=Count('id'))
+            .annotate(task_count=Count('id'), topic_count=Count('topic_id', distinct=True))
         }
         res = []
         for subject in subjects:
             grades_data = []
             for g in range(1, 12):
+                count_row = counts.get(
+                    (subject.id, g),
+                    {'task_count': 0, 'topic_count': 0},
+                )
+                task_count = count_row['task_count']
+                topic_count = count_row['topic_count']
                 grades_data.append({
                     'grade': g,
-                    'task_count': counts.get((subject.id, g), 0),
+                    # Поля ниже — публичный контракт страницы «Курсы».
+                    'title': f'{g} класс',
+                    'badge': 'Доступно' if task_count else 'Скоро',
+                    'available': task_count > 0,
+                    'tasks': task_count,
+                    'topics': topic_count,
+                    # Оставляем прежнее имя для обратной совместимости API.
+                    'task_count': task_count,
                     'hint': grade_hints.get(g, ''),
                 })
             res.append({
@@ -89,4 +102,13 @@ class CatalogView(APIView):
                 'slug': subject.slug,
                 'grades': grades_data,
             })
-        return Response({'subjects': res})
+        return Response({
+            'items': res,
+            # Старые клиенты использовали subjects, не ломаем их.
+            'subjects': res,
+            'how_it_works': [
+                'Выбери предмет и класс.',
+                'Классы с заданиями можно открыть сразу.',
+                'После выбора практика подстроится под новый класс.',
+            ],
+        })
