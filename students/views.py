@@ -595,7 +595,7 @@ class DashboardView(APIView):
 
             # Разбивка по разделам предмета
             sections = []
-            for sec in Section.objects.filter(exam_track_id=student.exam_track_id, is_active=True):
+            for sec in Section.objects.filter(exam_track_id=student.exam_track_id):
                 topics = TopicMastery.objects.filter(student=student, topic__section=sec)
                 t_count = topics.count()
                 avg_mastery = 0

@@ -41,6 +41,9 @@ services:
       REDIS_URL: redis://tutor_redis:6379/0
     ports:
       - "0.0.0.0:8005:8005"
+    volumes:
+      - ./static:/app/static
+      - ./media:/app/media
     depends_on:
       tutor_db:
         condition: service_healthy

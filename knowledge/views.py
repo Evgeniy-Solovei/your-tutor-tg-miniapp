@@ -65,8 +65,7 @@ class CatalogView(APIView):
             for g in range(1, 12):
                 cnt = await Task.objects.filter(
                     topic__subject=subject,
-                    grade_from__lte=g,
-                    grade_to__gte=g,
+                    topic__grade_level=g,
                     is_active=True,
                 ).acount()
                 grades_data.append({
