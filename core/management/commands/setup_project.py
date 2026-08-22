@@ -17,6 +17,5 @@ class Command(BaseCommand):
         call_command('seed_exam_tracks')
         call_command('import_geo_belarus')
         call_command('enrich_summaries')
-        if options.get('with_bank'):
-            call_command('import_rikz_bank', clear=True)
+        call_command('import_rikz_bank')
         self.stdout.write(self.style.SUCCESS('setup_project завершён'))
