@@ -55,6 +55,10 @@ class SubmitAnswerView(APIView):
     @extend_schema(request={'application/json': {'type': 'object', 'properties': {
         'session_task_id': {'type': 'integer'},
         'answer_text': {'type': 'string'},
+        'selected_option_ids': {
+            'type': 'array',
+            'items': {'type': 'integer'},
+        },
     }}})
     async def post(self, request, tg_id: int):
         student, err = await aget_student_by_tg(request, tg_id)
@@ -66,7 +70,7 @@ class SubmitAnswerView(APIView):
             return Response({'detail': reason}, status=status.HTTP_403_FORBIDDEN)
 
         session_task_id = request.data.get('session_task_id')
-        answer_text = request.data.get('answer_text', '').strip()
+        answer_text = str(request.data.get('answer_text', '') or '').strip()
         if not session_task_id or not answer_text:
             return Response({'detail': 'session_task_id и answer_text обязательны'}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -76,6 +80,37 @@ class SubmitAnswerView(APIView):
         )
         if session_task.is_answered:
             return Response({'detail': 'Задание уже выполнено'}, status=status.HTTP_400_BAD_REQUEST)
+
+        task = session_task.task
+        options = []
+        if task.answer_format in (
+            task.AnswerFormat.SINGLE_CHOICE,
+            task.AnswerFormat.MULTIPLE_CHOICE,
+        ):
+            options = [
+                option
+                async for option in TaskOption.objects.filter(task_id=task.id).order_by('order', 'id')
+            ]
+
+            raw_selected_ids = request.data.get('selected_option_ids') or []
+            if raw_selected_ids:
+                try:
+                    selected_ids = {int(value) for value in raw_selected_ids}
+                except (TypeError, ValueError):
+                    return Response(
+                        {'detail': 'selected_option_ids должен содержать ID вариантов'},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+                selected_options = [option for option in options if option.id in selected_ids]
+                if len(selected_options) != len(selected_ids):
+                    return Response(
+                        {'detail': 'Выбран вариант не из этого задания'},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+                answer_text = ','.join(
+                    str(option.order) if option.order else option.text
+                    for option in selected_options
+                )
 
         attempt = await submit_answer(student, session_task, answer_text)
         can_ai, use_llm, ai_reason = await student_can_request_ai(student)
@@ -102,15 +137,23 @@ class SubmitAnswerView(APIView):
                 from knowledge.models import TaskSolution
 
                 solution = await TaskSolution.objects.aget(task_id=session_task.task_id)
-                answer = solution.correct_answer or ''
+                correct_option_texts = [option.text for option in options if option.is_correct]
+                answer = (
+                    '; '.join(correct_option_texts)
+                    if correct_option_texts
+                    else solution.correct_answer or ''
+                )
                 if len(answer.split()) > 80:
                     response['hint'] = 'Эталон длинный — открой разбор, если нужна помощь.'
                     response['show_etalon'] = False
                 else:
                     response['correct_answer'] = answer
                     response['show_etalon'] = True
-            except Exception:
-                pass
+            except TaskSolution.DoesNotExist:
+                correct_option_texts = [option.text for option in options if option.is_correct]
+                if correct_option_texts:
+                    response['correct_answer'] = '; '.join(correct_option_texts)
+                    response['show_etalon'] = True
 
         return Response(response)
 

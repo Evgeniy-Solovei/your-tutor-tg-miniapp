@@ -82,12 +82,13 @@ export const api = {
     if (extra.school_id) params.set('school_id', String(extra.school_id));
     return request(`/leaderboard/?${params}`);
   },
-  submit: (tgId, sessionTaskId, answerText) =>
+  submit: (tgId, sessionTaskId, answerText, selectedOptionIds = []) =>
     request(`/submit-answer/${tgId}/`, {
       method: 'POST',
       body: JSON.stringify({
         session_task_id: sessionTaskId,
         answer_text: answerText,
+        selected_option_ids: selectedOptionIds,
       }),
     }),
   explain: (tgId, sessionTaskId) =>

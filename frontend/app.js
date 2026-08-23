@@ -596,7 +596,11 @@ function renderPractice() {
             ? `<textarea class="input" id="free-answer" rows="8" placeholder="${task.is_izlozhenie ? 'Напиши подробное изложение…' : 'Напиши ответ…'}">${esc(state.answerText)}</textarea>`
             : `<input class="input" id="free-answer" placeholder="Введи ответ" value="${esc(state.answerText)}" />`)
       }
-      <button class="btn block" data-action="submit" ${state.loading ? 'disabled' : ''}>Ответить</button>
+      ${
+        state.feedback
+          ? ''
+          : `<button class="btn block" data-action="submit" ${state.loading ? 'disabled' : ''}>Ответить</button>`
+      }
       ${
         state.feedback
           ? `<p class="${state.feedback.is_correct ? 'ok' : 'bad'}" style="margin-top:12px">
@@ -613,7 +617,7 @@ function renderPractice() {
                   : ''
               }
               ${state.feedback.hint ? `<br>${esc(state.feedback.hint)}` : ''}
-              ${state.feedback.correct_answer ? `<br>Эталон: ${esc(state.feedback.correct_answer)}` : ''}
+              ${state.feedback.correct_answer ? `<br><strong>Правильный ответ: ${esc(state.feedback.correct_answer)}</strong>` : ''}
             </p>
             ${
               state.feedback.can_request_ai
@@ -1367,17 +1371,17 @@ async function submitAnswer() {
   if (!id || !task) return;
 
   let answer = state.answerText.trim();
+  let selectedOptionIds = [];
   if (task.options?.length) {
     const orders = [...state.selected]
       .map((x) => Number(x))
       .filter(Boolean)
       .sort((a, b) => a - b);
-    // selected stores option ids; map to order by clicking dataset
-    const chosenOrders = [];
-    document.querySelectorAll('.option.selected').forEach((el) => {
-      chosenOrders.push(el.dataset.order);
-    });
-    answer = chosenOrders.sort((a, b) => Number(a) - Number(b)).join(',');
+    selectedOptionIds = orders
+      .map((order) => task.options[order - 1]?.id)
+      .filter((id) => Number.isInteger(Number(id)))
+      .map(Number);
+    answer = orders.join(',');
   }
   if (!answer) {
     toast('Выбери или введи ответ');
@@ -1387,7 +1391,12 @@ async function submitAnswer() {
   state.loading = true;
   render();
   try {
-    state.feedback = await api.submit(id, task.session_task_id, answer);
+    state.feedback = await api.submit(
+      id,
+      task.session_task_id,
+      answer,
+      selectedOptionIds,
+    );
     toast(state.feedback.is_correct ? 'Верно' : 'Есть ошибки');
   } catch (e) {
     toast(e.message);

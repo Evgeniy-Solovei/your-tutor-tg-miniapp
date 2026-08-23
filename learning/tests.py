@@ -1,8 +1,97 @@
-from django.test import TestCase
+import json
+import datetime
+
+from django.test import TestCase, override_settings
+from django.utils import timezone
 from students.models import Student
-from knowledge.models import Subject, Topic, Task, ExamVariant, VariantTask, ExamTrack, Section, ContentVersion, ExamCollection, TaskSolution
+from knowledge.models import Subject, Topic, Task, TaskOption, ExamVariant, VariantTask, ExamTrack, Section, ContentVersion, ExamCollection, TaskSolution
 from learning.models import DailySession, SessionTask
 from learning.services import create_exam_simulator_session, submit_exam_simulator
+
+
+@override_settings(DEBUG=True, TELEGRAM_AUTH_BYPASS=True, SECURE_SSL_REDIRECT=False)
+class SubmitChoiceAnswerApiTests(TestCase):
+    def setUp(self):
+        subject = Subject.objects.create(name='Русский язык', slug='choice-answer-ru')
+        track = ExamTrack.objects.create(
+            subject=subject,
+            name='Школьная программа',
+            track_type=ExamTrack.TrackType.GENERAL,
+        )
+        version = ContentVersion.objects.create(subject=subject, year=2026, title='2026')
+        section = Section.objects.create(
+            exam_track=track,
+            content_version=version,
+            name='Слоги',
+        )
+        topic = Topic.objects.create(section=section, name='Слоги', grade_level=1)
+        self.student = Student.objects.create(
+            tg_id=445566,
+            display_name='Ученик',
+            grade=1,
+            subject=subject,
+            exam_track=track,
+            goal=Student.Goal.IMPROVE,
+            registration_completed=True,
+        )
+        self.task = Task.objects.create(
+            topic=topic,
+            question='Сколько слогов в слове «мама»?',
+            answer_format=Task.AnswerFormat.SINGLE_CHOICE,
+            scoring_scheme=Task.ScoringScheme.BINARY_1,
+        )
+        self.correct_option = TaskOption.objects.create(
+            task=self.task,
+            text='2',
+            is_correct=True,
+            order=1,
+        )
+        self.wrong_option = TaskOption.objects.create(
+            task=self.task,
+            text='1',
+            is_correct=False,
+            order=2,
+        )
+        TaskSolution.objects.create(
+            task=self.task,
+            correct_answer='1',
+            explanation='ма-ма — два слога.',
+        )
+
+    def make_session_task(self):
+        session = DailySession.objects.create(
+            student=self.student,
+            session_date=timezone.localdate(),
+            kind=DailySession.Kind.TRAIN,
+            status=DailySession.Status.IN_PROGRESS,
+            tasks_total=1,
+        )
+        return SessionTask.objects.create(session=session, task=self.task, order=1)
+
+    def submit(self, session_task, option, misleading_answer):
+        return self.client.post(
+            f'/api/tutor/submit-answer/{self.student.tg_id}/',
+            data=json.dumps({
+                'session_task_id': session_task.id,
+                'answer_text': misleading_answer,
+                'selected_option_ids': [option.id],
+            }),
+            content_type='application/json',
+            HTTP_TELEGRAM_DEV_USER=str(self.student.tg_id),
+        )
+
+    def test_selected_option_id_is_used_for_grading(self):
+        response = self.submit(self.make_session_task(), self.correct_option, '2')
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.json()['is_correct'])
+
+    def test_wrong_answer_returns_human_readable_correct_option(self):
+        response = self.submit(self.make_session_task(), self.wrong_option, '1')
+
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(response.json()['is_correct'])
+        self.assertEqual(response.json()['correct_answer'], '2')
 
 
 class ExamSimulatorTestCase(TestCase):
@@ -110,8 +199,6 @@ class ExamSimulatorTestCase(TestCase):
 
 from learning.models import WeeklyLeague
 from students.models import PaymentOrder
-from django.utils import timezone
-import datetime
 
 
 class NewFeaturesTestCase(TestCase):
@@ -172,4 +259,3 @@ class NewFeaturesTestCase(TestCase):
         self.student.save()
 
         self.assertTrue(self.student.has_active_pro)
-

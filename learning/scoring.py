@@ -117,17 +117,23 @@ async def grade_task_answer(task: Task, answer_text: str) -> tuple[bool, int, in
 
     # Также принимаем ответ текстом варианта
     if student_set and correct_set:
-        # если ученик ответил текстом опций — сопоставим с order
+        # Сначала трактуем числа как номера вариантов. Это принципиально для
+        # вариантов с числовым текстом: у первого варианта может быть текст
+        # «2», а у второго — «1». Раньше канонический ответ «1» ошибочно
+        # воспринимался как текст второго варианта и превращался в «2».
         option_map = {}
         options = getattr(task, '_prefetched_objects_cache', {}).get('options')
         if options is None:
             options = [opt async for opt in TaskOption.objects.filter(task_id=task.id)]
+        order_tokens = {
+            str(opt.order)
+            for opt in options
+            if opt.order
+        }
         for opt in options:
             option_map[normalize_answer(opt.text)] = str(opt.order) if opt.order else normalize_answer(opt.text)
-        mapped = set()
-        for token in student_set:
-            mapped.add(option_map.get(token, token))
-        student_set = mapped
+        if not student_set.issubset(order_tokens):
+            student_set = {option_map.get(token, token) for token in student_set}
 
     points = points_from_sets(student_set, correct_set, scheme)
     is_correct = points == max_points and max_points > 0
