@@ -93,6 +93,19 @@ class SubmitChoiceAnswerApiTests(TestCase):
         self.assertFalse(response.json()['is_correct'])
         self.assertEqual(response.json()['correct_answer'], '2')
 
+    def test_options_contain_id_text_and_order(self):
+        st = self.make_session_task()
+        st.task._prefetched_objects_cache = {'options': [self.correct_option, self.wrong_option]}
+        from learning.views import serialize_current_task
+        import asyncio
+        serialized = asyncio.run(serialize_current_task(st))
+        self.assertEqual(len(serialized['options']), 2)
+        opt_ids = {opt['id'] for opt in serialized['options']}
+        self.assertEqual(opt_ids, {self.correct_option.id, self.wrong_option.id})
+        for opt in serialized['options']:
+            self.assertIn('order', opt)
+            self.assertIn('text', opt)
+
 
 class ExamSimulatorTestCase(TestCase):
     def setUp(self):
@@ -259,3 +272,176 @@ class NewFeaturesTestCase(TestCase):
         self.student.save()
 
         self.assertTrue(self.student.has_active_pro)
+
+
+@override_settings(DEBUG=True, TELEGRAM_AUTH_BYPASS=True, SECURE_SSL_REDIRECT=False)
+class TrainSessionModesTests(TestCase):
+    def setUp(self):
+        self.subject = Subject.objects.create(name='Русский язык', slug='modes-ru')
+        self.track = ExamTrack.objects.create(
+            subject=self.subject,
+            name='ЦТ и ЦЭ',
+            track_type=ExamTrack.TrackType.CT_11,
+        )
+        self.track_school = ExamTrack.objects.create(
+            subject=self.subject,
+            name='Школа',
+            track_type=ExamTrack.TrackType.GENERAL,
+        )
+        version = ContentVersion.objects.create(subject=self.subject, year=2026, title='2026')
+        section11 = Section.objects.create(exam_track=self.track, content_version=version, name='Тесты 11')
+        section9 = Section.objects.create(exam_track=self.track_school, content_version=version, name='Тесты 9')
+        self.topic11 = Topic.objects.create(section=section11, name='Орфография', grade_level=11)
+        self.topic9 = Topic.objects.create(section=section9, name='Синтаксис 9', grade_level=9)
+
+        # 11 grade Part A (choice)
+        self.task_a = Task.objects.create(
+            topic=self.topic11,
+            question='Вопрос части А',
+            answer_format=Task.AnswerFormat.SINGLE_CHOICE,
+            source='РИКЗ',
+        )
+        TaskOption.objects.create(task=self.task_a, text='Вариант 1', is_correct=True, order=1)
+        TaskSolution.objects.create(task=self.task_a, correct_answer='1')
+
+        # 11 grade Part B (open text)
+        self.task_b = Task.objects.create(
+            topic=self.topic11,
+            question='Вопрос части Б [В1]',
+            answer_format=Task.AnswerFormat.TEXT,
+            source='РИКЗ',
+        )
+        TaskSolution.objects.create(task=self.task_b, correct_answer='приставка')
+
+        # 9 grade school task
+        self.task_9_school = Task.objects.create(
+            topic=self.topic9,
+            question='Школьное задание 9 класс',
+            answer_format=Task.AnswerFormat.SINGLE_CHOICE,
+            source='Учебник 9 класс',
+        )
+        TaskOption.objects.create(task=self.task_9_school, text='Ответ', is_correct=True, order=1)
+        TaskSolution.objects.create(task=self.task_9_school, correct_answer='1')
+
+        # 9 grade izlozhenie
+        self.task_9_izlo = Task.objects.create(
+            topic=self.topic9,
+            question='Текст изложения',
+            answer_format=Task.AnswerFormat.TEXT,
+            source='Сборник изложений для экзамена',
+        )
+        TaskSolution.objects.create(task=self.task_9_izlo, correct_answer='Текст')
+
+        self.student = Student.objects.create(
+            tg_id=778899,
+            display_name='Абитуриент',
+            grade=11,
+            subject=self.subject,
+            exam_track=self.track,
+            registration_completed=True,
+        )
+
+    def test_post_daily_session_part_a(self):
+        res = self.client.post(
+            f'/api/tutor/daily-session/{self.student.tg_id}/',
+            data=json.dumps({'mode': 'part_a', 'grade': 11}),
+            content_type='application/json',
+            HTTP_TELEGRAM_DEV_USER=str(self.student.tg_id),
+        )
+        self.assertEqual(res.status_code, 200)
+        data = res.json()
+        self.assertTrue(data['can_practice'])
+        self.assertTrue(data['content_available'])
+        self.assertEqual(data['current_task']['answer_format'], 'single_choice')
+
+    def test_post_daily_session_part_b(self):
+        res = self.client.post(
+            f'/api/tutor/daily-session/{self.student.tg_id}/',
+            data=json.dumps({'mode': 'part_b', 'grade': 11}),
+            content_type='application/json',
+            HTTP_TELEGRAM_DEV_USER=str(self.student.tg_id),
+        )
+        self.assertEqual(res.status_code, 200)
+        data = res.json()
+        self.assertTrue(data['can_practice'])
+        self.assertTrue(data['content_available'])
+        self.assertEqual(data['current_task']['answer_format'], 'text')
+        self.assertIn('[В1]', data['current_task']['question'])
+
+    def test_grade_curriculum_extra_stats(self):
+        # 11 grade stats
+        res11 = self.client.get(
+            '/api/tutor/knowledge/grade/11/',
+            HTTP_TELEGRAM_DEV_USER=str(self.student.tg_id),
+        )
+        self.assertEqual(res11.status_code, 200)
+        d11 = res11.json()
+        self.assertTrue(d11.get('has_ct_ce'))
+        self.assertEqual(d11.get('part_a_count'), 1)
+        self.assertEqual(d11.get('part_b_count'), 1)
+
+        # 9 grade stats
+        res9 = self.client.get(
+            '/api/tutor/knowledge/grade/9/',
+            HTTP_TELEGRAM_DEV_USER=str(self.student.tg_id),
+        )
+        self.assertEqual(res9.status_code, 200)
+        d9 = res9.json()
+        self.assertTrue(d9.get('has_izlozheniya'))
+        self.assertEqual(d9.get('izlozheniya_count'), 1)
+        self.assertEqual(d9.get('school_tasks_count'), 1)
+        self.assertTrue(len(d9.get('collections', [])) > 0)
+
+    def test_grade_1_has_no_extra_materials(self):
+        res = self.client.get(
+            '/api/tutor/knowledge/grade/1/',
+            HTTP_TELEGRAM_DEV_USER=str(self.student.tg_id),
+        )
+        self.assertEqual(res.status_code, 200)
+        data = res.json()
+        self.assertFalse(data.get('has_extra_materials'))
+        self.assertEqual(len(data.get('collections', [])), 0)
+
+    def test_grade_11_available_years(self):
+        res = self.client.get(
+            '/api/tutor/knowledge/grade/11/',
+            HTTP_TELEGRAM_DEV_USER=str(self.student.tg_id),
+        )
+        self.assertEqual(res.status_code, 200)
+        data = res.json()
+        self.assertIn('available_years', data)
+        self.assertTrue(len(data['available_years']) > 0)
+        self.assertTrue(len(data.get('collections', [])) > 0)
+        self.assertTrue(data.get('has_extra_materials'))
+
+    def test_post_daily_session_with_year(self):
+        # We set task_a source to 'ЦТ 2024 Вариант 1'
+        self.task_a.source = 'ЦТ 2024 Вариант 1'
+        self.task_a.save()
+
+        res = self.client.post(
+            f'/api/tutor/daily-session/{self.student.tg_id}/',
+            data=json.dumps({'mode': 'part_a', 'grade': 11, 'year': 2024}),
+            content_type='application/json',
+            HTTP_TELEGRAM_DEV_USER=str(self.student.tg_id),
+        )
+        self.assertEqual(res.status_code, 200)
+        data = res.json()
+        self.assertTrue(data['can_practice'])
+        self.assertTrue(data['content_available'])
+        self.assertIn('2024', data['current_task']['source'])
+
+    def test_exam_start_with_year(self):
+        self.task_a.source = 'ЦТ 2024'
+        self.task_a.save()
+
+        res = self.client.post(
+            f'/api/tutor/exam/{self.student.tg_id}/start/',
+            data=json.dumps({'year': 2024}),
+            content_type='application/json',
+            HTTP_TELEGRAM_DEV_USER=str(self.student.tg_id),
+        )
+        self.assertEqual(res.status_code, 200)
+        data = res.json()
+        self.assertIn('session_id', data)
+        self.assertTrue(len(data['tasks']) > 0)

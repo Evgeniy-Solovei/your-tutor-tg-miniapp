@@ -208,3 +208,6 @@ class ProfileUpdateView(APIView):
         serializer = StudentSerializer(student)
         data = await serializer.adata
         return Response(data)
+
+    async def patch(self, request):
+        return await self.post(request)

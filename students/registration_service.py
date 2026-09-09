@@ -121,6 +121,8 @@ def validate_registration_payload(data: dict, *, require_geo: bool = True) -> di
         raise ValueError('Класс: от 1 до 11')
 
     goal = (data.get('goal') or '').strip()
+    if goal in ('school', 'general', 'improve_grades'):
+        goal = Student.Goal.IMPROVE
     allowed_goals = GOALS_BY_GRADE.get(grade, VALID_GOALS)
     if goal not in VALID_GOALS:
         raise ValueError('Выбери цель подготовки')
@@ -189,7 +191,25 @@ async def register_or_update_student(
     require_geo: bool = True,
 ) -> Student:
     """Создать/обновить ученика и отметить регистрацию завершённой."""
-    clean = validate_registration_payload(payload, require_geo=require_geo)
+    existing_student = await Student.objects.filter(tg_id=tg_id).afirst()
+    merged_payload = dict(payload or {})
+    if existing_student:
+        if not merged_payload.get('display_name'):
+            merged_payload['display_name'] = existing_student.display_name or username or f'Ученик {tg_id}'
+        if not merged_payload.get('grade'):
+            merged_payload['grade'] = existing_student.grade or 11
+        if not merged_payload.get('goal'):
+            merged_payload['goal'] = existing_student.goal or 'school'
+        if 'city_id' not in merged_payload and existing_student.city_id:
+            merged_payload['city_id'] = existing_student.city_id
+        if 'school_id' not in merged_payload and existing_student.school_id:
+            merged_payload['school_id'] = existing_student.school_id
+        if 'subject_id' not in merged_payload and existing_student.subject_id:
+            merged_payload['subject_id'] = existing_student.subject_id
+        if 'exam_track_id' not in merged_payload and existing_student.exam_track_id:
+            merged_payload['exam_track_id'] = existing_student.exam_track_id
+
+    clean = validate_registration_payload(merged_payload, require_geo=require_geo and not existing_student)
     subject, track = await resolve_subject_and_track(
         clean['grade'],
         subject_id=clean['subject_id'],
@@ -223,18 +243,22 @@ async def register_or_update_student(
         if not await City.objects.filter(id=city_id, is_active=True).aexists():
             raise ValueError('Выбранный город не найден')
 
+    defaults = {
+        'username': username or (existing_student.username if existing_student else '') or '',
+        'display_name': clean['display_name'],
+        'grade': clean['grade'],
+        'goal': clean['goal'],
+        'subject_id': subject.id,
+        'exam_track_id': track.id,
+        'city_id': city_id,
+        'school_id': school_id,
+        'registration_completed': True,
+    }
+    if 'notifications_enabled' in payload:
+        defaults['notifications_enabled'] = bool(payload['notifications_enabled'])
+
     student, _ = await Student.objects.aupdate_or_create(
         tg_id=tg_id,
-        defaults={
-            'username': username or '',
-            'display_name': clean['display_name'],
-            'grade': clean['grade'],
-            'goal': clean['goal'],
-            'subject_id': subject.id,
-            'exam_track_id': track.id,
-            'city_id': city_id,
-            'school_id': school_id,
-            'registration_completed': True,
-        },
+        defaults=defaults,
     )
     return student

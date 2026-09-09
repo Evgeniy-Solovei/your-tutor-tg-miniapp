@@ -73,13 +73,17 @@ async def explain_mistake(attempt: TaskAttempt, *, use_llm: bool = True) -> str:
     use_llm=False: понятный разбор по эталону базы.
     """
     task = attempt.task
-    student_grade = attempt.student.grade if hasattr(attempt, 'student') and attempt.student else None
+    student_grade = None
+    if hasattr(attempt, '_state') and 'student' in getattr(attempt._state, 'fields_cache', {}):
+        student = attempt._state.fields_cache['student']
+        student_grade = student.grade if student else None
 
-    solution = None
-    try:
-        solution = await TaskSolution.objects.aget(task_id=task.id)
-    except TaskSolution.DoesNotExist:
-        pass
+    solution = getattr(task, '_state', None) and task._state.fields_cache.get('solution')
+    if solution is None:
+        try:
+            solution = await TaskSolution.objects.aget(task_id=task.id)
+        except TaskSolution.DoesNotExist:
+            solution = None
 
     correct_answer = solution.correct_answer if solution else ''
     solution_explanation = solution.explanation if solution else ''

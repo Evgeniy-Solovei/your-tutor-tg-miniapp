@@ -40,6 +40,10 @@ const state = {
   izloQuery: '',
   catalog: null,
   coursesSubjectId: null,
+  selectedGradeCurriculum: null,
+  gradeTab: 'school',
+  selectedExamYear: null,
+  showRuleModal: false,
   exam: null,
   examTimer: null,
 };
@@ -51,6 +55,16 @@ function formatDate(iso) {
   if (!iso) return '—';
   const [y, m, d] = iso.slice(0, 10).split('-');
   return `${d}.${m}.${y}`;
+}
+
+function shuffleArray(arr) {
+  if (!Array.isArray(arr) || arr.length <= 1) return arr;
+  const copy = [...arr];
+  for (let i = copy.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [copy[i], copy[j]] = [copy[j], copy[i]];
+  }
+  return copy;
 }
 
 const view = () => document.getElementById('view');
@@ -225,6 +239,9 @@ async function loadForRoute() {
     }
     if (state.route === 'practice' || state.route === 'home') {
       state.daily = await api.daily(id);
+      if (state.daily?.current_task?.options) {
+        state.daily.current_task.options = shuffleArray(state.daily.current_task.options);
+      }
       state.selected = new Set();
       state.answerText = '';
       state.feedback = null;
@@ -269,13 +286,16 @@ function goalForGradeSwitch(grade, currentGoal) {
   return 'ct';
 }
 
-async function loadRating(scope, period) {
+async function loadRating(scope, period, grade) {
   if (scope) state.ratingScope = scope;
   if (period) state.ratingPeriod = period;
+  if (grade !== undefined) state.ratingGrade = grade ? Number(grade) : null;
   const s = state.ratingScope || 'country';
   const p = state.ratingPeriod || 'week';
+  const g = state.ratingScope === 'grade' ? (state.ratingGrade || (state.me?.grade ? Number(state.me.grade) : null)) : null;
   state.rating = await api.leaderboard(s, {
     period: p,
+    grade: g,
     city_id: state.me?.city || state.me?.filters?.city_id,
     school_id: state.me?.school || state.me?.filters?.school_id,
   });
@@ -438,7 +458,237 @@ function renderHome() {
   `;
 }
 
+function renderGradeCurriculum() {
+  const cur = state.selectedGradeCurriculum;
+  if (!cur) return '';
+  const myGrade = Number(state.me?.grade) || null;
+  const isMyGrade = myGrade === cur.grade;
+
+  const sectionsHtml = (cur.sections || []).map((sec) => {
+    const topicsHtml = (sec.topics || []).map((top) => {
+      const mastery = top.mastery_score || 0;
+      const tasks = top.task_count || 0;
+      return `
+        <div class="curriculum-topic-card" style="background:var(--bg-secondary); border-radius:12px; padding:12px; margin-bottom:10px">
+          <div style="display:flex; align-items:center; justify-content:space-between">
+            <strong style="font-size:0.95rem">📌 ${esc(top.name)}</strong>
+            <span class="chip ${mastery >= 70 ? 'active' : ''}" style="font-size:0.75rem">
+              ${tasks > 0 ? `${mastery}% освоено · ${tasks} зад.` : 'скоро'}
+            </span>
+          </div>
+          ${top.has_summary && top.summary_key_points ? `
+            <div style="font-size:0.82rem; color:var(--muted); margin-top:6px">
+              💡 <strong>Правило:</strong> ${esc(top.summary_key_points.slice(0, 110))}${top.summary_key_points.length > 110 ? '…' : ''}
+            </div>
+          ` : ''}
+          <div style="margin-top:10px">
+            ${tasks > 0 ? `
+              <button type="button" class="btn block secondary small"
+                data-action="start-topic-practice"
+                data-topic="${top.id}"
+                data-grade="${cur.grade}">
+                ⚡ Тренировать тему
+              </button>
+            ` : `
+              <button type="button" class="btn block secondary small" disabled style="opacity:0.6">Материалы пополняются</button>
+            `}
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    return `
+      <section class="card" style="margin-bottom:12px">
+        <h2 style="font-size:1.05rem; margin-bottom:10px">📖 ${esc(sec.name)}</h2>
+        <div class="curriculum-topics-list">
+          ${topicsHtml}
+        </div>
+      </section>
+    `;
+  }).join('');
+
+  const hasExtra = Boolean(
+    cur.has_extra_materials ||
+    cur.has_ct_ce ||
+    cur.has_izlozheniya ||
+    (cur.collections && cur.collections.length > 0)
+  );
+
+  const currentTab = hasExtra ? (state.gradeTab || 'school') : 'school';
+
+  const tabSwitcherHtml = hasExtra ? `
+    <div class="period-row" style="margin-bottom:12px; display:flex; gap:8px">
+      <button type="button" class="period-chip ${currentTab !== 'collections' ? 'active' : ''}" data-action="set-grade-tab" data-tab="school" style="flex:1; text-align:center">
+        📚 Школьная программа
+      </button>
+      <button type="button" class="period-chip ${currentTab === 'collections' ? 'active' : ''}" data-action="set-grade-tab" data-tab="collections" style="flex:1; text-align:center">
+        📦 Сборники и практикумы
+      </button>
+    </div>
+  ` : '';
+
+  let contentHtml = '';
+
+  if (currentTab !== 'collections') {
+    // 📚 Школьная программа по учебнику
+    contentHtml = `
+      <section class="card" style="margin-bottom:12px">
+        <button type="button" class="btn block primary" data-action="start-grade-mix-practice" data-grade="${cur.grade}">
+          🎯 Тренировать ${cur.grade} класс (${cur.school_tasks_count || cur.total_tasks} заданий · микс тем учебника)
+        </button>
+      </section>
+      ${sectionsHtml || '<section class="card"><p class="muted">В этом классе темы ещё формируются.</p></section>'}
+    `;
+  } else {
+    // 📦 Вкладка: Сборники и спецматериалы
+    if (cur.grade === 11) {
+      const selYear = state.selectedExamYear;
+      const yData = (cur.available_years || []).find((y) => y.year === selYear);
+      const yearLabel = selYear ? `${selYear} год` : 'Все годы (2003–2025)';
+      const totalCnt = yData ? yData.total_tasks : (cur.total_tasks || 13345);
+      const partACnt = yData ? yData.part_a_count : (cur.part_a_count || 9631);
+      const partBCnt = yData ? yData.part_b_count : (cur.part_b_count || 3714);
+      const varCnt = yData ? yData.variants_count : 224;
+
+      contentHtml = `
+        <section class="card" style="margin-bottom:12px; border-left: 4px solid var(--accent, #6366f1)">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px">
+            <h2 style="font-size:1.1rem; margin:0">🎓 Банк заданий ЦТ и ЦЭ (РИКЗ 2003–2025)</h2>
+            <span class="chip active">13 345 заданий</span>
+          </div>
+          <p class="muted" style="margin-bottom:12px; font-size:0.9rem">
+            Выбирай официальный год тестирования РИКЗ или тренируйся по общему банку:
+          </p>
+
+          <div style="margin-bottom:14px">
+            <div class="muted small" style="margin-bottom:6px; font-weight:600">📅 Год тестирования:</div>
+            <div class="period-row" style="overflow-x:auto; padding-bottom:6px; display:flex; gap:6px">
+              <button type="button" class="period-chip ${!state.selectedExamYear ? 'active' : ''}" data-action="select-exam-year" data-year="">
+                Все годы
+              </button>
+              ${(cur.available_years || []).map((y) => `
+                <button type="button" class="period-chip ${state.selectedExamYear === y.year ? 'active' : ''}" data-action="select-exam-year" data-year="${y.year}">
+                  ${y.year}
+                </button>
+              `).join('')}
+            </div>
+          </div>
+
+          <div style="background:var(--bg-glass, rgba(255,255,255,0.05)); border-radius:8px; padding:10px; margin-bottom:12px">
+            <div style="display:flex; justify-content:space-between; margin-bottom:4px">
+              <strong>✨ ${yearLabel}</strong>
+              <span class="muted small">${varCnt} вариантов</span>
+            </div>
+            <div class="muted small">${totalCnt} заданий: ${partACnt} тестов Части А и ${partBCnt} открытых заданий Части Б</div>
+          </div>
+
+          <div style="display:flex; flex-direction:column; gap:8px">
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px">
+              <button type="button" class="btn primary" data-action="start-mode-practice" data-grade="11" data-mode="part_a" ${selYear ? `data-year="${selYear}"` : ''}>
+                🔘 Часть А (${partACnt})
+              </button>
+              <button type="button" class="btn secondary" data-action="start-mode-practice" data-grade="11" data-mode="part_b" ${selYear ? `data-year="${selYear}"` : ''}>
+                ✍️ Часть Б (${partBCnt})
+              </button>
+            </div>
+            <button type="button" class="btn block" data-action="start-exam" ${selYear ? `data-year="${selYear}"` : ''} style="background:linear-gradient(135deg, #10b981, #059669); color:#fff">
+              ⏱️ Симулятор ЦТ/ЦЭ ${selYear ? `(${selYear} год)` : ''} (40 заданий · 180 мин)
+            </button>
+          </div>
+        </section>
+
+        <section class="card" style="margin-bottom:12px">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px">
+            <h2 style="font-size:1.05rem; margin:0">📚 Сборники «ЦТ за 60 уроков» (Аверсэв)</h2>
+            <span class="chip" style="opacity:0.7">Пополняется</span>
+          </div>
+          <p class="muted small" style="margin:0">Тематические тренажёры интенсивного повторения и систематизации правил перед экзаменом.</p>
+        </section>
+      `;
+    } else if (cur.grade === 9) {
+      contentHtml = `
+        <section class="card" style="margin-bottom:12px; border-left: 4px solid var(--accent, #6366f1)">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px">
+            <h2 style="font-size:1.1rem; margin:0">📖 Экзаменационные изложения (НИО)</h2>
+            <span class="chip active">${cur.izlozheniya_count || 166} текстов</span>
+          </div>
+          <p class="muted" style="margin-bottom:12px; font-size:0.9rem">
+            Официальный сборник материалов Министерства образования РБ для выпускного экзамена за 9 класс:
+          </p>
+          <div style="display:flex; flex-direction:column; gap:8px">
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px">
+              <button type="button" class="btn primary" data-action="izlo-catalog">
+                📖 Каталог текстов
+              </button>
+              <button type="button" class="btn secondary" data-action="izlo-random">
+                🎲 Случайный текст
+              </button>
+            </div>
+            <button type="button" class="btn block secondary small" data-action="start-mode-practice" data-grade="9" data-mode="izlozhenie">
+              ⚡ Экспресс-тренинг по изложениям
+            </button>
+          </div>
+        </section>
+
+        <section class="card" style="margin-bottom:12px">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px">
+            <h2 style="font-size:1.05rem; margin:0">✍️ Сборник экзаменационных диктантов 9 класса</h2>
+            <span class="chip" style="opacity:0.7">Пополняется</span>
+          </div>
+          <p class="muted small" style="margin:0">Тексты контрольных диктантов и грамматические задания для итоговой аттестации.</p>
+        </section>
+      `;
+    } else {
+      const cols = cur.collections || [];
+      contentHtml = cols.map((col) => `
+        <section class="card" style="margin-bottom:12px">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px">
+            <h2 style="font-size:1.05rem; margin:0">${esc(col.title)}</h2>
+            <span class="chip ${col.status === 'available' ? 'active' : ''}" style="${col.status !== 'available' ? 'opacity:0.7' : ''}">
+              ${esc(col.badge || (col.status === 'available' ? 'Доступен' : 'Скоро'))}
+            </span>
+          </div>
+          <p class="muted small" style="margin-bottom:10px">${esc(col.description)}</p>
+          ${col.status === 'available' && col.tasks_count > 0 ? `
+            <button type="button" class="btn block primary small" data-action="start-mode-practice" data-grade="${cur.grade}" data-mode="school">
+              ⚡ Тренировать сборник (${col.tasks_count} заданий)
+            </button>
+          ` : `
+            <button type="button" class="btn block secondary small" disabled style="opacity:0.6">
+              Материалы сборника пополняются методистами
+            </button>
+          `}
+        </section>
+      `).join('');
+      if (!contentHtml) {
+        contentHtml = '<section class="card"><p class="muted">Сборники для этого класса пополняются методистами.</p></section>';
+      }
+    }
+  }
+
+  return `
+    <section class="hero" style="margin-bottom:12px">
+      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px">
+        <button type="button" class="btn secondary small" data-action="courses-back-to-catalog">← Все классы</button>
+        ${!isMyGrade ? `
+          <button type="button" class="btn secondary small" data-action="courses-set-my-grade" data-grade="${cur.grade}">
+            🎒 Сделать моим классом
+          </button>
+        ` : '<span class="chip active">Твой текущий класс</span>'}
+      </div>
+      <h1>${esc(cur.title)}</h1>
+      <p class="muted">${cur.total_topics} тем · ${cur.total_tasks} заданий в базе</p>
+    </section>
+
+    ${tabSwitcherHtml}
+    ${contentHtml}
+  `;
+}
+
 function renderCourses() {
+  if (state.selectedGradeCurriculum) {
+    return renderGradeCurriculum();
+  }
   const catalog = state.catalog;
   if (!catalog) {
     return `<div class="card empty">${state.loading ? 'Загружаем курсы…' : 'Не удалось загрузить каталог'}</div>`;
@@ -453,8 +703,8 @@ function renderCourses() {
 
   return `
     <section class="hero">
-      <h1>Курсы</h1>
-      <p>Выбери класс, как у репетитора. Сейчас у тебя: ${
+      <h1>Курсы и экзамены</h1>
+      <p>Выбирай класс школьной программы или направления подготовки к экзаменам. Сейчас у тебя: ${
         myGrade ? `<strong>${myGrade} класс</strong>` : 'класс не выбран'
       }.</p>
     </section>
@@ -474,8 +724,45 @@ function renderCourses() {
     </section>
     ${
       subject
-        ? `<section class="card">
-             <h2>${esc(subject.name)} · классы</h2>
+        ? `
+           <section class="card" style="border-left: 4px solid #10b981; margin-bottom:12px">
+             <div style="display:flex; align-items:center; justify-content:space-between">
+               <h2 style="font-size:1.1rem">🎓 Поступление в ВУЗы: ЦТ и ЦЭ</h2>
+               <span class="chip active">11 класс</span>
+             </div>
+             <p class="muted" style="margin-top:4px">13 345 заданий РИКЗ по спецификации вступительных испытаний:</p>
+             <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px; margin-top:10px">
+               <button type="button" class="btn secondary small" data-action="start-mode-practice" data-grade="11" data-mode="part_a">
+                 🔘 Часть А: Тесты (9 631)
+               </button>
+               <button type="button" class="btn secondary small" data-action="start-mode-practice" data-grade="11" data-mode="part_b">
+                 ✍️ Часть Б: Открытые (3 714)
+               </button>
+             </div>
+             <button type="button" class="btn block small" data-action="start-exam" style="margin-top:8px; background:linear-gradient(135deg, #10b981, #059669); color:#fff">
+               ⏱️ Запустить симулятор ЦТ/ЦЭ (40 вопросов · 180 мин)
+             </button>
+           </section>
+
+           <section class="card" style="border-left: 4px solid #f59e0b; margin-bottom:12px">
+             <div style="display:flex; align-items:center; justify-content:space-between">
+               <h2 style="font-size:1.1rem">📖 Выпускной экзамен: Изложения</h2>
+               <span class="chip">9 класс</span>
+             </div>
+             <p class="muted" style="margin-top:4px">166 официальных текстов НИО для подготовки к экзамену за курс базовой школы:</p>
+             <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px; margin-top:10px">
+               <button type="button" class="btn secondary small" data-action="izlo-catalog">
+                 📖 Каталог текстов
+               </button>
+               <button type="button" class="btn secondary small" data-action="izlo-random">
+                 🎲 Случайное изложение
+               </button>
+             </div>
+           </section>
+
+           <section class="card">
+             <h2>🏫 Школьная программа по классам</h2>
+             <p class="muted" style="margin-bottom:12px">Выбери класс для изучения тем учебника и прохождения заданий:</p>
              <div class="grade-grid">
                ${(subject.grades || [])
                  .map((g) => {
@@ -506,6 +793,7 @@ function renderCourses() {
     }
   `;
 }
+
 
 function renderPractice() {
   if (state.panel === 'izlo-catalog') return renderIzloCatalog();
@@ -549,7 +837,7 @@ function renderPractice() {
   const hasOptImages = (task.options || []).some((o) => o.image_url);
   const options = (task.options || [])
     .map((o, idx) => {
-      const selected = state.selected.has(String(o.id)) || state.selected.has(String(idx + 1));
+      const selected = state.selected.has(String(o.id));
       const pic = o.image_url
         ? `<img class="option-img" src="${esc(o.image_url)}" alt="${esc(o.text)}" />`
         : '';
@@ -584,8 +872,27 @@ function renderPractice() {
          <h2 class="task-question">${esc(task.question)}</h2>
        </div>`;
 
+  const topicMeta = (task.section_name || task.topic_name)
+    ? `<div style="background:var(--bg-secondary); padding:8px 12px; border-radius:10px; margin-bottom:10px; font-size:0.83rem; display:flex; align-items:center; justify-content:space-between">
+         <span>🎒 <strong>${task.grade_level ? task.grade_level + ' кл.' : ''}</strong> ${task.section_name ? '· ' + esc(task.section_name) : ''} · 📌 <strong>${esc(task.topic_name || '')}</strong></span>
+         ${task.topic_summary ? `<button type="button" class="btn secondary small" style="padding:2px 8px; font-size:0.75rem" data-action="toggle-rule">💡 Правило</button>` : ''}
+       </div>`
+    : '';
+
+  const ruleModalHtml = (task.topic_summary && state.showRuleModal)
+    ? `<div class="card" style="border:1px solid var(--accent); margin-bottom:12px; background:var(--card-bg)">
+         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px">
+           <strong style="color:var(--accent); font-size:0.95rem">💡 ${esc(task.topic_summary.title || task.topic_name)}</strong>
+           <button type="button" class="btn secondary small" data-action="toggle-rule">✕</button>
+         </div>
+         <p style="font-size:0.88rem; line-height:1.45; white-space:pre-line">${esc(task.topic_summary.content || task.topic_summary.key_points || '')}</p>
+       </div>`
+    : '';
+
   return `
     <section class="card">
+      ${topicMeta}
+      ${ruleModalHtml}
       <p class="muted">${esc(task.is_izlozhenie ? 'Изложение' : task.topic_name)} · ${daily.tasks_completed}/${daily.tasks_total}</p>
       <div class="progress"><i style="width:${pct}%"></i></div>
       ${izloBlock}
@@ -624,6 +931,11 @@ function renderPractice() {
                 ? (state.me?.is_pro
                     ? `<button class="btn block secondary" data-action="explain" style="margin-top:8px">🤖 Разбор с ИИ</button>`
                     : `<button class="btn block secondary pro-locked-btn" data-action="open-tariffs" style="margin-top:8px; opacity:0.65;">🤖 Разбор с ИИ 🔒 (В тарифе Pro)</button>`)
+                : ''
+            }
+            ${
+              !state.feedback.is_correct
+                ? `<button class="btn block secondary" data-action="retry-task" style="margin-top:8px">🔄 Попробовать ещё раз</button>`
                 : ''
             }
             <button class="btn block" data-action="next" style="margin-top:8px">Дальше</button>`
@@ -1003,6 +1315,7 @@ function renderRating() {
   const filters = state.rating?.filters || {};
   const scope = state.ratingScope || 'country';
   const period = state.ratingPeriod || 'week';
+  const currentGrade = state.ratingGrade || filters.grade || (state.me?.grade ? Number(state.me.grade) : 1);
   const league = state.rating?.active_league;
 
   return `
@@ -1027,9 +1340,20 @@ function renderRating() {
         <button type="button" class="chip${scope === 'city' ? ' active' : ''}" data-action="rating-scope" data-scope="city" ${filters.has_city ? '' : 'disabled'} title="${filters.has_city ? esc(filters.city_name || '') : 'Город не указан в профиле'}">Город</button>
         <button type="button" class="chip${scope === 'school' ? ' active' : ''}" data-action="rating-scope" data-scope="school" ${filters.has_school ? '' : 'disabled'} title="${filters.has_school ? esc(filters.school_name || '') : 'Школа не указана в профиле'}">Школа</button>
       </div>
+
+      ${scope === 'grade' ? `
+        <div style="display:flex; overflow-x:auto; gap:6px; margin:10px 0; padding-bottom:4px; -webkit-overflow-scrolling:touch">
+          ${[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map((g) => `
+            <button type="button" class="chip ${currentGrade === g ? 'active' : ''}" data-action="rating-grade" data-grade="${g}" style="white-space:nowrap; padding:4px 10px; font-size:0.82rem">
+              ${g === Number(state.me?.grade) ? `⭐ ${g} кл` : `${g} кл`}
+            </button>
+          `).join('')}
+        </div>
+      ` : ''}
+
       <p class="filter-note">${
-        scope === 'grade' && filters.grade
-          ? `${filters.grade} класс`
+        scope === 'grade' && currentGrade
+          ? `Ученики ${currentGrade} класса`
           : scope === 'city' && filters.city_name
             ? esc(filters.city_name)
             : scope === 'school' && filters.school_name
@@ -1049,16 +1373,16 @@ function renderRating() {
     </section>
   `;
 }
-async function startExamSimulator(variantId = null) {
+async function startExamSimulator(variantId = null, year = null) {
   const id = tgId();
   if (!id) return;
   state.loading = true;
   render();
   try {
-    const data = await api.startExam(id, { variant_id: variantId });
+    const data = await api.startExam(id, { variant_id: variantId, year: year });
     state.exam = {
       session_id: data.session_id,
-      title: data.title || 'Симулятор ЦТ/ЦЭ',
+      title: data.title || (year ? `Симулятор ЦТ/ЦЭ (${year} год)` : 'Симулятор ЦТ/ЦЭ'),
       time_limit_seconds: data.time_limit_seconds || 10800,
       time_remaining: data.time_limit_seconds || 10800,
       time_spent_seconds: 0,
@@ -1373,15 +1697,11 @@ async function submitAnswer() {
   let answer = state.answerText.trim();
   let selectedOptionIds = [];
   if (task.options?.length) {
-    const orders = [...state.selected]
+    selectedOptionIds = [...state.selected]
       .map((x) => Number(x))
-      .filter(Boolean)
-      .sort((a, b) => a - b);
-    selectedOptionIds = orders
-      .map((order) => task.options[order - 1]?.id)
-      .filter((id) => Number.isInteger(Number(id)))
-      .map(Number);
-    answer = orders.join(',');
+      .filter((id) => Number.isInteger(id) && id > 0);
+    const selectedOpts = (task.options || []).filter((o) => selectedOptionIds.includes(Number(o.id)));
+    answer = selectedOpts.map((o) => o.order || o.text || o.id).join(',');
   }
   if (!answer) {
     toast('Выбери или введи ответ');
@@ -1437,13 +1757,13 @@ function bindUi() {
 
     if (t.classList.contains('option')) {
       const task = state.daily?.current_task;
-      const order = t.dataset.order;
-      if (!task) return;
+      const optId = String(t.dataset.opt || '');
+      if (!task || !optId) return;
       if (task.answer_format === 'multiple_choice') {
-        if (state.selected.has(order)) state.selected.delete(order);
-        else state.selected.add(order);
+        if (state.selected.has(optId)) state.selected.delete(optId);
+        else state.selected.add(optId);
       } else {
-        state.selected = new Set([order]);
+        state.selected = new Set([optId]);
       }
       render();
       return;
@@ -1458,11 +1778,16 @@ function bindUi() {
       return;
     }
     if (action === 'rating-scope') {
-      await loadRating(t.dataset.scope, state.ratingPeriod);
+      await loadRating(t.dataset.scope, state.ratingPeriod, state.ratingGrade);
       return;
     }
     if (action === 'rating-period') {
-      await loadRating(state.ratingScope, t.dataset.period);
+      await loadRating(state.ratingScope, t.dataset.period, state.ratingGrade);
+      return;
+    }
+    if (action === 'rating-grade') {
+      const g = Number(t.dataset.grade);
+      await loadRating('grade', state.ratingPeriod, g);
       return;
     }
     if (action === 'open-scores') {
@@ -1522,41 +1847,142 @@ function bindUi() {
       render();
       return;
     }
+    if (action === 'toggle-rule') {
+      state.showRuleModal = !state.showRuleModal;
+      render();
+      return;
+    }
+    if (action === 'set-grade-tab') {
+      state.gradeTab = t.dataset.tab;
+      render();
+      return;
+    }
+    if (action === 'select-exam-year') {
+      state.selectedExamYear = t.dataset.year ? Number(t.dataset.year) : null;
+      render();
+      return;
+    }
+    if (action === 'courses-back-to-catalog') {
+      state.selectedGradeCurriculum = null;
+      state.selectedExamYear = null;
+      render();
+      return;
+    }
     if (action === 'courses-pick-grade') {
       const grade = Number(t.dataset.grade);
-      const subjectId = Number(t.dataset.subject);
+      if (!grade) return;
+      state.loading = true;
+      state.selectedExamYear = null;
+      render();
+      try {
+        const tgId = state.student?.tg_id || state.me?.tg_id || null;
+        state.selectedGradeCurriculum = await api.getGradeCurriculum(grade, tgId);
+      } catch (err) {
+        toast(err.message || 'Не удалось загрузить программу класса');
+      } finally {
+        state.loading = false;
+        render();
+      }
+      return;
+    }
+    if (action === 'courses-set-my-grade') {
+      const grade = Number(t.dataset.grade);
       if (!grade || !state.me?.registered) {
         toast('Сначала пройди регистрацию');
-        return;
-      }
-      if (t.dataset.empty === '1') {
-        toast('Для этого класса заданий пока мало — скоро добавим');
-      }
-      if (Number(state.me.grade) === grade && Number(state.me.subject) === subjectId) {
-        toast(`Уже занимаешься в ${grade} классе`);
-        setRoute('practice');
         return;
       }
       state.loading = true;
       render();
       try {
         const goal = goalForGradeSwitch(grade, state.me.goal);
-        const data = await api.updateProfile({
-          grade,
-          goal,
-          subject_id: subjectId || state.me.subject,
-        });
+        const data = await api.updateProfile({ grade, goal });
         state.me = { ...state.me, ...data, registered: true };
-        toast(`Класс: ${grade}. Можно решать.`);
-        state.daily = null;
-        setRoute('practice');
+        state.ratingGrade = grade;
+        toast(`Класс изменён на ${grade}`);
       } catch (err) {
         toast(err.message);
+      } finally {
         state.loading = false;
         render();
       }
       return;
     }
+    if (action === 'start-topic-practice') {
+      const topicId = Number(t.dataset.topic);
+      const id = tgId();
+      if (!id) return;
+      state.loading = true;
+      render();
+      try {
+        state.daily = await api.startTopicPractice(id, topicId);
+        if (state.daily?.current_task?.options) {
+          state.daily.current_task.options = shuffleArray(state.daily.current_task.options);
+        }
+        state.selected = new Set();
+        state.answerText = '';
+        state.feedback = null;
+        state.selectedGradeCurriculum = null;
+        setRoute('practice');
+      } catch (err) {
+        toast(err.message || 'Не удалось запустить тренировку по теме');
+      } finally {
+        state.loading = false;
+        render();
+      }
+      return;
+    }
+    if (action === 'start-grade-mix-practice') {
+      const grade = Number(t.dataset.grade);
+      const id = tgId();
+      if (!id) return;
+      state.loading = true;
+      render();
+      try {
+        state.daily = await api.startTopicPractice(id, null, 'school', grade);
+        if (state.daily?.current_task?.options) {
+          state.daily.current_task.options = shuffleArray(state.daily.current_task.options);
+        }
+        state.selected = new Set();
+        state.answerText = '';
+        state.feedback = null;
+        state.selectedGradeCurriculum = null;
+        setRoute('practice');
+      } catch (err) {
+        toast(err.message || 'Не удалось запустить тренировку');
+      } finally {
+        state.loading = false;
+        render();
+      }
+      return;
+    }
+
+    if (action === 'start-mode-practice') {
+      const mode = t.dataset.mode;
+      const grade = Number(t.dataset.grade);
+      const year = t.dataset.year ? Number(t.dataset.year) : (state.selectedExamYear || null);
+      const id = tgId();
+      if (!id) return;
+      state.loading = true;
+      render();
+      try {
+        state.daily = await api.startTopicPractice(id, null, mode, grade, year);
+        if (state.daily?.current_task?.options) {
+          state.daily.current_task.options = shuffleArray(state.daily.current_task.options);
+        }
+        state.selected = new Set();
+        state.answerText = '';
+        state.feedback = null;
+        state.selectedGradeCurriculum = null;
+        setRoute('practice');
+      } catch (err) {
+        toast(err.message || 'Не удалось запустить тренировку');
+      } finally {
+        state.loading = false;
+        render();
+      }
+      return;
+    }
+
     if (action === 'toggle-notifications') {
       const current = state.me?.notifications_enabled !== false;
       const nextVal = !current;
@@ -1769,6 +2195,17 @@ function bindUi() {
     }
     if (action === 'submit') await submitAnswer();
     if (action === 'explain') await explain();
+    if (action === 'retry-task') {
+      const task = state.daily?.current_task;
+      state.feedback = null;
+      state.selected = new Set();
+      state.answerText = '';
+      if (task?.options?.length) {
+        task.options = shuffleArray(task.options);
+      }
+      render();
+      return;
+    }
     if (action === 'open-tariffs') {
       setRoute('tariffs');
       return;
@@ -1820,8 +2257,9 @@ function bindUi() {
       return;
     }
     if (action === 'start-exam') {
+      const year = t.dataset.year ? Number(t.dataset.year) : (state.selectedExamYear || null);
       state.route = 'exam';
-      await startExamSimulator();
+      await startExamSimulator(null, year);
       return;
     }
     if (action === 'exam-jump') {

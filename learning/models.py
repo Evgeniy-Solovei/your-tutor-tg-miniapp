@@ -237,6 +237,7 @@ class TaskAttempt(models.Model):
         indexes = [
             models.Index(fields=['student', '-created_at']),
             models.Index(fields=['student', 'task', 'is_correct']),
+            models.Index(fields=['student', 'session_task', '-created_at']),
         ]
 
     def __str__(self):

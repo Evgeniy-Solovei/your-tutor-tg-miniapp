@@ -113,7 +113,7 @@ ASGI_APPLICATION = 'tutor_bot.asgi.application'
 RUNNING_TESTS = 'test' in sys.argv
 # Production и полноценные интеграционные тесты используют PostgreSQL.
 # SQLite разрешён только явным флагом для быстрого локального smoke-прогона.
-USE_SQLITE = RUNNING_TESTS and env_bool('TEST_USE_SQLITE', False)
+USE_SQLITE = env_bool('USE_SQLITE', False) or (RUNNING_TESTS and env_bool('TEST_USE_SQLITE', False))
 
 _required_pg = ('POSTGRES_DB', 'POSTGRES_USER', 'POSTGRES_HOST')
 if not USE_SQLITE and any(os.getenv(key) in (None, '') for key in _required_pg):
@@ -180,6 +180,14 @@ SECURE_HSTS_SECONDS = int(os.getenv('SECURE_HSTS_SECONDS', '3600')) if not DEBUG
 
 REST_FRAMEWORK = {
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
+}
+
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.redis.RedisCache',
+        'LOCATION': os.getenv('REDIS_URL', 'redis://127.0.0.1:6379/1'),
+        'TIMEOUT': 3600,
+    }
 }
 
 SPECTACULAR_SETTINGS = {

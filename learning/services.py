@@ -46,7 +46,14 @@ async def get_or_create_daily_session(student: Student) -> DailySession:
     return session
 
 
-async def create_train_session(student: Student, count: int = 20) -> DailySession:
+async def create_train_session(
+    student: Student,
+    count: int = 20,
+    topic_id: int | None = None,
+    mode: str | None = None,
+    grade: int | None = None,
+    year: int | None = None,
+) -> DailySession:
     """Длинная тренировка — можно решать подряд."""
     total = max(5, min(count, 40))
     session = await DailySession.objects.acreate(
@@ -55,7 +62,15 @@ async def create_train_session(student: Student, count: int = 20) -> DailySessio
         kind=DailySession.Kind.TRAIN,
         status=DailySession.Status.IN_PROGRESS,
     )
-    await _populate_session_tasks(student, session, total_override=total)
+    await _populate_session_tasks(
+        student,
+        session,
+        total_override=total,
+        topic_id=topic_id,
+        mode=mode,
+        grade=grade,
+        year=year,
+    )
     return session
 
 
@@ -76,10 +91,10 @@ async def create_mistakes_session(student: Student, count: int = 15) -> DailySes
 
     tasks: list[Task] = []
     used: set[int] = set()
-    for topic_id in topic_ids:
+    for t_id in topic_ids:
         if len(tasks) >= count:
             break
-        candidates = Task.objects.filter(topic_id=topic_id, is_active=True).exclude(id__in=used)
+        candidates = Task.objects.filter(topic_id=t_id, is_active=True).exclude(id__in=used)
         sampled = await _sample_tasks(candidates, 1)
         task = sampled[0] if sampled else None
         if task:
@@ -102,13 +117,82 @@ async def create_mistakes_session(student: Student, count: int = 15) -> DailySes
     await session.asave(update_fields=['tasks_total', 'status'])
     return session
 
+
 async def _populate_session_tasks(
     student: Student,
     session: DailySession,
     total_override: int | None = None,
+    topic_id: int | None = None,
+    mode: str | None = None,
+    grade: int | None = None,
+    year: int | None = None,
 ) -> None:
     settings = await aget_app_settings()
     total = total_override if total_override is not None else settings.daily_session_tasks_count
+    target_grade = grade or student.grade
+
+    if topic_id:
+        qs = Task.objects.filter(topic_id=topic_id, is_active=True)
+        if year:
+            qs = qs.filter(Q(source__icontains=str(year)) | Q(variant_links__variant__year=year))
+        if mode == 'part_a':
+            qs = qs.filter(answer_format__in=[Task.AnswerFormat.SINGLE_CHOICE, Task.AnswerFormat.MULTIPLE_CHOICE])
+        elif mode == 'part_b':
+            qs = qs.filter(answer_format=Task.AnswerFormat.TEXT).exclude(source__startswith='Сборник изложений')
+        elif mode == 'izlozhenie':
+            qs = qs.filter(source__startswith='Сборник изложений')
+        elif mode == 'school':
+            qs = qs.exclude(source__startswith='Сборник изложений')
+
+        sampled = await _sample_tasks(qs.distinct(), total)
+        await SessionTask.objects.abulk_create([
+            SessionTask(
+                session=session,
+                task=task,
+                purpose=SessionTask.Purpose.NEW,
+                order=order,
+            )
+            for order, task in enumerate(sampled)
+        ])
+        session.tasks_total = len(sampled)
+        session.status = DailySession.Status.IN_PROGRESS if sampled else DailySession.Status.COMPLETED
+        await session.asave(update_fields=['tasks_total', 'status'])
+        return
+
+    if mode or year or grade:
+        if target_grade:
+            qs = Task.objects.filter(is_active=True, topic__grade_level=target_grade)
+        else:
+            topic_ids = await _get_track_topic_ids(student)
+            qs = Task.objects.filter(is_active=True, topic_id__in=topic_ids)
+
+        if year:
+            qs = qs.filter(Q(source__icontains=str(year)) | Q(variant_links__variant__year=year))
+
+        if mode == 'part_a':
+            qs = qs.filter(answer_format__in=[Task.AnswerFormat.SINGLE_CHOICE, Task.AnswerFormat.MULTIPLE_CHOICE])
+        elif mode == 'part_b':
+            qs = qs.filter(answer_format=Task.AnswerFormat.TEXT).exclude(source__startswith='Сборник изложений')
+        elif mode == 'izlozhenie':
+            qs = qs.filter(source__startswith='Сборник изложений')
+        elif mode == 'school':
+            qs = qs.exclude(source__startswith='Сборник изложений')
+
+        sampled = await _sample_tasks(qs.distinct(), total)
+        await SessionTask.objects.abulk_create([
+            SessionTask(
+                session=session,
+                task=task,
+                purpose=SessionTask.Purpose.NEW,
+                order=order,
+            )
+            for order, task in enumerate(sampled)
+        ])
+        session.tasks_total = len(sampled)
+        session.status = DailySession.Status.IN_PROGRESS if sampled else DailySession.Status.COMPLETED
+        await session.asave(update_fields=['tasks_total', 'status'])
+        return
+
 
     has_history = await TopicMastery.objects.filter(
         student=student,
@@ -186,15 +270,18 @@ async def _get_track_topic_ids(student: Student) -> list[int]:
     открытого банка с grade_level=11, даже если трек ce_11 без своих тем.
     """
     subject_id = student.subject_id
-    if student.grade and subject_id:
+    if student.grade:
+        filter_kwargs = {
+            'is_active': True,
+            'grade_level': student.grade,
+        }
+        if subject_id:
+            filter_kwargs['section__exam_track__subject_id'] = subject_id
+            filter_kwargs['section__exam_track__is_active'] = True
+
         by_grade = [
             topic_id
-            async for topic_id in Topic.objects.filter(
-                is_active=True,
-                grade_level=student.grade,
-                section__exam_track__subject_id=subject_id,
-                section__exam_track__is_active=True,
-            ).values_list('id', flat=True)
+            async for topic_id in Topic.objects.filter(**filter_kwargs).values_list('id', flat=True)
         ]
         if by_grade:
             return by_grade
@@ -256,6 +343,7 @@ async def _select_tasks_by_mastery(
                 topic_id=topic_id,
                 is_active=True,
             )
+            .exclude(source__startswith='Сборник изложений')
             .exclude(id__in=exclude_ids | {t.id for t in tasks})
         )
         sampled = await _sample_tasks(candidates, 1)
@@ -293,6 +381,7 @@ async def _select_new_tasks(student: Student, count: int, exclude_ids: set[int])
             break
         candidates = (
             Task.objects.filter(topic_id=topic_id, is_active=True)
+            .exclude(source__startswith='Сборник изложений')
             .exclude(id__in=exclude_ids | {t.id for t in tasks})
         )
         sampled = await _sample_tasks(candidates, 1)
@@ -317,13 +406,19 @@ async def _fill_tasks_from_topics(
 ) -> list[Task]:
     if count <= 0 or not topic_ids:
         return []
-    qs = Task.objects.filter(topic_id__in=topic_ids, is_active=True).exclude(id__in=exclude_ids)
+    qs = (
+        Task.objects.filter(topic_id__in=topic_ids, is_active=True)
+        .exclude(source__startswith='Сборник изложений')
+        .exclude(id__in=exclude_ids)
+    )
     return await _sample_tasks(qs, count)
 
 
 async def get_next_session_task(session: DailySession) -> SessionTask | None:
     return await (
-        SessionTask.objects.select_related('task', 'task__topic', 'task__solution')
+        SessionTask.objects.select_related(
+            'task', 'task__topic', 'task__topic__section', 'task__solution'
+        )
         .prefetch_related('task__options')
         .filter(session=session, is_answered=False)
         .order_by('order')
@@ -351,7 +446,10 @@ async def submit_answer(
     from learning.scoring import grade_task_answer, recompute_session_scores
 
     settings = await aget_app_settings()
-    task = await Task.objects.aget(pk=session_task.task_id)
+    task = getattr(session_task, '_state', None) and session_task._state.fields_cache.get('task')
+    if task is None:
+        task = await Task.objects.select_related('topic').aget(pk=session_task.task_id)
+
     is_correct, points, max_points = await grade_task_answer(task, answer_text)
     spent = max(0, min(int(time_spent_seconds or 0), 60 * 60))
 
@@ -368,12 +466,22 @@ async def submit_answer(
 
     await _update_topic_mastery(student, task.topic_id, is_correct or points > 0)
 
+    was_answered = session_task.is_answered
     session_task.is_answered = True
     await session_task.asave(update_fields=['is_answered'])
 
-    session = await DailySession.objects.aget(pk=session_task.session_id)
-    session.tasks_completed += 1
+    session = getattr(session_task, '_state', None) and session_task._state.fields_cache.get('session')
+    if session is None:
+        session = await DailySession.objects.aget(pk=session_task.session_id)
+
+    if not was_answered:
+        session.tasks_completed += 1
     earned = 0
+
+    task_topic = getattr(task, '_state', None) and task._state.fields_cache.get('topic')
+    if task_topic is None:
+        task_topic = await Topic.objects.filter(id=task.topic_id).afirst()
+    task_grade = task_topic.grade_level if task_topic else 11
 
     if points > 0:
         # --- ПРАВИЛА НАЧИСЛЕНИЯ XP И ЗАЩИТА ОТ НАКРУТКИ ---
@@ -390,9 +498,6 @@ async def submit_answer(
             logger.info('0 XP за повторное решение задачи %s пользователем %s', task.id, student.tg_id)
         else:
             # 2. Начисление XP пропорционально классу/сложности задания
-            task_topic = await Topic.objects.select_related('section').filter(id=task.topic_id).afirst()
-            task_grade = task_topic.grade_level if task_topic else 11
-
             if task_grade <= 4:
                 base_unit = 2  # Начальная школа (1–4 кл.) — легкие задания
             elif task_grade <= 8:
@@ -421,7 +526,8 @@ async def submit_answer(
         student.xp += earned
         session.xp_earned += earned
 
-    student.daily_tasks_completed += 1
+    if not was_answered:
+        student.daily_tasks_completed += 1
     await student.asave(update_fields=['xp', 'daily_tasks_completed', 'updated_at'])
 
     if session.tasks_completed >= session.tasks_total:
@@ -434,9 +540,6 @@ async def submit_answer(
         # В турнирную таблицу (weekly_xp) идут только баллы за задания ТЕКУЩЕГО класса ученика (или ЦТ/ЦЭ для 9–11 классов).
         # Задания других классов добавляют XP только в общий профиль ученика.
         student_grade = student.grade or 11
-        task_topic = await Topic.objects.select_related('section').filter(id=task.topic_id).afirst()
-        task_grade = task_topic.grade_level if task_topic else 11
-
         is_grade_match = (task_grade == student_grade)
         if is_grade_match:
             await add_weekly_xp(student, earned)
@@ -625,6 +728,7 @@ async def create_exam_simulator_session(
     student: Student,
     *,
     variant_id: int | None = None,
+    year: int | None = None,
 ) -> DailySession:
     """Создаёт полноразмерный экзаменационный билет ЦТ/ЦЭ из 40 вопросов на 180 минут."""
     today = timezone.localdate()
@@ -647,6 +751,12 @@ async def create_exam_simulator_session(
                 tasks.append(vt.task)
         except ExamVariant.DoesNotExist:
             pass
+    elif year:
+        variants_in_year = [v async for v in ExamVariant.objects.filter(year=year, is_active=True)]
+        if variants_in_year:
+            variant = random.choice(variants_in_year)
+            async for vt in VariantTask.objects.filter(variant=variant).select_related('task').order_by('order'):
+                tasks.append(vt.task)
 
     if len(tasks) < 40:
         topic_ids = await _get_track_topic_ids(student)
@@ -659,9 +769,11 @@ async def create_exam_simulator_session(
                 Task.AnswerFormat.MULTIPLE_CHOICE,
             ],
         ).exclude(id__in=existing_ids)
-        if topic_ids:
+        if year:
+            part_a_qs = part_a_qs.filter(Q(source__icontains=str(year)) | Q(variant_links__variant__year=year))
+        elif topic_ids:
             part_a_qs = part_a_qs.filter(topic_id__in=topic_ids)
-        part_a = await _sample_tasks(part_a_qs, 30 - len(tasks))
+        part_a = await _sample_tasks(part_a_qs.distinct(), 30 - len(tasks))
         tasks.extend(part_a)
 
         existing_ids = {t.id for t in tasks}
@@ -669,9 +781,11 @@ async def create_exam_simulator_session(
             is_active=True,
             answer_format__in=[Task.AnswerFormat.TEXT, Task.AnswerFormat.NUMBER],
         ).exclude(id__in=existing_ids)
-        if topic_ids:
+        if year:
+            part_b_qs = part_b_qs.filter(Q(source__icontains=str(year)) | Q(variant_links__variant__year=year))
+        elif topic_ids:
             part_b_qs = part_b_qs.filter(topic_id__in=topic_ids)
-        part_b = await _sample_tasks(part_b_qs, 40 - len(tasks))
+        part_b = await _sample_tasks(part_b_qs.distinct(), 40 - len(tasks))
         tasks.extend(part_b)
 
         if len(tasks) < 40:

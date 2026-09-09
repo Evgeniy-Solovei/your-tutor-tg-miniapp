@@ -93,47 +93,70 @@ async def grade_task_answer(task: Task, answer_text: str) -> tuple[bool, int, in
 
     student_set = parse_token_set(answer_text)
 
-    correct_set: set[str] = set()
-    try:
-        if solution is None:
-            raise TaskSolution.DoesNotExist
-        correct_set = parse_token_set(solution.correct_answer)
-    except TaskSolution.DoesNotExist:
-        solution = None
-
-    if not correct_set and task.answer_format in (
+    # Для заданий с вариантами ответов (SINGLE_CHOICE / MULTIPLE_CHOICE)
+    # эталоном являются варианты с is_correct=True, а также solution.correct_answer.
+    if task.answer_format in (
         Task.AnswerFormat.SINGLE_CHOICE,
         Task.AnswerFormat.MULTIPLE_CHOICE,
     ):
         options = getattr(task, '_prefetched_objects_cache', {}).get('options')
         if options is None:
             options = [opt async for opt in TaskOption.objects.filter(task_id=task.id)]
-        for opt in options:
-            if not opt.is_correct:
-                continue
-            # предпочитаем номер варианта, если есть order
-            token = str(opt.order) if opt.order else normalize_answer(opt.text)
-            correct_set.add(token)
 
-    # Также принимаем ответ текстом варианта
-    if student_set and correct_set:
-        # Сначала трактуем числа как номера вариантов. Это принципиально для
-        # вариантов с числовым текстом: у первого варианта может быть текст
-        # «2», а у второго — «1». Раньше канонический ответ «1» ошибочно
-        # воспринимался как текст второго варианта и превращался в «2».
-        option_map = {}
-        options = getattr(task, '_prefetched_objects_cache', {}).get('options')
-        if options is None:
-            options = [opt async for opt in TaskOption.objects.filter(task_id=task.id)]
-        order_tokens = {
-            str(opt.order)
-            for opt in options
-            if opt.order
-        }
-        for opt in options:
-            option_map[normalize_answer(opt.text)] = str(opt.order) if opt.order else normalize_answer(opt.text)
-        if not student_set.issubset(order_tokens):
-            student_set = {option_map.get(token, token) for token in student_set}
+        if options:
+            order_tokens = {str(opt.order) for opt in options if opt.order}
+
+            # 1. Эталонные номера вариантов из базы (is_correct=True)
+            correct_set: set[str] = {str(opt.order) for opt in options if opt.is_correct and opt.order}
+
+            # 2. Если в TaskOption не проставлен is_correct, берём из solution.correct_answer
+            if not correct_set and solution and solution.correct_answer:
+                parsed_sol = parse_token_set(solution.correct_answer)
+                if parsed_sol.issubset(order_tokens):
+                    correct_set = parsed_sol
+                else:
+                    for opt in options:
+                        if (
+                            opt.text.strip() == solution.correct_answer.strip()
+                            or normalize_answer(opt.text) == normalize_answer(solution.correct_answer)
+                        ):
+                            if opt.order:
+                                correct_set.add(str(opt.order))
+
+            # 3. Приводим ответ ученика к номерам вариантов:
+            parsed_student = parse_token_set(answer_text)
+            if parsed_student and parsed_student.issubset(order_tokens):
+                # Ответ уже передан как номера вариантов (например, '1' или '1,3')
+                student_set = parsed_student
+            else:
+                # Введён текст варианта: сначала ищем точное совпадение (с учётом регистра),
+                # затем нормализованное
+                matched_orders = set()
+                raw_ans = (answer_text or '').strip()
+                norm_ans = normalize_answer(answer_text)
+
+                for opt in options:
+                    if opt.text.strip() == raw_ans:
+                        matched_orders.add(str(opt.order))
+
+                if not matched_orders:
+                    for opt in options:
+                        if normalize_answer(opt.text) == norm_ans:
+                            matched_orders.add(str(opt.order))
+
+                if matched_orders:
+                    student_set = matched_orders
+                else:
+                    student_set = parsed_student
+
+            points = points_from_sets(student_set, correct_set, scheme)
+            is_correct = points == max_points and max_points > 0
+            return is_correct, points, max_points
+
+    # Для текстовых ответов или задач без вариантов:
+    correct_set: set[str] = set()
+    if solution and solution.correct_answer:
+        correct_set = parse_token_set(solution.correct_answer)
 
     points = points_from_sets(student_set, correct_set, scheme)
     is_correct = points == max_points and max_points > 0
@@ -181,18 +204,30 @@ async def primary_to_test_score(
 
 
 async def recompute_session_scores(session) -> None:
-    """Пересчитать сумму первичных и тестовый балл сессии."""
+    """Пересчитать сумму первичных и тестовый балл сессии по лучшей попытке на каждое задание."""
     from learning.models import TaskAttempt
     from students.models import Student
 
-    primary = 0
-    max_primary = 0
-    async for attempt in TaskAttempt.objects.filter(session_task__session=session):
-        primary += attempt.points_earned
-        max_primary += attempt.max_points
+    best_attempts: dict[int, dict[str, int]] = {}
+    async for att in TaskAttempt.objects.filter(session_task__session=session).order_by('created_at'):
+        st_id = att.session_task_id
+        if st_id not in best_attempts or att.points_earned > best_attempts[st_id]['points']:
+            best_attempts[st_id] = {
+                'points': att.points_earned,
+                'max_points': att.max_points,
+            }
 
-    student = await Student.objects.aget(pk=session.student_id)
-    test = await primary_to_test_score(primary, exam_track_id=student.exam_track_id)
+    primary = sum(x['points'] for x in best_attempts.values())
+    max_primary = sum(x['max_points'] for x in best_attempts.values())
+
+    cached_student = getattr(session, '_state', None) and session._state.fields_cache.get('student')
+    if cached_student:
+        track_id = cached_student.exam_track_id
+    else:
+        student = await Student.objects.aget(pk=session.student_id)
+        track_id = student.exam_track_id
+
+    test = await primary_to_test_score(primary, exam_track_id=track_id)
 
     # Тестовый — перевод суммы первичных по шкале РИКЗ (для куска теста — ориентир).
     session.primary_score = primary

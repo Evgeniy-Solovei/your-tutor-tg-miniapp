@@ -36,15 +36,50 @@ async def serialize_current_task(next_task: SessionTask | None) -> dict | None:
                 img = o.image.url
         except ValueError:
             img = ''
-        options.append({'id': o.id, 'text': o.text, 'image_url': img})
+        options.append({'id': o.id, 'text': o.text, 'image_url': img, 'order': o.order})
+
+    import random
+    random.shuffle(options)
     payload = task_payload_for_api(task)
+
+    task_state = getattr(task, '_state', None)
+    topic = task_state.fields_cache.get('topic') if task_state else None
+    topic_name = topic.name if topic else ''
+    grade_level = topic.grade_level if topic else None
+    section_name = ''
+    if topic:
+        cached_state = getattr(topic, '_state', None)
+        if cached_state and 'section' in getattr(cached_state, 'fields_cache', {}):
+            sec = cached_state.fields_cache['section']
+            section_name = sec.name if sec else ''
+
+    summary_data = None
+    if topic:
+        summary = getattr(topic, '_state', None)
+        cached_summary = summary.fields_cache.get('summary') if summary else None
+        if cached_summary:
+            summary_data = {
+                'title': cached_summary.title,
+                'content': cached_summary.content,
+                'key_points': cached_summary.key_points,
+            }
+
     return {
+        'id': task.id,
+        'task_id': task.id,
         'session_task_id': next_task.id,
         'purpose': next_task.purpose,
         'order': next_task.order,
+        'topic_id': task.topic_id,
+        'topic_name': topic_name,
+        'grade_level': grade_level,
+        'section_name': section_name,
+        'topic_summary': summary_data,
+        'source': getattr(task, 'source', '') or '',
         **payload,
         'options': options,
     }
+
 
 
 class SubmitAnswerView(APIView):
@@ -65,21 +100,23 @@ class SubmitAnswerView(APIView):
         if err:
             return err
 
-        can, reason = await student_can_practice(student)
-        if not can:
-            return Response({'detail': reason}, status=status.HTTP_403_FORBIDDEN)
-
         session_task_id = request.data.get('session_task_id')
         answer_text = str(request.data.get('answer_text', '') or '').strip()
-        if not session_task_id or not answer_text:
-            return Response({'detail': 'session_task_id и answer_text обязательны'}, status=status.HTTP_400_BAD_REQUEST)
+        raw_selected_ids = request.data.get('selected_option_ids') or []
+        if not session_task_id or (not answer_text and not raw_selected_ids):
+            return Response({'detail': 'session_task_id и (answer_text или selected_option_ids) обязательны'}, status=status.HTTP_400_BAD_REQUEST)
 
-        session_task = await SessionTask.objects.select_related('task', 'session').aget(
+        session_task = await SessionTask.objects.select_related(
+            'task', 'task__topic', 'session'
+        ).aget(
             id=session_task_id,
             session__student=student,
         )
-        if session_task.is_answered:
-            return Response({'detail': 'Задание уже выполнено'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if not session_task.is_answered:
+            can, reason = await student_can_practice(student)
+            if not can:
+                return Response({'detail': reason}, status=status.HTTP_403_FORBIDDEN)
 
         task = session_task.task
         options = []
@@ -178,7 +215,7 @@ class AIExplainView(APIView):
                 student=student,
                 session_task_id=session_task_id,
             )
-            .select_related('task', 'task__topic')
+            .select_related('student', 'task', 'task__topic', 'task__solution')
             .order_by('-created_at')
             .afirst()
         )
@@ -293,11 +330,20 @@ class ExamStartView(APIView):
             except (ValueError, TypeError):
                 variant_id = None
 
-        session = await create_exam_simulator_session(student, variant_id=variant_id)
+        year = request.data.get('year')
+        if year:
+            try:
+                year = int(year)
+            except (ValueError, TypeError):
+                year = None
+
+        session = await create_exam_simulator_session(
+            student, variant_id=variant_id, year=year
+        )
 
         session_tasks = [
             st async for st in SessionTask.objects.filter(session=session)
-            .select_related('task')
+            .select_related('task', 'task__topic', 'task__topic__section')
             .prefetch_related('task__options')
             .order_by('order')
         ]

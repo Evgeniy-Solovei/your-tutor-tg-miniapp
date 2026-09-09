@@ -62,6 +62,13 @@ export const api = {
   subjects: () => request('/knowledge/subjects/'),
   tracks: (subjectId) => request(`/knowledge/subjects/${subjectId}/tracks/`),
   catalog: () => request('/knowledge/catalog/'),
+  getGradeCurriculum: (grade, tgId = null) =>
+    request(`/knowledge/grade/${grade}/${tgId ? `?tg_id=${tgId}` : ''}`),
+  startTopicPractice: (tgId, topicId = null, mode = null, grade = null, year = null) =>
+    request(`/daily-session/${tgId}/`, {
+      method: 'POST',
+      body: JSON.stringify({ topic_id: topicId, mode: mode, grade: grade, year: year }),
+    }),
   devUsers: () => request('/dev/users/'),
   stats: (tgId) => request(`/stats/${tgId}/`),
   scores: (tgId, page = 1) => request(`/scores/${tgId}/?page=${page}`),

@@ -376,6 +376,7 @@ class Task(models.Model):
         indexes = [
             models.Index(fields=['topic', 'is_active', 'id']),
             models.Index(fields=['answer_format', 'is_active', 'id']),
+            models.Index(fields=['is_active', 'source']),
         ]
 
     def __str__(self):
@@ -405,6 +406,10 @@ class TaskOption(models.Model):
         verbose_name = 'Вариант ответа'
         verbose_name_plural = 'Варианты ответов'
         ordering = ['order']
+        indexes = [
+            models.Index(fields=['task', 'order']),
+            models.Index(fields=['task', 'is_correct']),
+        ]
 
     def __str__(self):
         return self.text[:60]

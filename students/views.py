@@ -123,10 +123,16 @@ class StudentProfileView(APIView):
         student, err = await aget_student_by_tg(request, tg_id)
         if err:
             return err
-        data = request.data
-        if 'notifications_enabled' in data:
-            student.notifications_enabled = bool(data['notifications_enabled'])
-            await student.asave(update_fields=['notifications_enabled'])
+        from students.registration_service import register_or_update_student
+        try:
+            student = await register_or_update_student(
+                tg_id=student.tg_id,
+                username=student.username or '',
+                payload=request.data or {},
+                require_geo=False,
+            )
+        except ValueError as exc:
+            return Response({'detail': str(exc)}, status=400)
         serializer = StudentSerializer(student)
         return Response(await serializer.adata)
 
@@ -238,6 +244,60 @@ class DailySessionView(APIView):
             }
         )
 
+    async def post(self, request, tg_id: int):
+        student, err = await aget_student_by_tg(request, tg_id)
+        if err:
+            return err
+
+        can, reason = await student_can_practice(student)
+        if not can:
+            return Response({'can_practice': False, 'reason': reason})
+
+        topic_id = request.data.get('topic_id')
+        if topic_id:
+            try:
+                topic_id = int(topic_id)
+            except (ValueError, TypeError):
+                topic_id = None
+
+        mode = request.data.get('mode')
+        grade = request.data.get('grade')
+        year = request.data.get('year')
+        if grade:
+            try:
+                grade = int(grade)
+            except (ValueError, TypeError):
+                grade = None
+        if year:
+            try:
+                year = int(year)
+            except (ValueError, TypeError):
+                year = None
+
+        from learning.services import create_train_session, get_next_session_task
+        from learning.views import serialize_current_task
+
+        session = await create_train_session(
+            student, count=15, topic_id=topic_id, mode=mode, grade=grade, year=year
+        )
+        next_task = await get_next_session_task(session)
+        task_data = await serialize_current_task(next_task)
+        content_available = bool(task_data) or (session.tasks_total or 0) > 0
+
+        return Response({
+            'can_practice': True,
+            'content_available': content_available,
+            'empty_reason': '' if content_available else 'В этой категории пока нет активных заданий.',
+            'practice_grade': grade or student.grade,
+            'session_date': session.session_date,
+            'status': session.status,
+            'kind': session.kind,
+            'tasks_completed': session.tasks_completed,
+            'tasks_total': session.tasks_total,
+            'current_task': task_data,
+        })
+
+
 
 class LeaderboardView(APIView):
     """Рейтинг по тестовому / первичному баллу: страна / город / школа."""
@@ -269,6 +329,16 @@ class LeaderboardView(APIView):
         city_id = request.query_params.get('city_id') or (me.city_id if me else None)
         school_id = request.query_params.get('school_id') or (me.school_id if me else None)
 
+        grade_param = request.query_params.get('grade')
+        target_grade = None
+        if grade_param:
+            try:
+                target_grade = int(grade_param)
+            except (TypeError, ValueError):
+                target_grade = None
+        if not target_grade and me and me.grade:
+            target_grade = me.grade
+
         def filters_payload(**extra):
             return {
                 'has_city': bool(me and me.city_id),
@@ -277,7 +347,7 @@ class LeaderboardView(APIView):
                 'school_name': me.school.name if me and me.school_id else None,
                 'city_id': me.city_id if me else None,
                 'school_id': me.school_id if me else None,
-                'grade': me.grade if me else None,
+                'grade': target_grade,
                 'period': period,
                 **extra,
             }
@@ -287,9 +357,9 @@ class LeaderboardView(APIView):
         empty_reason = ''
 
         if scope == 'grade':
-            if me and me.grade:
-                qs = qs.filter(grade=me.grade)
-                title = f'{me.grade} класс'
+            if target_grade:
+                qs = qs.filter(grade=target_grade)
+                title = f'{target_grade} класс'
             else:
                 title = 'Мой класс'
         elif scope == 'city':
@@ -603,17 +673,32 @@ class DashboardView(APIView):
             )['best'] or 0
 
             # Разбивка по разделам предмета
-            mastery_by_section = {
-                row['topic__section_id']: row
-                for row in TopicMastery.objects.filter(
+            if student.grade:
+                mastery_qs = TopicMastery.objects.filter(
+                    student=student,
+                    topic__grade_level=student.grade,
+                )
+                sec_qs = Section.objects.filter(
+                    topics__grade_level=student.grade,
+                    topics__is_active=True,
+                ).distinct().order_by('order', 'id')
+            else:
+                mastery_qs = TopicMastery.objects.filter(
                     student=student,
                     topic__section__exam_track_id=student.exam_track_id,
                 )
+                sec_qs = Section.objects.filter(
+                    exam_track_id=student.exam_track_id,
+                ).distinct().order_by('order', 'id')
+
+            mastery_by_section = {
+                row['topic__section_id']: row
+                for row in mastery_qs
                 .values('topic__section_id')
                 .annotate(topics_count=Count('topic_id'), avg_mastery=Avg('mastery_score'))
             }
             sections = []
-            for sec in Section.objects.filter(exam_track_id=student.exam_track_id).only('id', 'name'):
+            for sec in sec_qs.only('id', 'name', 'order'):
                 mastery = mastery_by_section.get(sec.id, {})
                 sections.append({
                     'id': sec.id,
