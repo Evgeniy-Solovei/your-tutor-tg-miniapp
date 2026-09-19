@@ -121,6 +121,12 @@ async function openPanel(panel) {
       state.streak = await api.streak(id);
     } else if (panel === 'tariffs') {
       state.tariffs = await api.tariffs();
+    } else if (panel === 'accuracy') {
+      try {
+        const [st, d] = await Promise.all([api.stats(id), api.dashboard(id)]);
+        state.stats = st;
+        state.dashboard = d;
+      } catch (_) {}
     }
   } catch (e) {
     toast(e.message);
@@ -386,6 +392,91 @@ function renderStreakPanel() {
   `;
 }
 
+function renderAccuracyPanel() {
+  const dash = state.dashboard;
+  const weak = state.stats?.weak_topics || [];
+  const total = dash?.total_attempts ?? 0;
+  const correct = dash?.correct_attempts ?? 0;
+  const wrong = Math.max(0, total - correct);
+  const accuracy = dash?.accuracy_percent ?? 0;
+
+  let accColor = '#10b981';
+  let accGrade = 'Отличная точность! Так держать 👍';
+  if (total === 0) {
+    accGrade = 'Пока нет решенных заданий';
+  } else if (accuracy < 50) {
+    accColor = '#ef4444';
+    accGrade = 'Много ошибок — нужно повторить правила';
+  } else if (accuracy < 80) {
+    accColor = '#f59e0b';
+    accGrade = 'Хороший результат, но есть куда расти';
+  }
+
+  return `
+    <section class="card">
+      <div class="panel-head">
+        <button type="button" class="linkish" data-action="close-panel">← Назад</button>
+        <h2>🎯 Точность ответов</h2>
+      </div>
+
+      <div style="text-align:center; padding:18px 0 14px">
+        <div style="font-size:3.2rem; font-weight:800; color:${accColor}; line-height:1; letter-spacing:-1px">
+          ${accuracy}%
+        </div>
+        <p class="muted" style="margin-top:8px; font-weight:600; font-size:0.95rem">${accGrade}</p>
+      </div>
+
+      <div class="stats-row" style="margin:12px 0 16px">
+        <div class="stat">
+          <strong style="color:#10b981">${correct}</strong>
+          <span>верно</span>
+        </div>
+        <div class="stat">
+          <strong style="color:#ef4444">${wrong}</strong>
+          <span>ошибок</span>
+        </div>
+        <div class="stat">
+          <strong>${total}</strong>
+          <span>всего задач</span>
+        </div>
+      </div>
+
+      <div style="margin-bottom:18px">
+        <div class="progress" style="height:10px; border-radius:5px; background:rgba(239, 68, 68, 0.25); overflow:hidden">
+          <i style="width:${accuracy}%; background:linear-gradient(90deg, #10b981, #059669); border-radius:5px"></i>
+        </div>
+      </div>
+
+      <h3 style="font-size:1.05rem; margin-bottom:10px">⚠️ Темы с наибольшим числом ошибок:</h3>
+      ${weak.length ? `
+        <div style="display:flex; flex-direction:column; gap:8px">
+          ${weak.map((t) => `
+            <div style="display:flex; align-items:center; justify-content:space-between; background:var(--bg-secondary); padding:10px 12px; border-radius:12px; border:1px solid var(--card-border)">
+              <div style="flex:1; padding-right:10px">
+                <div style="font-size:0.88rem; font-weight:600; line-height:1.3">${esc(t.topic_name)}</div>
+                <div style="font-size:0.75rem; color:var(--muted); margin-top:3px">
+                  Ошибок: <strong style="color:#ef4444">${t.wrong_count}</strong> · Точность ${Math.round((t.mastery_score || 0) * 100)}%
+                </div>
+              </div>
+              <button type="button" class="btn secondary small" data-action="start-topic-practice" data-topic="${t.topic_id}" style="flex-shrink:0">
+                ⚡ Отработать
+              </button>
+            </div>
+          `).join('')}
+        </div>
+      ` : `
+        <div class="empty" style="padding:16px 10px; border-radius:10px">
+          <p class="muted">${total === 0 ? 'Реши несколько заданий, чтобы увидеть аналитику ошибок.' : 'Ошибок нет или их очень мало! Отличная работа 👏'}</p>
+        </div>
+      `}
+
+      <button type="button" class="btn block primary" data-action="go-practice" style="margin-top:16px">
+        ⚡ Перейти к тренировке
+      </button>
+    </section>
+  `;
+}
+
 function renderTariffsPanel() {
   const pack = state.tariffs;
   if (!pack) return `<section class="card empty">Загружаем тарифы…</section>`;
@@ -421,9 +512,10 @@ function renderHome() {
   if (state.panel === 'scores') return renderScoresPanel();
   if (state.panel === 'streak') return renderStreakPanel();
   if (state.panel === 'tariffs') return renderTariffsPanel();
+  if (state.panel === 'accuracy') return renderAccuracyPanel();
 
   const name = state.me?.display_name || getUnsafeUser()?.first_name || 'ученик';
-  const score = state.stats?.best_test_score ?? 0;
+  const xp = state.stats?.xp ?? state.me?.xp ?? 0;
   const streak = state.stats?.streak_days ?? state.me?.streak_days ?? 0;
   const daily = state.daily;
   const vibe = getTheme() === 'vibe';
@@ -440,8 +532,8 @@ function renderHome() {
       }</p>
     </section>
     <div class="stats-row">
-      <button type="button" class="stat clickable" data-action="open-scores"><strong>${score}</strong><span>лучший балл</span></button>
-      <button type="button" class="stat clickable" data-action="open-streak"><strong>${streak}</strong><span>дней подряд</span></button>
+      <button type="button" class="stat clickable" data-action="go-rating"><strong>⚡ ${xp}</strong><span>опыт XP</span></button>
+      <button type="button" class="stat clickable" data-action="open-streak"><strong>🔥 ${streak}</strong><span>дней подряд</span></button>
       <button type="button" class="stat clickable" data-action="open-tariffs"><strong>${esc(tariffShortLabel())}</strong><span>тариф</span></button>
     </div>
     <section class="card">
@@ -1060,12 +1152,15 @@ function renderStats() {
   if (state.panel === 'scores') return renderScoresPanel();
   if (state.panel === 'streak') return renderStreakPanel();
   if (state.panel === 'tariffs') return renderTariffsPanel();
+  if (state.panel === 'accuracy') return renderAccuracyPanel();
 
   const dash = state.dashboard;
   const weak = state.stats?.weak_topics || [];
   const sections = dash?.sections || [];
   const activity = dash?.daily_activity || [];
   const maxAct = Math.max(...activity.map((a) => a.total), 1);
+  const streak = dash?.streak_days ?? state.stats?.streak_days ?? state.me?.streak_days ?? 0;
+  const accuracy = dash?.accuracy_percent ?? 0;
 
   return `
     <section class="hero">
@@ -1073,12 +1168,12 @@ function renderStats() {
       <p>Твой личный дашборд успеваемости</p>
     </section>
     <div class="stats-row">
-      <button type="button" class="stat clickable" data-action="open-scores">
-        <strong>${dash?.best_test_score ?? state.stats?.best_test_score ?? '—'}</strong>
-        <span>лучший балл</span>
-      </button>
       <button type="button" class="stat clickable" data-action="open-streak">
-        <strong>${dash?.accuracy_percent ?? 0}%</strong>
+        <strong>🔥 ${streak} дн.</strong>
+        <span>ударный режим</span>
+      </button>
+      <button type="button" class="stat clickable" data-action="open-accuracy">
+        <strong>${accuracy}%</strong>
         <span>точность ответов</span>
       </button>
       <button type="button" class="stat clickable" data-action="open-tariffs">
@@ -1889,6 +1984,10 @@ function bindUi() {
       await openPanel('tariffs');
       return;
     }
+    if (action === 'open-accuracy') {
+      await openPanel('accuracy');
+      return;
+    }
     if (action === 'close-panel') {
       state.panel = null;
       render();
@@ -1929,6 +2028,8 @@ function bindUi() {
     if (action === 'go-home') setRoute('home');
     if (action === 'go-profile') setRoute('profile');
     if (action === 'go-courses') setRoute('courses');
+    if (action === 'go-rating') setRoute('rating');
+    if (action === 'go-stats') setRoute('stats');
     if (action === 'courses-subject') {
       state.coursesSubjectId = Number(t.dataset.id);
       render();
