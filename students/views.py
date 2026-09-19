@@ -429,10 +429,17 @@ class LeaderboardView(APIView):
         else:
             session_filter = Q()
 
-        qs = qs.annotate(
-            best_test=Coalesce(Max('daily_sessions__test_score', filter=session_filter), Value(0)),
-            total_primary=Coalesce(Sum('daily_sessions__primary_score', filter=session_filter), Value(0)),
-        ).order_by('-best_test', '-total_primary', '-xp', 'created_at')
+        if period != 'all':
+            qs = qs.annotate(
+                period_xp=Coalesce(Sum('daily_sessions__xp_earned', filter=session_filter), Value(0)),
+                total_primary=Coalesce(Sum('daily_sessions__primary_score', filter=session_filter), Value(0)),
+                best_test=Coalesce(Max('daily_sessions__test_score', filter=session_filter), Value(0)),
+            ).order_by('-period_xp', '-xp', '-total_primary', 'created_at')
+        else:
+            qs = qs.annotate(
+                total_primary=Coalesce(Sum('daily_sessions__primary_score'), Value(0)),
+                best_test=Coalesce(Max('daily_sessions__test_score'), Value(0)),
+            ).order_by('-xp', '-total_primary', 'created_at')
 
         top = [
             {
@@ -440,13 +447,14 @@ class LeaderboardView(APIView):
                 'test_score': s.best_test,
                 'primary_score': s.total_primary,
                 'xp': s.xp,
+                'period_xp': getattr(s, 'period_xp', s.xp),
                 'streak_days': s.streak_days,
                 'is_me': bool(me and s.id == me.id),
             }
             async for s in qs[:50]
         ]
         if not top and not empty_reason:
-            empty_reason = 'Пока никого в этом рейтинге.'
+            empty_reason = 'Пока никого в этом рейтинге. Начни решать задания и займи 1-е место!'
 
         league_data = None
         if active_league:
@@ -473,7 +481,7 @@ class LeaderboardView(APIView):
             {
                 'scope': scope,
                 'title': title,
-                'metric': 'test_score',
+                'metric': 'xp',
                 'entries': top,
                 'empty_reason': empty_reason,
                 'filters': filters_payload(),

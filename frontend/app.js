@@ -16,7 +16,7 @@ const state = {
   daily: null,
   stats: null,
   rating: null,
-  ratingScope: 'country',
+  ratingScope: 'grade',
   panel: null, // scores | streak | tariffs
   scores: null,
   scoresPage: 1,
@@ -316,9 +316,10 @@ async function loadRating(scope, period, grade) {
   if (scope) state.ratingScope = scope;
   if (period) state.ratingPeriod = period;
   if (grade !== undefined) state.ratingGrade = grade ? Number(grade) : null;
-  const s = state.ratingScope || 'country';
+  const s = state.ratingScope || 'grade';
   const p = state.ratingPeriod || 'week';
-  const g = state.ratingScope === 'grade' ? (state.ratingGrade || (state.me?.grade ? Number(state.me.grade) : null)) : null;
+  const myGrade = state.me?.grade ? Number(state.me.grade) : null;
+  const g = state.ratingScope === 'grade' ? (state.ratingGrade || myGrade) : null;
   state.rating = await api.leaderboard(s, {
     period: p,
     grade: g,
@@ -1495,15 +1496,26 @@ function renderLeaguePrizes(league) {
 function renderRating() {
   const entries = state.rating?.entries || [];
   const filters = state.rating?.filters || {};
-  const scope = state.ratingScope || 'country';
+  const scope = state.ratingScope || 'grade';
   const period = state.ratingPeriod || 'week';
-  const currentGrade = state.ratingGrade || filters.grade || (state.me?.grade ? Number(state.me.grade) : 1);
+  const myGrade = state.me?.grade ? Number(state.me.grade) : (filters.grade || 1);
   const league = state.rating?.active_league;
+
+  let filterNote = '';
+  if (scope === 'grade') {
+    filterNote = myGrade ? `🏆 Рейтинг среди учеников ${myGrade} класса` : '🏆 Рейтинг среди учеников твоего класса';
+  } else if (scope === 'country') {
+    filterNote = '🌍 Общий рейтинг среди всех учеников Беларуси';
+  } else if (scope === 'city') {
+    filterNote = filters.city_name ? `🏙️ Ученики г. ${esc(filters.city_name)}` : 'Рейтинг твоего города';
+  } else if (scope === 'school') {
+    filterNote = filters.school_name ? `🏫 Ученики ${esc(filters.school_name)}` : 'Рейтинг твоей школы';
+  }
 
   return `
     <section class="hero">
-      <h1>Рейтинг</h1>
-      <p>${esc(state.rating?.title || 'По баллу')} · тестовый балл</p>
+      <h1>🏆 Рейтинг</h1>
+      <p>Таблица лидеров по заработанному опыту (XP)</p>
     </section>
 
     <!-- Фильтр периода: Неделя / Месяц / Всё время -->
@@ -1516,41 +1528,42 @@ function renderRating() {
     ${renderLeaguePrizes(league)}
 
     <section class="card">
-      <div class="filters">
-        <button type="button" class="chip${scope === 'country' ? ' active' : ''}" data-action="rating-scope" data-scope="country">Страна</button>
-        <button type="button" class="chip${scope === 'grade' ? ' active' : ''}" data-action="rating-scope" data-scope="grade">🎒 Мой класс</button>
-        <button type="button" class="chip${scope === 'city' ? ' active' : ''}" data-action="rating-scope" data-scope="city" ${filters.has_city ? '' : 'disabled'} title="${filters.has_city ? esc(filters.city_name || '') : 'Город не указан в профиле'}">Город</button>
-        <button type="button" class="chip${scope === 'school' ? ' active' : ''}" data-action="rating-scope" data-scope="school" ${filters.has_school ? '' : 'disabled'} title="${filters.has_school ? esc(filters.school_name || '') : 'Школа не указана в профиле'}">Школа</button>
+      <div class="filters" style="display:flex;gap:6px;flex-wrap:wrap">
+        <button type="button" class="chip${scope === 'grade' ? ' active' : ''}" data-action="rating-scope" data-scope="grade">🎒 Мой класс${myGrade ? ` (${myGrade} кл)` : ''}</button>
+        <button type="button" class="chip${scope === 'country' ? ' active' : ''}" data-action="rating-scope" data-scope="country">🌍 Вся страна</button>
+        <button type="button" class="chip${scope === 'city' ? ' active' : ''}" data-action="rating-scope" data-scope="city" ${filters.has_city ? '' : 'disabled'} title="${filters.has_city ? esc(filters.city_name || '') : 'Город не указан в профиле'}">🏙️ Город</button>
+        <button type="button" class="chip${scope === 'school' ? ' active' : ''}" data-action="rating-scope" data-scope="school" ${filters.has_school ? '' : 'disabled'} title="${filters.has_school ? esc(filters.school_name || '') : 'Школа не указана в профиле'}">🏫 Школа</button>
       </div>
 
-      ${scope === 'grade' ? `
-        <div style="display:flex; overflow-x:auto; gap:6px; margin:10px 0; padding-bottom:4px; -webkit-overflow-scrolling:touch">
-          ${[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map((g) => `
-            <button type="button" class="chip ${currentGrade === g ? 'active' : ''}" data-action="rating-grade" data-grade="${g}" style="white-space:nowrap; padding:4px 10px; font-size:0.82rem">
-              ${g === Number(state.me?.grade) ? `⭐ ${g} кл` : `${g} кл`}
-            </button>
-          `).join('')}
-        </div>
-      ` : ''}
+      <p class="filter-note" style="margin:12px 0 10px; font-size:0.86rem; color:var(--muted)">${filterNote}</p>
 
-      <p class="filter-note">${
-        scope === 'grade' && currentGrade
-          ? `Ученики ${currentGrade} класса`
-          : scope === 'city' && filters.city_name
-            ? esc(filters.city_name)
-            : scope === 'school' && filters.school_name
-              ? esc(filters.school_name)
-              : 'Сортировка: лучший тестовый балл, затем первичные'
-      }</p>
       ${
         entries.length
           ? `<ul class="list">${entries
               .map(
-                (e, i) =>
-                  `<li class="${e.is_me ? 'me' : ''}"><span>${i + 1}. ${esc(e.display_name)}${e.is_me ? ' (ты)' : ''}</span><span class="muted">${e.test_score ?? 0}</span></li>`,
+                (e, i) => {
+                  const rank = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}.`;
+                  const scoreVal = period === 'all' ? (e.xp ?? 0) : (e.period_xp ?? e.xp ?? 0);
+                  const streakHtml = e.streak_days > 1 ? `<span style="font-size:0.75rem; color:#f59e0b; margin-left:5px" title="Серия дней подряд">🔥 ${e.streak_days}</span>` : '';
+                  return `
+                    <li class="${e.is_me ? 'me' : ''}" style="display:flex; align-items:center; justify-content:space-between; padding:10px 12px">
+                      <div style="display:flex; align-items:center; gap:8px; overflow:hidden">
+                        <span style="font-weight:700; min-width:24px; text-align:center">${rank}</span>
+                        <span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-weight:${e.is_me ? '700' : '500'}">
+                          ${esc(e.display_name)}${e.is_me ? ' <strong style="color:var(--accent); font-weight:700">(ты)</strong>' : ''}${streakHtml}
+                        </span>
+                      </div>
+                      <span style="font-weight:700; color:var(--accent); flex-shrink:0; margin-left:8px">
+                        ⚡ ${scoreVal} XP
+                      </span>
+                    </li>
+                  `;
+                }
               )
               .join('')}</ul>`
-          : `<p class="muted">${esc(state.rating?.empty_reason || 'Пока пусто.')}</p>`
+          : `<div class="empty" style="padding:20px 12px; border-radius:10px">
+               <p class="muted">${esc(state.rating?.empty_reason || 'Пока в этом рейтинге нет активных учеников. Реши пару заданий и займи 1-е место!')}</p>
+             </div>`
       }
     </section>
   `;

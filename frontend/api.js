@@ -87,6 +87,7 @@ export const api = {
     if (extra.period) params.set('period', String(extra.period));
     if (extra.city_id) params.set('city_id', String(extra.city_id));
     if (extra.school_id) params.set('school_id', String(extra.school_id));
+    if (extra.grade) params.set('grade', String(extra.grade));
     return request(`/leaderboard/?${params}`);
   },
   submit: (tgId, sessionTaskId, answerText, selectedOptionIds = []) =>
