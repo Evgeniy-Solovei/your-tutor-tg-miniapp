@@ -40,6 +40,7 @@ const state = {
   izloQuery: '',
   catalog: null,
   coursesSubjectId: null,
+  inCoursesCatalog: false,
   selectedGradeCurriculum: null,
   gradeTab: 'school',
   selectedExamYear: null,
@@ -96,6 +97,9 @@ function escAttr(s) {
 function setRoute(route) {
   state.route = route;
   state.panel = null;
+  if (route === 'courses') {
+    state.inCoursesCatalog = false;
+  }
   document.querySelectorAll('.tab').forEach((btn) => {
     btn.classList.toggle('active', btn.dataset.route === route);
   });
@@ -198,6 +202,22 @@ async function loadFamily() {
 
 async function loadForRoute() {
   if (state.route === 'courses') {
+    const id = tgId();
+    const myGrade = Number(state.me?.grade) || 11;
+    if (!state.inCoursesCatalog) {
+      if (!state.selectedGradeCurriculum || state.selectedGradeCurriculum.grade !== myGrade) {
+        state.loading = true;
+        render();
+        try {
+          state.selectedGradeCurriculum = await api.getGradeCurriculum(myGrade, id);
+        } catch (e) {
+          toast(e.message || 'Не удалось загрузить программу твоего класса');
+        } finally {
+          state.loading = false;
+          render();
+        }
+      }
+    }
     await loadCatalog();
     return;
   }
@@ -466,16 +486,61 @@ function renderGradeCurriculum() {
 
   const sectionsHtml = (cur.sections || []).map((sec) => {
     const topicsHtml = (sec.topics || []).map((top) => {
-      const mastery = top.mastery_score || 0;
       const tasks = top.task_count || 0;
+      const solved = top.solved_count || 0;
+      const pct = top.progress_percent !== undefined
+        ? top.progress_percent
+        : (tasks > 0 ? Math.min(100, Math.round((solved / tasks) * 100)) : 0);
+
+      let progressBorder = 'rgba(255, 255, 255, 0.12)';
+      let progressTextColor = 'var(--muted)';
+      let progressFill = 'rgba(255, 255, 255, 0.08)';
+
+      if (pct > 0 && pct < 40) {
+        progressBorder = 'rgba(245, 158, 11, 0.45)';
+        progressTextColor = '#fbbf24';
+        progressFill = 'linear-gradient(90deg, #f59e0b, #d97706)';
+      } else if (pct >= 40 && pct < 80) {
+        progressBorder = 'rgba(99, 102, 241, 0.45)';
+        progressTextColor = '#a5b4fc';
+        progressFill = 'linear-gradient(90deg, #6366f1, #3b82f6)';
+      } else if (pct >= 80) {
+        progressBorder = 'rgba(16, 185, 129, 0.5)';
+        progressTextColor = '#6ee7b7';
+        progressFill = 'linear-gradient(90deg, #10b981, #059669)';
+      }
+
       return `
-        <div class="curriculum-topic-card" style="background:var(--bg-secondary); border-radius:12px; padding:12px; margin-bottom:10px">
-          <div style="display:flex; align-items:center; justify-content:space-between">
-            <strong style="font-size:0.95rem">📌 ${esc(top.name)}</strong>
-            <span class="chip ${mastery >= 70 ? 'active' : ''}" style="font-size:0.75rem">
-              ${tasks > 0 ? `${mastery}% освоено · ${tasks} зад.` : 'скоро'}
-            </span>
+        <div class="curriculum-topic-card" style="background:var(--bg-secondary); border-radius:14px; padding:12px; margin-bottom:10px; border:1px solid var(--card-border)">
+          <div style="display:flex; align-items:center; justify-content:space-between; gap:8px">
+            <strong style="font-size:0.95rem; line-height:1.3">📌 ${esc(top.name)}</strong>
+            ${tasks > 0 ? `
+              <div class="topic-progress-badge" title="Решено ${solved} из ${tasks} заданий" style="
+                border: 1px solid ${progressBorder};
+              ">
+                <div class="topic-progress-fill" style="
+                  position: absolute;
+                  left: 0;
+                  top: 0;
+                  bottom: 0;
+                  width: ${pct}%;
+                  background: ${progressFill};
+                  opacity: 0.38;
+                  transition: width 0.3s ease;
+                "></div>
+                <span style="position: relative; z-index: 1; font-size: 0.74rem; font-weight: 700; color: ${progressTextColor}">
+                  ${pct === 100 ? '✅ ' : ''}${pct}% · ${solved}/${tasks} зад.
+                </span>
+              </div>
+            ` : `
+              <span class="chip" style="font-size:0.75rem; opacity:0.6; flex-shrink:0">скоро</span>
+            `}
           </div>
+          ${tasks > 0 ? `
+            <div style="margin-top:8px; height:4px; border-radius:2px; background:rgba(255,255,255,0.06); overflow:hidden">
+              <div style="height:100%; width:${pct}%; background:${progressFill}; transition:width 0.3s ease"></div>
+            </div>
+          ` : ''}
           ${top.has_summary && top.summary_key_points ? `
             <div style="font-size:0.82rem; color:var(--muted); margin-top:6px">
               💡 <strong>Правило:</strong> ${esc(top.summary_key_points.slice(0, 110))}${top.summary_key_points.length > 110 ? '…' : ''}
@@ -668,13 +733,15 @@ function renderGradeCurriculum() {
 
   return `
     <section class="hero" style="margin-bottom:12px">
-      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px">
+      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; gap:8px">
         <button type="button" class="btn secondary small" data-action="courses-back-to-catalog">← Все классы</button>
-        ${!isMyGrade ? `
-          <button type="button" class="btn secondary small" data-action="courses-set-my-grade" data-grade="${cur.grade}">
-            🎒 Сделать моим классом
+        ${isMyGrade ? `
+          <span class="chip active" style="font-weight:700">⭐ Твой класс</span>
+        ` : `
+          <button type="button" class="btn primary small" data-action="courses-return-to-my-grade">
+            ↩️ В свой класс (${myGrade || 11} кл)
           </button>
-        ` : '<span class="chip active">Твой текущий класс</span>'}
+        `}
       </div>
       <h1>${esc(cur.title)}</h1>
       <p class="muted">${cur.total_topics} тем · ${cur.total_tasks} заданий в базе</p>
@@ -686,7 +753,7 @@ function renderGradeCurriculum() {
 }
 
 function renderCourses() {
-  if (state.selectedGradeCurriculum) {
+  if (state.selectedGradeCurriculum && !state.inCoursesCatalog) {
     return renderGradeCurriculum();
   }
   const catalog = state.catalog;
@@ -700,6 +767,59 @@ function renderCourses() {
   const how = (catalog.how_it_works || [])
     .map((line) => `<li>${esc(line)}</li>`)
     .join('');
+
+  const allGrades = subject?.grades || [];
+  let sortedGrades = [];
+  if (myGrade) {
+    const myGradeObj = allGrades.find((g) => g.grade === myGrade);
+    const otherGrades = allGrades.filter((g) => g.grade !== myGrade);
+    if (myGradeObj) {
+      sortedGrades = [myGradeObj, ...otherGrades];
+    } else {
+      sortedGrades = allGrades;
+    }
+  } else {
+    sortedGrades = allGrades;
+  }
+
+  const ctCardHtml = `
+    <section class="card" style="border-left: 4px solid #10b981; margin-bottom:12px">
+      <div style="display:flex; align-items:center; justify-content:space-between">
+        <h2 style="font-size:1.1rem">🎓 Поступление в ВУЗы: ЦТ и ЦЭ</h2>
+        <span class="chip active">11 класс</span>
+      </div>
+      <p class="muted" style="margin-top:4px">13 345 заданий РИКЗ по спецификации вступительных испытаний:</p>
+      <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px; margin-top:10px">
+        <button type="button" class="btn secondary small" data-action="start-mode-practice" data-grade="11" data-mode="part_a">
+          🔘 Часть А: Тесты (9 631)
+        </button>
+        <button type="button" class="btn secondary small" data-action="start-mode-practice" data-grade="11" data-mode="part_b">
+          ✍️ Часть Б: Открытые (3 714)
+        </button>
+      </div>
+      <button type="button" class="btn block small" data-action="start-exam" style="margin-top:8px; background:linear-gradient(135deg, #10b981, #059669); color:#fff">
+        ⏱️ Запустить симулятор ЦТ/ЦЭ (40 вопросов · 180 мин)
+      </button>
+    </section>
+  `;
+
+  const izloCardHtml = `
+    <section class="card" style="border-left: 4px solid #f59e0b; margin-bottom:12px">
+      <div style="display:flex; align-items:center; justify-content:space-between">
+        <h2 style="font-size:1.1rem">📖 Выпускной экзамен: Изложения</h2>
+        <span class="chip">9 класс</span>
+      </div>
+      <p class="muted" style="margin-top:4px">166 официальных текстов НИО для подготовки к экзамену за курс базовой школы:</p>
+      <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px; margin-top:10px">
+        <button type="button" class="btn secondary small" data-action="izlo-catalog">
+          📖 Каталог текстов
+        </button>
+        <button type="button" class="btn secondary small" data-action="izlo-random">
+          🎲 Случайное изложение
+        </button>
+      </div>
+    </section>
+  `;
 
   return `
     <section class="hero">
@@ -725,58 +845,25 @@ function renderCourses() {
     ${
       subject
         ? `
-           <section class="card" style="border-left: 4px solid #10b981; margin-bottom:12px">
-             <div style="display:flex; align-items:center; justify-content:space-between">
-               <h2 style="font-size:1.1rem">🎓 Поступление в ВУЗы: ЦТ и ЦЭ</h2>
-               <span class="chip active">11 класс</span>
-             </div>
-             <p class="muted" style="margin-top:4px">13 345 заданий РИКЗ по спецификации вступительных испытаний:</p>
-             <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px; margin-top:10px">
-               <button type="button" class="btn secondary small" data-action="start-mode-practice" data-grade="11" data-mode="part_a">
-                 🔘 Часть А: Тесты (9 631)
-               </button>
-               <button type="button" class="btn secondary small" data-action="start-mode-practice" data-grade="11" data-mode="part_b">
-                 ✍️ Часть Б: Открытые (3 714)
-               </button>
-             </div>
-             <button type="button" class="btn block small" data-action="start-exam" style="margin-top:8px; background:linear-gradient(135deg, #10b981, #059669); color:#fff">
-               ⏱️ Запустить симулятор ЦТ/ЦЭ (40 вопросов · 180 мин)
-             </button>
-           </section>
-
-           <section class="card" style="border-left: 4px solid #f59e0b; margin-bottom:12px">
-             <div style="display:flex; align-items:center; justify-content:space-between">
-               <h2 style="font-size:1.1rem">📖 Выпускной экзамен: Изложения</h2>
-               <span class="chip">9 класс</span>
-             </div>
-             <p class="muted" style="margin-top:4px">166 официальных текстов НИО для подготовки к экзамену за курс базовой школы:</p>
-             <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px; margin-top:10px">
-               <button type="button" class="btn secondary small" data-action="izlo-catalog">
-                 📖 Каталог текстов
-               </button>
-               <button type="button" class="btn secondary small" data-action="izlo-random">
-                 🎲 Случайное изложение
-               </button>
-             </div>
-           </section>
+           ${myGrade === 9 ? (izloCardHtml + ctCardHtml) : (ctCardHtml + izloCardHtml)}
 
            <section class="card">
              <h2>🏫 Школьная программа по классам</h2>
              <p class="muted" style="margin-bottom:12px">Выбери класс для изучения тем учебника и прохождения заданий:</p>
              <div class="grade-grid">
-               ${(subject.grades || [])
+               ${sortedGrades
                  .map((g) => {
                    const active = myGrade === g.grade;
                    const empty = !g.available;
                    return `
                      <button type="button"
-                       class="grade-tile${active ? ' active' : ''}${empty ? ' empty' : ''}"
+                       class="grade-tile${active ? ' active my-grade' : ''}${empty ? ' empty' : ''}"
                        data-action="courses-pick-grade"
                        data-grade="${g.grade}"
                        data-subject="${subject.id}"
                        ${empty ? 'data-empty="1"' : ''}>
                        <span class="grade-tile-title">${esc(g.title)}</span>
-                       <span class="grade-tile-badge">${esc(g.badge || '')}</span>
+                       <span class="grade-tile-badge">${active ? '⭐ Твой класс' : esc(g.badge || '')}</span>
                        <span class="muted">${
                          g.available
                            ? `${g.tasks} заданий · ${g.topics} тем`
@@ -1863,20 +1950,29 @@ function bindUi() {
       return;
     }
     if (action === 'courses-back-to-catalog') {
+      state.inCoursesCatalog = true;
       state.selectedGradeCurriculum = null;
       state.selectedExamYear = null;
       render();
+      if (!state.catalog) {
+        state.loading = true;
+        render();
+        loadCatalog().finally(() => {
+          state.loading = false;
+          render();
+        });
+      }
       return;
     }
-    if (action === 'courses-pick-grade') {
-      const grade = Number(t.dataset.grade);
-      if (!grade) return;
+    if (action === 'courses-return-to-my-grade') {
+      const myGrade = Number(state.me?.grade) || 11;
       state.loading = true;
+      state.inCoursesCatalog = false;
       state.selectedExamYear = null;
       render();
       try {
-        const tgId = state.student?.tg_id || state.me?.tg_id || null;
-        state.selectedGradeCurriculum = await api.getGradeCurriculum(grade, tgId);
+        const id = tgId();
+        state.selectedGradeCurriculum = await api.getGradeCurriculum(myGrade, id);
       } catch (err) {
         toast(err.message || 'Не удалось загрузить программу класса');
       } finally {
@@ -1885,22 +1981,18 @@ function bindUi() {
       }
       return;
     }
-    if (action === 'courses-set-my-grade') {
+    if (action === 'courses-pick-grade') {
       const grade = Number(t.dataset.grade);
-      if (!grade || !state.me?.registered) {
-        toast('Сначала пройди регистрацию');
-        return;
-      }
+      if (!grade) return;
       state.loading = true;
+      state.inCoursesCatalog = false;
+      state.selectedExamYear = null;
       render();
       try {
-        const goal = goalForGradeSwitch(grade, state.me.goal);
-        const data = await api.updateProfile({ grade, goal });
-        state.me = { ...state.me, ...data, registered: true };
-        state.ratingGrade = grade;
-        toast(`Класс изменён на ${grade}`);
+        const id = tgId();
+        state.selectedGradeCurriculum = await api.getGradeCurriculum(grade, id);
       } catch (err) {
-        toast(err.message);
+        toast(err.message || 'Не удалось загрузить программу класса');
       } finally {
         state.loading = false;
         render();
@@ -2178,6 +2270,9 @@ function bindUi() {
             ? await api.updateProfile(payload)
             : await api.register(payload);
         state.me = { ...state.me, ...data, registered: true };
+        state.selectedGradeCurriculum = null;
+        state.inCoursesCatalog = false;
+        state.ratingGrade = state.me.grade;
         toast(state.route === 'profile' ? 'Профиль сохранён' : 'Готово!');
         state.route = 'home';
         document.querySelectorAll('.tab').forEach((btn) => {

@@ -121,7 +121,7 @@ class GradeCurriculumView(APIView):
     authentication_classes = telegram_auth_classes()
 
     async def get(self, request, grade: int):
-        from learning.models import TopicMastery
+        from learning.models import TaskAttempt, TopicMastery
 
         student = None
         tg_id_param = request.query_params.get('tg_id')
@@ -146,10 +146,22 @@ class GradeCurriculumView(APIView):
             async for row in Task.objects.filter(is_active=True, topic_id__in=topic_ids).values('topic_id').annotate(cnt=Count('id')):
                 task_counts[row['topic_id']] = row['cnt']
 
+        solved_counts = {}
         masteries = {}
         if student and topic_ids:
+            async for row in (
+                TaskAttempt.objects.filter(
+                    student=student,
+                    is_correct=True,
+                    task__topic_id__in=topic_ids,
+                )
+                .values('task__topic_id')
+                .annotate(solved=Count('task_id', distinct=True))
+            ):
+                solved_counts[row['task__topic_id']] = row['solved']
+
             async for m in TopicMastery.objects.filter(student=student, topic_id__in=topic_ids):
-                masteries[m.topic_id] = round(m.mastery_score)
+                masteries[m.topic_id] = m.correct_count
 
         sections_map = {}
         for t in topics:
@@ -162,13 +174,21 @@ class GradeCurriculumView(APIView):
                     'topics': [],
                 }
 
+            t_count = task_counts.get(t.id, 0)
+            s_count = solved_counts.get(t.id, 0)
+            if not s_count and t.id in masteries:
+                s_count = min(t_count, masteries[t.id])
+            pct = min(100, round((s_count / t_count) * 100)) if t_count > 0 else 0
+
             has_sum = hasattr(t, 'summary') and t.summary is not None
             sections_map[sec_id]['topics'].append({
                 'id': t.id,
                 'name': t.name,
                 'exam_weight': t.exam_weight,
-                'task_count': task_counts.get(t.id, 0),
-                'mastery_score': masteries.get(t.id, 0),
+                'task_count': t_count,
+                'solved_count': s_count,
+                'progress_percent': pct,
+                'mastery_score': pct,
                 'has_summary': has_sum,
                 'summary_title': t.summary.title if has_sum else '',
                 'summary_key_points': t.summary.key_points if has_sum else '',
