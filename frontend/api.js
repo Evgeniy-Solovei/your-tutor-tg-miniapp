@@ -122,6 +122,11 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ student_id: studentId }),
     }),
+  familyStudentUnlink: (tgId, parentId) =>
+    request(`/family/student-unlink/${tgId}/`, {
+      method: 'POST',
+      body: JSON.stringify({ parent_id: parentId }),
+    }),
   dashboard: (tgId) => request(`/dashboard/${tgId}/`),
   createCheckout: (planCode) =>
     request('/payments/bepaid/checkout/', {

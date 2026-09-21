@@ -168,3 +168,19 @@ class FamilyHubTests(TestCase):
         response = self.client.get('/api/tutor/family/', **self.auth)
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()['invite']['code'], created.json()['code'])
+
+    def test_student_can_unlink_parent(self):
+        from students.models import Parent, ParentChildLink
+        parent = Parent.objects.create(tg_id=999888777, display_name='Мама')
+        ParentChildLink.objects.create(parent=parent, student=self.student)
+        self.assertEqual(ParentChildLink.objects.filter(student=self.student).count(), 1)
+
+        res = self.client.post(
+            f'/api/tutor/family/student-unlink/{self.student.tg_id}/',
+            data=json.dumps({'parent_id': parent.id}),
+            content_type='application/json',
+            **self.auth,
+        )
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(ParentChildLink.objects.filter(student=self.student).count(), 0)
+

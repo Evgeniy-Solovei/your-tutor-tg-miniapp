@@ -51,8 +51,6 @@ class FamilyHubView(APIView):
         invite_payload = None
         parents = []
         if student:
-            # GET должен оставаться быстрым и не менять БД. Новый код создаётся
-            # отдельным POST /family/invite/<tg_id>/ по кнопке интерфейса.
             invite = await parent_service.get_active_invite(student)
             if invite:
                 invite_payload = {
@@ -223,3 +221,26 @@ class ParentUnlinkChildView(APIView):
         if not deleted:
             return Response({'detail': 'Связь не найдена'}, status=404)
         return Response({'ok': True, 'message': 'Ребёнок отвязан'})
+
+
+class StudentUnlinkParentView(APIView):
+    """Отвязать родителя (по желанию ученика)."""
+
+    authentication_classes = telegram_auth_classes()
+    permission_classes = []
+
+    async def post(self, request, tg_id: int):
+        student, err = await aget_student_by_tg(request, tg_id)
+        if err:
+            return err
+        try:
+            parent_id = int(request.data.get('parent_id'))
+        except (TypeError, ValueError):
+            return Response({'detail': 'Укажи parent_id'}, status=400)
+
+        deleted, _ = await ParentChildLink.objects.filter(
+            student=student, parent_id=parent_id
+        ).adelete()
+        if not deleted:
+            return Response({'detail': 'Связь не найдена'}, status=404)
+        return Response({'ok': True, 'message': 'Родитель отвязан'})

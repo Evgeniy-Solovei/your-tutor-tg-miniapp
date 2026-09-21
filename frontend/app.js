@@ -101,7 +101,11 @@ function setRoute(route) {
     state.inCoursesCatalog = false;
   }
   document.querySelectorAll('.tab').forEach((btn) => {
-    btn.classList.toggle('active', btn.dataset.route === route);
+    const active =
+      btn.dataset.route === route ||
+      ((route === 'profile' || route === 'family') &&
+        (btn.dataset.route === 'profile' || btn.dataset.route === 'family'));
+    btn.classList.toggle('active', Boolean(active));
   });
   render();
   loadForRoute();
@@ -231,23 +235,20 @@ async function loadForRoute() {
   const id = tgId();
   if (!id || !state.me) return;
 
-  if (state.route === 'family') {
-    await loadFamily();
-    return;
-  }
-
-  if (state.route === 'profile') {
-    state.reg = emptyRegForm({
-      display_name: state.me.display_name,
-      grade: state.me.grade,
-      goal: state.me.goal,
-      subject_id: state.me.subject,
-      city_id: state.me.city,
-      city_name: state.me.city_name,
-      school_id: state.me.school,
-      school_name: state.me.school_name,
-    });
-    await ensureRegForm();
+  if (state.route === 'family' || state.route === 'profile') {
+    if (!state.reg) {
+      state.reg = emptyRegForm({
+        display_name: state.me.display_name,
+        grade: state.me.grade,
+        goal: state.me.goal,
+        subject_id: state.me.subject,
+        city_id: state.me.city,
+        city_name: state.me.city_name,
+        school_id: state.me.school,
+        school_name: state.me.school_name,
+      });
+    }
+    await Promise.allSettled([ensureRegForm(), loadFamily()]);
     render();
     return;
   }
@@ -1319,26 +1320,7 @@ async function searchSchools() {
 }
 
 function renderProfile() {
-  if (!state.reg) return `<section class="card empty">Загружаем профиль…</section>`;
-  const notifActive = state.me?.notifications_enabled !== false;
-  return `
-    <button type="button" class="linkish" data-action="go-home" style="margin-bottom:8px">← На главную</button>
-    <section class="card" style="margin-bottom:12px">
-      <h2>🔔 Уведомления в Telegram</h2>
-      <p class="muted">Ежедневный вызов «5 заданий дня» в Telegram-бот.</p>
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-top:10px">
-        <span>Напоминания в бот:</span>
-        <button type="button" class="btn ${notifActive ? 'success' : 'secondary'}" data-action="toggle-notifications">
-          ${notifActive ? '🔔 Включены' : '🔕 Отключены'}
-        </button>
-      </div>
-    </section>
-    ${renderRegForm(state.reg, {
-      title: 'Профиль',
-      subtitle: 'Можно сменить город, школу и предмет.',
-      submitLabel: state.reg.saving ? 'Сохраняем…' : 'Сохранить',
-    })}
-  `;
+  return renderProfileAndFamily();
 }
 
 function renderRegistration() {
@@ -1351,38 +1333,40 @@ function renderRegistration() {
 }
 
 function renderFamily() {
-  const pack = state.family;
-  if (!pack && state.loading) {
-    return `<section class="card empty">Загружаем семью…</section>`;
-  }
-  if (!pack) {
-    return `<section class="card empty">
-      <p>${esc(state.familyError || 'Не удалось загрузить семью.')}</p>
-      <button type="button" class="btn secondary" data-action="family-retry">Попробовать ещё раз</button>
-    </section>`;
-  }
+  return renderProfileAndFamily();
+}
 
-  const isParent = Boolean(pack.is_parent || (state.me && state.me.is_parent));
-  const invite = pack.invite;
-  const children = pack.children || [];
-  const parents = pack.parents || [];
-  const periods = pack.periods || [];
+function renderProfileAndFamily() {
+  const pack = state.family;
+  const isParent = Boolean(pack?.is_parent || (state.me && state.me.is_parent));
 
   // ЭКРАН ДЛЯ РОДИТЕЛЯ
   if (isParent) {
+    if (!pack && state.loading) {
+      return `<section class="card empty">Загружаем кабинет родителя…</section>`;
+    }
+    if (!pack) {
+      return `<section class="card empty">
+        <p>${esc(state.familyError || 'Не удалось загрузить данные родителя.')}</p>
+        <button type="button" class="btn secondary" data-action="family-retry">Попробовать ещё раз</button>
+      </section>`;
+    }
+    const children = pack.children || [];
+    const periods = pack.periods || [];
+
     const kidsBlock =
       children.length === 0
-        ? `<p class="muted">У вас пока нет привязанных детей. Введите 6-значный код от ребёнка выше.</p>`
+        ? `<p class="muted">У вас пока нет привязанных детей. Введите код от ребёнка ниже.</p>`
         : children
             .map(
               (c) => `
           <div class="child-card">
             <div>
               <strong>${esc(c.display_name)}</strong>
-              <span class="muted"> · ${c.grade} кл. · серия ${c.streak_days} дн.</span>
+              <span class="muted"> · ${c.grade} кл. · 🔥 ${c.streak_days} дн.</span>
               ${c.city_name ? `<br><span class="muted">${esc(c.city_name)}${c.school_name ? ' · ' + esc(c.school_name) : ''}</span>` : ''}
             </div>
-            <button type="button" class="btn secondary" data-action="pick-child" data-id="${c.id}">
+            <button type="button" class="btn secondary sm" data-action="pick-child" data-id="${c.id}">
               ${state.reportChildId === c.id ? '✓ Выбран' : 'Выбрать'}
             </button>
           </div>`,
@@ -1404,7 +1388,7 @@ function renderFamily() {
       </section>
       <section class="card">
         <h2>Привязать ребёнка</h2>
-        <p class="muted">Введите 6-значный код, который отображается в Mini App у вашего ребёнка.</p>
+        <p class="muted">Введите код, который отображается в профиле вашего ребёнка.</p>
         <input class="family-input" id="family-code" maxlength="8" placeholder="Код, например A3K7X2" value="${esc(state.familyCode)}" style="width:100%;margin:8px 0 10px;text-transform:uppercase" />
         <button type="button" class="btn block" data-action="family-link">Привязать ребёнка</button>
       </section>
@@ -1416,7 +1400,7 @@ function renderFamily() {
         children.length
           ? `<section class="card">
           <h2>Сформировать отчёт</h2>
-          <p class="muted">Выберите период — готовый отчёт отравится вам прямо в диалог с ботом.</p>
+          <p class="muted">Выберите период — готовый отчёт отправится вам прямо в диалог с ботом.</p>
           <div class="period-row">
             ${periods
               .map(
@@ -1433,45 +1417,91 @@ function renderFamily() {
     `;
   }
 
-  // ЭКРАН ДЛЯ УЧЕНИКА
-  const inviteBlock = invite
-    ? `<section class="card" style="text-align:center">
-        <h2>Ваш код для родителя</h2>
-        <p class="muted">Покажите этот код родителю или отправьте приглашение. Введя этот код во вкладке «Семья», родитель будет получать отчёты о вашем прогрессе.</p>
-        <p class="invite-code" style="font-size:2.2rem;font-weight:800;letter-spacing:4px;color:var(--accent);margin:14px 0">${esc(invite.code)}</p>
-        <button type="button" class="btn block" data-action="family-share-code" data-code="${escAttr(invite.code)}">📱 Скопировать приглашение</button>
-        <button type="button" class="btn secondary block" style="margin-top:8px" data-action="family-new-code">Обновить код</button>
-      </section>`
-    : `<section class="card">
-        <h2>Код для родителя</h2>
-        <p class="muted">Генерируем ваш личный код...</p>
-        <button type="button" class="btn block" data-action="family-new-code">Получить код</button>
-      </section>`;
+  // ЭКРАН ДЛЯ УЧЕНИКА: ПРОФИЛЬ & СЕМЬЯ
+  const parents = pack?.parents || [];
+  const p1 = parents[0] || null;
+  const p2 = parents[1] || null;
 
-  const parentsList = parents.length
-    ? parents
-        .map(
-          (p) => `
-        <div class="child-card">
-          <div>
-            <strong>👨‍👩‍👧 ${esc(p.display_name || 'Родитель')}</strong>
-            <br><span class="muted">Привязан · Еженедельные отчёты включены</span>
-          </div>
-        </div>`,
-        )
-        .join('')
-    : `<p class="muted">Родители пока не привязаны.</p>`;
+  const slot1Html = p1
+    ? `
+      <div class="parent-slot">
+        <div class="parent-slot-info">
+          <span class="parent-slot-title">👩 Родитель 1: ${esc(p1.display_name || 'Родитель')}</span>
+          <span class="parent-slot-status linked">✓ Привязан(а) · Еженедельные отчёты в бот</span>
+        </div>
+        <button type="button" class="btn danger sm" data-action="family-student-unlink" data-parent-id="${p1.id}">Отвязать</button>
+      </div>`
+    : `
+      <div class="parent-slot">
+        <div class="parent-slot-info">
+          <span class="parent-slot-title">👩 Родитель 1 (Мама)</span>
+          <span class="parent-slot-status">Пока не привязана</span>
+        </div>
+        <button type="button" class="btn sm" data-action="family-invite-telegram" data-role="маму">📩 Пригласить</button>
+      </div>`;
+
+  const slot2Html = p2
+    ? `
+      <div class="parent-slot">
+        <div class="parent-slot-info">
+          <span class="parent-slot-title">👨 Родитель 2: ${esc(p2.display_name || 'Родитель')}</span>
+          <span class="parent-slot-status linked">✓ Привязан(а) · Еженедельные отчёты в бот</span>
+        </div>
+        <button type="button" class="btn danger sm" data-action="family-student-unlink" data-parent-id="${p2.id}">Отвязать</button>
+      </div>`
+    : `
+      <div class="parent-slot">
+        <div class="parent-slot-info">
+          <span class="parent-slot-title">👨 Родитель 2 (Папа)</span>
+          <span class="parent-slot-status">${p1 ? 'Второй родитель пока не привязан' : 'Пока не привязан'}</span>
+        </div>
+        <button type="button" class="btn sm" data-action="family-invite-telegram" data-role="папу">📩 Пригласить</button>
+      </div>`;
+
+  const notifActive = state.me?.notifications_enabled !== false;
+
+  const parentCard = `
+    <section class="card" style="margin-bottom:12px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+        <h2>👨‍👩‍👧 Родительский контроль</h2>
+        <span class="chip" style="font-size:0.75rem;padding:4px 10px">${parents.length} / 2</span>
+      </div>
+      <p class="muted" style="margin:4px 0 10px">Пригласи родителей в Telegram: они смогут следить за твоим прогрессом, серией ударного режима и радоваться твоим успехам.</p>
+      ${slot1Html}
+      ${slot2Html}
+      <p class="muted" style="font-size:0.76rem;margin-top:12px;line-height:1.4">💡 Нажми «Пригласить», чтобы открыть окно Telegram для выбора мамы или папы. Бот сразу отправит персональную ссылку и привяжет родителя в один клик.</p>
+    </section>
+  `;
+
+  const notifCard = `
+    <section class="card" style="margin-bottom:12px">
+      <h2>🔔 Уведомления в Telegram</h2>
+      <p class="muted">Ежедневный вызов «5 заданий дня» и напоминания об ударном режиме в бот.</p>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-top:10px">
+        <span>Напоминания в бот:</span>
+        <button type="button" class="btn ${notifActive ? 'success' : 'secondary'} sm" data-action="toggle-notifications">
+          ${notifActive ? '🔔 Включены' : '🔕 Отключены'}
+        </button>
+      </div>
+    </section>
+  `;
+
+  const regFormHtml = state.reg
+    ? renderRegForm(state.reg, {
+        title: '⚙️ Настройки профиля',
+        subtitle: 'Класс обучения, цель, имя, город и школа.',
+        submitLabel: state.reg.saving ? 'Сохраняем…' : 'Сохранить изменения',
+      })
+    : '<section class="card empty">Загружаем настройки…</section>';
 
   return `
     <section class="hero">
-      <h1>🎓 Семья и родительский контроль</h1>
-      <p>Поделитесь кодом с родителями, чтобы они видели ваши достижения!</p>
+      <h1>⚙️ Профиль и семья</h1>
+      <p>Родительский контроль, класс обучения и личные настройки</p>
     </section>
-    ${inviteBlock}
-    <section class="card">
-      <h2>Привязанные родители</h2>
-      ${parentsList}
-    </section>
+    ${parentCard}
+    ${notifCard}
+    ${regFormHtml}
   `;
 }
 
@@ -1848,12 +1878,10 @@ function render() {
   if (state.route === 'home') root.innerHTML = renderHome();
   else if (state.route === 'courses') root.innerHTML = renderCourses();
   else if (state.route === 'practice') root.innerHTML = renderPractice();
-  else if (state.route === 'exam') root.innerHTML = renderExamSimulator();
   else if (state.route === 'stats') root.innerHTML = renderStats();
   else if (state.route === 'rating') root.innerHTML = renderRating();
-  else if (state.route === 'family') root.innerHTML = renderFamily();
-  else if (state.route === 'profile') {
-    root.innerHTML = renderProfile();
+  else if (state.route === 'family' || state.route === 'profile') {
+    root.innerHTML = renderProfileAndFamily();
     bindRegInputs();
   }
 
@@ -2282,14 +2310,51 @@ function bindUi() {
       render();
       return;
     }
-    if (action === 'family-share-code') {
-      const code = t.dataset.code || '';
-      const text = `Привет! Привяжи меня в боте «Твой Репетитор» по коду: ${code}\nПерейди в бота: https://t.me/tutor_by_bot`;
-      if (navigator.clipboard) {
-        navigator.clipboard.writeText(text);
-        toast('Приглашение скопировано в буфер!');
+    if (action === 'family-invite-telegram') {
+      const role = t.dataset.role || 'родителя';
+      const id = tgId();
+      if (!id) return;
+      let code = state.family?.invite?.code;
+      if (!code) {
+        try {
+          const res = await api.familyInvite(id);
+          code = res.code;
+          if (state.family) {
+            state.family.invite = res;
+          }
+        } catch (err) {
+          console.error('Invite error:', err);
+        }
+      }
+      if (!code) {
+        toast('Не удалось получить ссылку приглашения. Попробуй ещё раз.');
+        return;
+      }
+      const botUsername = 'tutor_by_bot';
+      const link = `https://t.me/${botUsername}?start=parent_${code}`;
+      const text = `Привет! Подключись к моему профилю в «Твой Репетитор», чтобы следить за моими успехами и оценками: ${link}`;
+      const shareUrl = `https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent(text)}`;
+
+      toast(`Открываем Telegram для выбора ${role}...`);
+      if (window.Telegram?.WebApp?.openTelegramLink) {
+        window.Telegram.WebApp.openTelegramLink(shareUrl);
       } else {
-        toast(`Ваш код для родителя: ${code}`);
+        window.open(shareUrl, '_blank');
+      }
+      return;
+    }
+    if (action === 'family-student-unlink') {
+      const parentId = Number(t.dataset.parentId);
+      const id = tgId();
+      if (!id || !parentId) return;
+      if (!confirm('Отвязать этого родителя? Он больше не будет получать отчёты об успеваемости.')) return;
+      try {
+        await api.familyStudentUnlink(id, parentId);
+        toast('Родитель отвязан');
+        await loadFamily();
+        render();
+      } catch (err) {
+        toast(err.message || 'Ошибка отвязки родителя');
       }
       return;
     }
@@ -2379,20 +2444,27 @@ function bindUi() {
       render();
       try {
         const payload = payloadFromForm(state.reg);
-        const data =
-          state.me?.registered && state.route === 'profile'
-            ? await api.updateProfile(payload)
-            : await api.register(payload);
+        const isProfileEdit =
+          state.me?.registered &&
+          (state.route === 'profile' || state.route === 'family');
+        const data = isProfileEdit
+          ? await api.updateProfile(payload)
+          : await api.register(payload);
         state.me = { ...state.me, ...data, registered: true };
         state.selectedGradeCurriculum = null;
         state.inCoursesCatalog = false;
         state.ratingGrade = state.me.grade;
-        toast(state.route === 'profile' ? 'Профиль сохранён' : 'Готово!');
-        state.route = 'home';
-        document.querySelectorAll('.tab').forEach((btn) => {
-          btn.classList.toggle('active', btn.dataset.route === 'home');
-        });
-        await loadForRoute();
+        if (isProfileEdit) {
+          toast('Настройки сохранены');
+          render();
+        } else {
+          toast('Готово!');
+          state.route = 'home';
+          document.querySelectorAll('.tab').forEach((btn) => {
+            btn.classList.toggle('active', btn.dataset.route === 'home');
+          });
+          await loadForRoute();
+        }
       } catch (err) {
         state.reg.error = err.message;
         toast(err.message);

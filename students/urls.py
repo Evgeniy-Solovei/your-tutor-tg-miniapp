@@ -22,6 +22,7 @@ from students.parent_views import (
     ParentLinkChildView,
     ParentSendReportView,
     ParentUnlinkChildView,
+    StudentUnlinkParentView,
 )
 from students.views import (
     BePaidCheckoutView,
@@ -71,4 +72,5 @@ urlpatterns = [
     path('family/link/', ParentLinkChildView.as_view(), name='family-link'),
     path('family/report/', ParentSendReportView.as_view(), name='family-report'),
     path('family/unlink/', ParentUnlinkChildView.as_view(), name='family-unlink'),
+    path('family/student-unlink/<int:tg_id>/', StudentUnlinkParentView.as_view(), name='family-student-unlink'),
 ]

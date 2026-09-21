@@ -9,7 +9,7 @@ os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'tutor_bot.settings')
 django.setup()
 
 from aiogram import F, Router, types
-from aiogram.filters import Command, CommandStart
+from aiogram.filters import Command, CommandObject, CommandStart
 from aiogram.fsm.context import FSMContext
 from django.utils import timezone
 
@@ -59,8 +59,36 @@ def _is_cancel(text: str | None) -> bool:
 
 
 @router.message(CommandStart())
-async def cmd_start(message: types.Message, state: FSMContext):
+async def cmd_start(message: types.Message, state: FSMContext, command: CommandObject = None):
     await state.clear()
+
+    # Проверка диплинка для привязки родителя: /start parent_CODE или /start CODE
+    if command and command.args:
+        raw_arg = command.args.strip()
+        if raw_arg.startswith('parent_') or (len(raw_arg) == 6 and raw_arg.isalnum()):
+            code = raw_arg.replace('parent_', '').strip().upper()
+            parent = await get_or_create_parent(
+                message.from_user.id,
+                username=message.from_user.username or '',
+                display_name=message.from_user.full_name or '',
+            )
+            link, status_msg = await link_parent_by_code(parent, code)
+            if link:
+                child = await Student.objects.select_related('city', 'school').aget(pk=link.student_id)
+                await message.answer(
+                    f"🎉 {status_msg}\n\n"
+                    f"Вы успешно привязаны к ученику: {child.display_name} ({child.grade} класс)!\n\n"
+                    f"В этот чат вам будут приходить еженедельные отчёты об успехах, решённых заданиях и времени занятий.",
+                    reply_markup=parent_menu_keyboard(),
+                )
+                return
+            else:
+                await message.answer(
+                    f"⚠️ {status_msg}\n\nПопросите ребёнка отправить свежую ссылку из раздела «Настройки и семья».",
+                    reply_markup=parent_menu_keyboard(),
+                )
+                return
+
     student = await Student.objects.filter(tg_id=message.from_user.id).afirst()
     settings = await AppSettings.aget_settings()
     welcome = settings.welcome_message or (
