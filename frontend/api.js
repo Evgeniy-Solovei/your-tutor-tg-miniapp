@@ -64,6 +64,15 @@ export const api = {
   catalog: () => request('/knowledge/catalog/'),
   getGradeCurriculum: (grade, tgId = null) =>
     request(`/knowledge/grade/${grade}/${tgId ? `?tg_id=${tgId}` : ''}`),
+  getExtraTasksSummary: (grade = 1, tgId = null) =>
+    request(`/knowledge/extra-tasks/summary/?grade=${grade}${tgId ? `&tg_id=${tgId}` : ''}`),
+  getTopicExtraTasks: (topicId, tgId = null) =>
+    request(`/knowledge/topics/${topicId}/extra-tasks/${tgId ? `?tg_id=${tgId}` : ''}`),
+  submitExtraTask: (taskId, answer, tgId = null) =>
+    request(`/knowledge/extra-tasks/${taskId}/answer/`, {
+      method: 'POST',
+      body: JSON.stringify({ answer, tg_id: tgId }),
+    }),
   startTopicPractice: (tgId, topicId = null, mode = null, grade = null, year = null) =>
     request(`/daily-session/${tgId}/`, {
       method: 'POST',

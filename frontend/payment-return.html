@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="ru" data-theme="vibe">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
+    />
+    <title>Твой Репетитор — Оплата</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700;800&family=Unbounded:wght@600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./styles.css?v=20260922-extra-v1" />
+    <style>
+      body {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 100vh;
+        padding: 20px;
+        text-align: center;
+        background: #0b0b12;
+        color: #f4f1ff;
+        font-family: 'Onest', sans-serif;
+      }
+      .return-card {
+        background: rgba(24, 20, 40, 0.85);
+        border: 1px solid rgba(200, 255, 61, 0.25);
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+        border-radius: 24px;
+        padding: 32px 24px;
+        max-width: 440px;
+        width: 100%;
+        backdrop-filter: blur(16px);
+      }
+      .icon-badge {
+        font-size: 3.5rem;
+        margin-bottom: 16px;
+        display: inline-block;
+        animation: pulse 1.8s infinite alternate ease-in-out;
+      }
+      @keyframes pulse {
+        0% { transform: scale(1); }
+        100% { transform: scale(1.08); }
+      }
+      h1 {
+        font-family: 'Unbounded', sans-serif;
+        font-size: 1.35rem;
+        margin: 0 0 12px;
+        line-height: 1.3;
+      }
+      p {
+        color: #b7aecf;
+        font-size: 0.95rem;
+        line-height: 1.5;
+        margin: 0 0 24px;
+      }
+      .btn-tg {
+        display: block;
+        width: 100%;
+        padding: 14px 18px;
+        background: #c8ff3d;
+        color: #121212;
+        border-radius: 16px;
+        font-weight: 700;
+        font-size: 1rem;
+        text-decoration: none;
+        border: none;
+        cursor: pointer;
+        transition: transform 0.15s ease, filter 0.15s ease;
+        box-shadow: 0 6px 20px rgba(200, 255, 61, 0.3);
+        margin-bottom: 12px;
+      }
+      .btn-tg:active {
+        transform: scale(0.98);
+      }
+      .btn-sub {
+        display: block;
+        width: 100%;
+        padding: 12px;
+        background: rgba(255, 255, 255, 0.08);
+        color: #f4f1ff;
+        border-radius: 14px;
+        font-weight: 600;
+        font-size: 0.9rem;
+        text-decoration: none;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+      }
+      .timer-note {
+        font-size: 0.8rem;
+        color: #7b7194;
+        margin-top: 16px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="return-card" id="card">
+      <div class="icon-badge" id="icon">🎉</div>
+      <h1 id="title">Оплата успешно проведена!</h1>
+      <p id="desc">Подписка активирована. Сейчас вернём тебя в Telegram Mini App…</p>
+      
+      <a href="#" id="primary-btn" class="btn-tg">📱 Открыть приложение в Telegram</a>
+      <a href="#" id="secondary-btn" class="btn-sub">В чат с ботом</a>
+      
+      <div class="timer-note" id="timer-note">Автоматический переход через 2 секунды…</div>
+    </div>
+
+    <script>
+      (function() {
+        var params = new URLSearchParams(window.location.search);
+        var status = params.get('status') || 'success';
+        var bot = params.get('bot') || 'tutor_by_bot';
+        var app = params.get('app') || 'app';
+        var isSuccess = status === 'success';
+
+        var titleEl = document.getElementById('title');
+        var descEl = document.getElementById('desc');
+        var iconEl = document.getElementById('icon');
+        var primBtn = document.getElementById('primary-btn');
+        var secBtn = document.getElementById('secondary-btn');
+        var timerNote = document.getElementById('timer-note');
+
+        // Ссылки для открытия Mini App и диалога
+        var tgAppUrl = 'https://t.me/' + bot + '/' + app;
+        var tgBotUrl = 'https://t.me/' + bot;
+        var tgDeepProtocol = 'tg://resolve?domain=' + bot + '&appname=' + app;
+        var webAppDirectUrl = window.location.origin + '/app/';
+
+        primBtn.href = tgAppUrl;
+        secBtn.href = webAppDirectUrl;
+        secBtn.textContent = '🌐 Открыть приложение прямо здесь';
+
+        function returnToTelegram() {
+          if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.openTelegramLink) {
+            try {
+              window.Telegram.WebApp.openTelegramLink(tgAppUrl);
+              return;
+            } catch (e) {}
+          }
+          try {
+            window.location.href = tgDeepProtocol;
+            setTimeout(function() {
+              window.location.href = tgAppUrl;
+            }, 600);
+          } catch (_) {
+            window.location.href = tgAppUrl;
+          }
+        }
+
+        if (!isSuccess) {
+          iconEl.textContent = 'ℹ️';
+          titleEl.textContent = 'Оплата не завершена';
+          descEl.textContent = 'Операция была отменена или отклонена банком. Ты всегда можешь вернуться в приложение и повторить попытку.';
+          timerNote.style.display = 'none';
+          primBtn.textContent = '📱 Вернуться в Telegram';
+        } else {
+          // Если открыто внутри встроенного Telegram WebView
+          if (window.Telegram && window.Telegram.WebApp) {
+            try {
+              window.Telegram.WebApp.ready();
+              window.Telegram.WebApp.expand();
+            } catch (e) {}
+          }
+
+          // Автоматическая попытка перенаправить обратно в Telegram
+          var counter = 2;
+          var interval = setInterval(function() {
+            counter--;
+            if (counter <= 0) {
+              clearInterval(interval);
+              timerNote.textContent = 'Если Telegram не открылся автоматически, нажми кнопку выше.';
+              returnToTelegram();
+            } else {
+              timerNote.textContent = 'Автоматический переход через ' + counter + ' сек…';
+            }
+          }, 1000);
+        }
+
+        // Клик по кнопке: переход в Telegram
+        primBtn.addEventListener('click', function(e) {
+          e.preventDefault();
+          returnToTelegram();
+        });
+      })();
+    </script>
+  </body>
+</html>

@@ -445,6 +445,8 @@ button.stat {
 .card {
   padding: 16px;
   border-radius: var(--radius);
+  overflow-wrap: break-word;
+  word-break: break-word;
 }
 
 .card h2 {
@@ -753,13 +755,15 @@ textarea.input {
   bottom: calc(10px + env(safe-area-inset-bottom, 0px));
   left: 50%;
   transform: translateX(-50%);
-  width: calc(100% - 32px);
+  width: calc(100% - 20px);
   max-width: 528px;
   z-index: 100;
-  display: grid;
-  grid-template-columns: repeat(6, 1fr);
-  gap: 2px;
-  padding: 6px;
+  display: flex;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  gap: 4px;
+  padding: 6px 8px;
   border-radius: 20px;
   background: var(--tab-bg);
   border: 1px solid var(--card-border);
@@ -769,20 +773,105 @@ textarea.input {
   box-sizing: border-box;
 }
 
+.tabbar::-webkit-scrollbar {
+  display: none;
+}
+
 .tab {
+  flex: 0 0 auto;
   border: 0;
   background: transparent;
   color: var(--muted);
   font: inherit;
   font-weight: 700;
-  font-size: 0.62rem;
-  padding: 10px 1px;
+  font-size: 0.76rem;
+  padding: 8px 12px;
   border-radius: 14px;
   cursor: pointer;
   text-align: center;
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  transition: all 0.2s ease;
+}
+
+.tab.active {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+/* Splash Screen with Gears */
+.app-splash {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: #0b0b12;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  transition: opacity 0.35s ease, visibility 0.35s ease;
+}
+
+.app-splash.hidden {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.splash-gears {
+  position: relative;
+  width: 76px;
+  height: 76px;
+}
+
+.splash-gear {
+  position: absolute;
+  line-height: 1;
+}
+
+.splash-gear-main {
+  font-size: 46px;
+  top: 0;
+  left: 2px;
+  animation: splash-spin 3s linear infinite;
+  filter: drop-shadow(0 0 12px rgba(200, 255, 61, 0.45));
+}
+
+.splash-gear-sub {
+  font-size: 28px;
+  bottom: 2px;
+  right: 2px;
+  animation: splash-spin-reverse 2.2s linear infinite;
+  filter: drop-shadow(0 0 10px rgba(255, 93, 143, 0.45));
+}
+
+@keyframes splash-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes splash-spin-reverse {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(-360deg); }
+}
+
+.splash-title {
+  font-family: var(--font-display, sans-serif);
+  font-weight: 700;
+  font-size: 1.15rem;
+  color: #f4f1ff;
+  letter-spacing: 0.5px;
+}
+
+.splash-loading-text {
+  font-size: 0.86rem;
+  color: #b7aecf;
+  animation: splash-pulse 1.3s ease-in-out infinite;
+}
+
+@keyframes splash-pulse {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 1; }
 }
 
 .parent-slot {
@@ -1247,3 +1336,51 @@ textarea.input {
 .exam-result-item.wrong {
   border-left: 4px solid var(--danger);
 }
+
+/* Extra Tasks & Grade selector pills */
+.grade-pills-row {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  padding-bottom: 6px;
+  margin: 10px 0;
+}
+.grade-pills-row::-webkit-scrollbar {
+  display: none;
+}
+
+.extra-opt-btn {
+  text-align: left;
+  padding: 12px 14px;
+  border-radius: 12px;
+  font-size: 0.92rem;
+  border: 1px solid var(--card-border);
+  cursor: pointer;
+  word-break: break-word;
+  white-space: normal;
+  line-height: 1.35;
+  background: var(--card);
+  color: var(--ink);
+  transition: all 0.15s ease;
+  width: 100%;
+}
+.extra-opt-btn.selected {
+  background: var(--accent);
+  color: var(--accent-ink);
+  border-color: var(--accent);
+  font-weight: 600;
+}
+.extra-opt-btn.correct-ans {
+  background: rgba(16, 185, 129, 0.18) !important;
+  color: #10b981 !important;
+  border-color: #10b981 !important;
+  font-weight: 600;
+}
+.extra-opt-btn.wrong-ans {
+  background: rgba(239, 68, 68, 0.18) !important;
+  color: #ef4444 !important;
+  border-color: #ef4444 !important;
+}
+

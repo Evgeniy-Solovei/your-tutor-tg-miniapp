@@ -21,7 +21,7 @@ if not DEBUG and (SECRET_KEY.startswith('django-insecure-') or len(SECRET_KEY) <
 
 ALLOWED_HOSTS = [
     host.strip()
-    for host in os.getenv('ALLOWED_HOSTS', 'your-tutor.live-dev.by,localhost,127.0.0.1').split(',')
+    for host in os.getenv('ALLOWED_HOSTS', 'your-tutor.live-dev.by,localhost,127.0.0.1,testserver').split(',')
     if host.strip()
 ]
 CORS_ALLOWED_ORIGINS = [
@@ -38,6 +38,8 @@ CORS_ALLOW_HEADERS = list(default_headers) + [
 ]
 CSRF_TRUSTED_ORIGINS = CORS_ALLOWED_ORIGINS
 TELEGRAM_BOT_TOKEN = os.getenv('TOKEN', '')
+TELEGRAM_BOT_USERNAME = os.getenv('TELEGRAM_BOT_USERNAME', 'tutor_by_bot')
+TELEGRAM_MINI_APP_SHORT_NAME = os.getenv('TELEGRAM_MINI_APP_SHORT_NAME', 'app')
 # Для локальной отладки Mini App вне Telegram (только при DEBUG=True)
 TELEGRAM_AUTH_BYPASS = env_bool('TELEGRAM_AUTH_BYPASS', False)
 

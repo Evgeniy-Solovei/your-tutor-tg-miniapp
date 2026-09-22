@@ -206,8 +206,18 @@ class TaskAttempt(models.Model):
     task = models.ForeignKey(
         Task,
         on_delete=models.CASCADE,
+        null=True,
+        blank=True,
         related_name='attempts',
         verbose_name='Задание',
+    )
+    extra_task = models.ForeignKey(
+        'knowledge.TopicExtraTask',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='attempts',
+        verbose_name='Дополнительное задание',
     )
     session_task = models.ForeignKey(
         SessionTask,
@@ -242,7 +252,8 @@ class TaskAttempt(models.Model):
 
     def __str__(self):
         status = '✓' if self.is_correct else '✗'
-        return f'{status} {self.student.display_name} — задание {self.task_id}'
+        target = f'задание {self.task_id}' if self.task_id else f'доп. задание {self.extra_task_id}'
+        return f'{status} {self.student.display_name} — {target}'
 
 
 class TopicMastery(models.Model):

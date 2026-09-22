@@ -94,19 +94,32 @@ function escAttr(s) {
   return esc(s).replaceAll("'", '&#39;');
 }
 
+function syncTabbar() {
+  document.querySelectorAll('.tab').forEach((btn) => {
+    const active =
+      btn.dataset.route === state.route ||
+      ((state.route === 'profile' || state.route === 'family') &&
+        (btn.dataset.route === 'profile' || btn.dataset.route === 'family')) ||
+      (state.route === 'extra-tasks' && btn.dataset.route === 'courses');
+    btn.classList.toggle('active', Boolean(active));
+    if (active) {
+      try {
+        btn.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+      } catch (_) {}
+    }
+  });
+}
+
 function setRoute(route) {
   state.route = route;
   state.panel = null;
+  if (route !== 'extra-tasks') {
+    state.activeExtraTopic = null;
+  }
   if (route === 'courses') {
     state.inCoursesCatalog = false;
   }
-  document.querySelectorAll('.tab').forEach((btn) => {
-    const active =
-      btn.dataset.route === route ||
-      ((route === 'profile' || route === 'family') &&
-        (btn.dataset.route === 'profile' || btn.dataset.route === 'family'));
-    btn.classList.toggle('active', Boolean(active));
-  });
+  syncTabbar();
   render();
   loadForRoute();
 }
@@ -232,6 +245,23 @@ async function loadForRoute() {
     return;
   }
 
+  if (state.route === 'extra-tasks') {
+    if (state.activeExtraTopic) return;
+    const id = tgId();
+    const grade = state.extraTasksGrade || Number(state.me?.grade) || 1;
+    state.loading = true;
+    render();
+    try {
+      state.extraTasksSummary = await api.getExtraTasksSummary(grade, id);
+    } catch (e) {
+      toast(e.message || 'Ошибка загрузки заданий');
+    } finally {
+      state.loading = false;
+      render();
+    }
+    return;
+  }
+
   const id = tgId();
   if (!id || !state.me) return;
 
@@ -332,10 +362,8 @@ async function loadRating(scope, period, grade) {
 
 function tariffShortLabel() {
   const id = state.tariffs?.current_plan_id;
-  if (state.me?.is_pro || state.stats?.is_pro) return 'Разбор с ИИ';
-  if (id === 'focus') return 'Ускорение';
-  if (id === 'mentor') return 'Разбор с ИИ';
-  return 'Старт';
+  if (state.me?.is_pro || state.stats?.is_pro || id === 'pro_active') return 'Pro';
+  return 'Базовый';
 }
 
 function renderScoresPanel() {
@@ -482,28 +510,40 @@ function renderAccuracyPanel() {
 function renderTariffsPanel() {
   const pack = state.tariffs;
   if (!pack) return `<section class="card empty">Загружаем тарифы…</section>`;
+  const isUserPro = state.me?.is_pro || state.stats?.is_pro || pack.current_plan_id === 'pro_active';
   return `
     <section class="card">
       <div class="panel-head">
         <button type="button" class="linkish" data-action="close-panel">← Назад</button>
         <h2>Тарифы и Подписка</h2>
       </div>
-      <p class="muted">Безналичная оплата через ЕРИП и карты Беларуси (bePaid).</p>
+      <p class="muted">Безналичная официальная оплата через ЕРИП и банковские карты Беларуси (bePaid).</p>
+      ${isUserPro ? '<div style="margin: 12px 0; padding: 12px; background: rgba(16,185,129,0.15); border: 1px solid #10b981; border-radius: 14px;"><strong>✨ У вас активна Pro-подписка!</strong> Все задания и умные ИИ-разборы открыты.</div>' : ''}
       ${(pack.plans || [])
         .map(
-          (p) => `
-        <article class="plan${p.is_current ? ' current' : ''}">
-          <div class="plan-top">
-            <h3>${esc(p.name)}</h3>
-            <strong>${esc(p.price_label)}</strong>
+          (p) => {
+            const isFree = p.id === 'free';
+            const isCurrent = isFree ? !isUserPro : isUserPro;
+            return `
+        <article class="plan${isCurrent ? ' current' : ''}" style="margin-top:14px; border: 1px solid var(--card-border); border-radius: 16px; padding: 16px; background: var(--card);">
+          <div class="plan-top" style="display:flex; justify-content:space-between; align-items:center;">
+            <h3 style="margin:0; font-size:1.1rem">${esc(p.name)}</h3>
+            <strong style="font-size:1.15rem; color:var(--accent)">${esc(p.price_label)}</strong>
           </div>
-          <p class="muted">${esc(p.tagline)}</p>
-          <ul class="plan-features">
-            ${(p.features || []).map((f) => `<li>✓ ${esc(f)}</li>`).join('')}
-            ${(p.not_included || []).map((f) => `<li class="no">✗ ${esc(f)}</li>`).join('')}
+          <p class="muted" style="margin:6px 0 12px; font-size:0.9rem">${esc(p.tagline)}</p>
+          <ul class="plan-features" style="list-style:none; padding:0; margin:0 0 14px">
+            ${(p.features || []).map((f) => `<li style="padding:3px 0; font-size:0.88rem">✓ ${esc(f)}</li>`).join('')}
+            ${(p.not_included || []).map((f) => `<li class="no" style="padding:3px 0; font-size:0.88rem; opacity:0.5">✗ ${esc(f)}</li>`).join('')}
           </ul>
-          ${p.is_current ? '<p class="ok">Твой текущий тариф</p>' : `<button type="button" class="btn block" data-action="buy-plan" data-plan="${esc(p.id)}">💳 Оплатить через ЕРИП / Карткой</button>`}
-        </article>`,
+          ${isFree 
+            ? (isUserPro ? '' : '<p class="ok" style="font-weight:600; color:var(--muted)">Ваш текущий тариф</p>')
+            : (isUserPro 
+                ? '<p class="ok" style="font-weight:600; color:#10b981">✓ Подписка активна</p>' 
+                : `<button type="button" class="btn block primary" data-action="buy-plan" data-plan="${esc(p.id)}">💳 Оплатить ${esc(p.price_label)}</button>`
+              )
+          }
+        </article>`;
+          }
         )
         .join('')}
     </section>
@@ -525,13 +565,12 @@ function renderHome() {
     daily?.tasks_total > 0
       ? Math.round((daily.tasks_completed / daily.tasks_total) * 100)
       : 0;
+  const studentGrade = state.me?.grade ? Number(state.me.grade) : 1;
 
   return `
     <section class="hero">
       <h1>${vibe ? `Йоу, ${esc(name)}` : `Привет, ${esc(name)}`}</h1>
-      <p>${vibe ? 'Давай разберём пару заданий — и погнали дальше.' : 'Продолжим подготовку.'}${
-        state.me?.grade ? ` · ${state.me.grade} класс` : ''
-      }</p>
+      <p>${vibe ? 'Давай разберём пару заданий — и погнали дальше.' : 'Продолжим подготовку.'} · ${studentGrade} класс</p>
     </section>
     <div class="stats-row">
       <button type="button" class="stat clickable" data-action="go-rating"><strong>⚡ ${xp}</strong><span>опыт XP</span></button>
@@ -548,18 +587,37 @@ function renderHome() {
              <button class="btn block" data-action="go-practice">${vibe ? 'Погнали' : 'Решать'}</button>`
       }
     </section>
+
+    <!-- Школьная программа для класса ученика -->
     <section class="card" style="margin-top:12px">
-      <h2>🎓 Симулятор ЦТ/ЦЭ</h2>
-      <p class="muted">Полноразмерный билет из 40 вопросов с таймером на 180 минут и итоговым бланком результатов РИКЗ.</p>
-      <button class="btn block" data-action="start-exam">Запустить симулятор (40 вопросов)</button>
+      <h2>📚 Школьная программа · ${studentGrade} класс</h2>
+      <p class="muted">Учебные темы, правила и уроки программы ${studentGrade} класса.</p>
+      <button class="btn block" data-action="go-my-curriculum">Перейти к программе (${studentGrade} класс)</button>
     </section>
+
+    <!-- Дополнительные задания по темам программы -->
     <section class="card" style="margin-top:12px">
-      <h2>Курсы и классы</h2>
-      <p class="muted">Все предметы и классы 1–11: что уже есть в приложении и что можно выбрать.</p>
-      <button class="btn block" data-action="go-courses">Смотреть курсы</button>
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <h2>🧩 Дополнительные задания</h2>
+        <span class="chip active" style="font-size:0.72rem; padding:2px 8px;">PRO</span>
+      </div>
+      <p class="muted">Банк иллюстрированных карточек по темам ${studentGrade} класса: закрепляй правила вместе с забавными персонажами!</p>
+      ${studentGrade === 1 ? `<div style="font-size:0.85rem; color:var(--accent); font-weight:700; margin:6px 0 10px;">✨ 58 тем · 2 900 заданий с цветными карточками</div>` : ''}
+      <button class="btn block secondary" data-action="go-extra-tasks">🧩 Открыть банк доп. заданий (${studentGrade} класс)</button>
     </section>
+
     ${
-      Number(state.me?.grade) === 9
+      studentGrade === 11
+        ? `<section class="card" style="margin-top:12px">
+             <h2>🎓 Симулятор ЦТ/ЦЭ</h2>
+             <p class="muted">Полноразмерный экзаменационный билет из 40 вопросов с таймером на 180 минут и бланком ответов РИКЗ.</p>
+             <button class="btn block secondary" data-action="start-exam">Запустить симулятор (40 вопросов)</button>
+           </section>`
+        : ''
+    }
+
+    ${
+      studentGrade === 9
         ? `<section class="card" style="margin-top:12px">
              <h2>Изложения</h2>
              <p class="muted">Официальный сборник НИО — тексты для выпускного экзамена 9 класса.</p>
@@ -569,6 +627,316 @@ function renderHome() {
         : ''
     }
     <button type="button" class="btn secondary block" style="margin-top:12px" data-action="go-profile">Профиль и настройки</button>
+  `;
+}
+
+async function openExtraTopic(topicId) {
+  state.loading = true;
+  render();
+  try {
+    const res = await api.getTopicExtraTasks(topicId, tgId());
+    if (res.paywall_required) {
+      toast(res.detail || 'Доступно по подписке PRO');
+      await openPanel('tariffs');
+      return;
+    }
+    state.activeExtraTopic = res;
+    state.extraTaskIndex = 0;
+    state.extraTaskSelected = null;
+    state.extraTaskText = '';
+    state.extraTaskFeedback = null;
+  } catch (err) {
+    if (err.status === 403 || err.message?.includes('лимит') || err.message?.includes('подписк')) {
+      toast('10 бесплатных заданий выполнено! Оформи PRO');
+      await openPanel('tariffs');
+    } else {
+      toast(err.message || 'Не удалось загрузить задания');
+    }
+  } finally {
+    state.loading = false;
+    render();
+  }
+}
+
+async function submitExtraTaskAnswer() {
+  if (!state.activeExtraTopic) return;
+  const task = state.activeExtraTopic.tasks?.[state.extraTaskIndex];
+  if (!task) return;
+  const answer = (state.extraTaskSelected || document.getElementById('extra-task-text')?.value || state.extraTaskText || '').trim();
+  if (!answer) {
+    toast('Выбери или введи ответ');
+    return;
+  }
+  state.loading = true;
+  render();
+  try {
+    const res = await api.submitExtraTask(task.id, answer, tgId());
+    state.extraTaskFeedback = res;
+    if (res.user_xp !== undefined && state.me) {
+      state.me.xp = res.user_xp;
+    }
+    if (res.free_tasks_left !== undefined && res.free_tasks_left !== null && state.activeExtraTopic) {
+      state.activeExtraTopic.free_tasks_left = res.free_tasks_left;
+    }
+    if (res.free_tasks_left !== undefined && res.free_tasks_left !== null && !res.is_pro) {
+      if (res.free_tasks_left === 0) {
+        toast(res.is_correct ? `Верно! +${res.xp_earned} XP · Лимит бесплатных заданий исчерпан` : 'Неверно · Лимит бесплатных заданий исчерпан');
+      } else {
+        toast(res.is_correct ? `Верно! +${res.xp_earned} XP (осталось ${res.free_tasks_left} беспл.)` : `Есть ошибка (осталось ${res.free_tasks_left} беспл.)`);
+      }
+    } else {
+      toast(res.is_correct ? `Верно! +${res.xp_earned} XP` : 'Есть ошибка');
+    }
+  } catch (err) {
+    if (err.status === 403 || err.message?.includes('лимит') || err.message?.includes('подписк')) {
+      toast('10 заданий выполнено! Оформи PRO для продолжения.');
+      await openPanel('tariffs');
+    } else {
+      toast(err.message || 'Ошибка отправки ответа');
+    }
+  } finally {
+    state.loading = false;
+    render();
+  }
+}
+
+function nextExtraTask() {
+  if (!state.activeExtraTopic) return;
+  state.extraTaskIndex += 1;
+  state.extraTaskSelected = null;
+  state.extraTaskText = '';
+  state.extraTaskFeedback = null;
+  render();
+}
+
+async function finishExtraTopic() {
+  state.activeExtraTopic = null;
+  state.extraTaskFeedback = null;
+  state.extraTaskSelected = null;
+  state.extraTaskText = '';
+  toast('🎉 Отличная работа! Все задания темы пройдены!');
+  if (state.extraTasksReturnRoute) {
+    const retRoute = state.extraTasksReturnRoute;
+    state.extraTasksReturnRoute = null;
+    setRoute(retRoute);
+  } else {
+    await loadForRoute();
+  }
+}
+
+function renderExtraTasks() {
+  if (state.activeExtraTopic) {
+    return renderActiveExtraTopic();
+  }
+
+  const sum = state.extraTasksSummary;
+  const currentGrade = state.extraTasksGrade || Number(state.me?.grade) || 1;
+  const grades = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
+  const query = (state.extraTopicsSearch || '').toLowerCase().trim();
+  const allTopics = sum?.topics || [];
+  const filteredTopics = query
+    ? allTopics.filter(t => (t.name && t.name.toLowerCase().includes(query)) || (t.section_name && t.section_name.toLowerCase().includes(query)))
+    : allTopics;
+
+  return `
+    <section class="card" style="margin-bottom:12px">
+      <div class="panel-head">
+        <button type="button" class="linkish" data-action="go-home">← Главная</button>
+        <h2>🧩 Дополнительные задания</h2>
+      </div>
+      <p class="muted">Банк сгенерированных заданий по темам программы для углублённого закрепления и проверки знаний.</p>
+      
+      <!-- Grade selector pills -->
+      <div class="grade-pills-row">
+        ${grades
+          .map(
+            (g) => `
+          <button type="button" 
+                  class="btn ${g === currentGrade ? 'primary' : 'secondary'}" 
+                  style="padding:6px 14px; font-size:0.85rem; border-radius:20px; white-space:nowrap; flex-shrink:0;"
+                  data-action="change-extra-grade" 
+                  data-grade="${g}">
+            ${g} класс
+          </button>`
+          )
+          .join('')}
+      </div>
+
+      ${
+        sum
+          ? `<div style="display:flex; justify-content:space-around; background:var(--bg-subtle, rgba(255,255,255,0.04)); border-radius:12px; padding:10px; margin-top:8px;">
+               <div style="text-align:center">
+                 <strong style="font-size:1.15rem; color:var(--accent)">${sum.total_topics || 0}</strong>
+                 <div class="muted" style="font-size:0.75rem">Темы</div>
+               </div>
+               <div style="text-align:center">
+                 <strong style="font-size:1.15rem; color:#10b981">${sum.total_extra_tasks || 0}</strong>
+                 <div class="muted" style="font-size:0.75rem">Всего заданий</div>
+               </div>
+               <div style="text-align:center">
+                 <strong style="font-size:1.15rem; color:#f59e0b">${sum.solved_tasks || 0}</strong>
+                 <div class="muted" style="font-size:0.75rem">Решено</div>
+               </div>
+             </div>`
+          : ''
+      }
+
+      ${
+        sum && !sum.is_pro
+          ? `<div style="margin-top:12px; padding:12px; border-radius:12px; background:rgba(245,158,11,0.1); border:1px solid rgba(245,158,11,0.25);">
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+                <span style="font-size:0.85rem; font-weight:600; color:#f59e0b;">Бесплатные задания</span>
+                <span style="font-size:0.85rem; font-weight:700;">${sum.total_completed_all || 0} / ${sum.free_limit || 10}</span>
+              </div>
+              <div style="height:6px; background:rgba(255,255,255,0.1); border-radius:3px; overflow:hidden; margin-bottom:8px;">
+                <div style="height:100%; width:${Math.min(100, (((sum.total_completed_all || 0) / (sum.free_limit || 10)) * 100))}%; background:#f59e0b; border-radius:3px;"></div>
+              </div>
+              ${(sum.total_completed_all || 0) >= (sum.free_limit || 10) 
+                  ? `<button type="button" class="btn block primary" style="padding:8px;" data-action="open-tariffs">⚡ Оформить подписку PRO</button>` 
+                  : ''}
+            </div>`
+          : ''
+      }
+    </section>
+
+    <div style="margin: 10px 0 12px;">
+      <input type="search" 
+             id="extra-topics-search" 
+             placeholder="🔍 Найти тему (например: жи-ши, слоги, имена)..." 
+             value="${esc(state.extraTopicsSearch || '')}"
+             style="width:100%; padding:10px 14px; border-radius:12px; border:1px solid var(--card-border); background:var(--card); color:var(--ink); font-size:0.92rem; box-sizing:border-box;">
+    </div>
+
+    ${
+      !sum || !sum.topics || sum.topics.length === 0
+        ? `<section class="card empty">Для ${currentGrade} класса задания сейчас генерируются. Выбери другой класс выше.</section>`
+        : filteredTopics.length === 0
+        ? `<section class="card empty">Ничего не найдено по запросу «${esc(state.extraTopicsSearch)}». Попробуй другое слово.</section>`
+        : `<div style="display:flex; flex-direction:column; gap:10px;">
+            ${filteredTopics
+              .map(
+                (top) => `
+              <div class="card" style="padding:14px; border-radius:14px; border:1px solid var(--card-border);">
+                <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:6px;">
+                  <strong style="font-size:1rem; line-height:1.3">${esc(top.name)}</strong>
+                  <span style="font-size:0.75rem; background:rgba(59,130,246,0.15); color:#60a5fa; padding:2px 8px; border-radius:10px; white-space:nowrap; margin-left:8px;">
+                    ${top.extra_tasks_count} зад.
+                  </span>
+                </div>
+                <div style="font-size:0.8rem; color:var(--muted); margin-bottom:10px;">
+                  ${esc(top.section_name)} · Решено: ${top.solved_count}/${top.extra_tasks_count}
+                  ${top.mastery_score > 0 ? ` · Освоение: ${top.mastery_score}%` : ''}
+                </div>
+                <button type="button" class="btn block ${top.solved_count >= top.extra_tasks_count ? 'secondary' : 'primary'}" 
+                        style="padding:8px;" 
+                        data-action="open-extra-topic" 
+                        data-topic-id="${top.id}">
+                  ${top.solved_count >= top.extra_tasks_count ? 'Повторить задания' : 'Решать задания'}
+                </button>
+              </div>`
+              )
+              .join('')}
+          </div>`
+    }
+  `;
+}
+
+function renderActiveExtraTopic() {
+  const top = state.activeExtraTopic;
+  const idx = state.extraTaskIndex || 0;
+  const total = top.tasks?.length || 0;
+  const task = top.tasks?.[idx];
+  const fb = state.extraTaskFeedback;
+
+  if (!task) {
+    return `
+      <section class="card" style="text-align:center; padding:24px;">
+        <h2>🎉 Все задания темы пройдены!</h2>
+        <p class="muted">Ты успешно прорешал дополнительные задания по теме «${esc(top.topic_name)}».</p>
+        <button type="button" class="btn block primary" style="margin-top:14px;" data-action="finish-extra-topic">Вернуться к списку тем</button>
+      </section>
+    `;
+  }
+
+  const progressPct = Math.round(((idx + 1) / total) * 100);
+
+  return `
+    <section class="card">
+      <div class="panel-head">
+        <button type="button" class="linkish" data-action="back-from-extra-topic">← Назад</button>
+        <div style="display:flex; align-items:center; gap:8px;">
+          ${!top.is_pro && top.free_tasks_left !== undefined && top.free_tasks_left !== null
+            ? `<span style="font-size:0.75rem; background:rgba(245,158,11,0.2); color:#f59e0b; padding:2px 8px; border-radius:8px; font-weight:600;">Бесплатно: ${top.free_tasks_left}</span>`
+            : ''}
+          <span class="muted" style="font-size:0.85rem">${idx + 1} из ${total}</span>
+        </div>
+      </div>
+      <div class="progress" style="margin:8px 0 14px;"><i style="width:${progressPct}%"></i></div>
+      
+      <div style="margin-bottom:8px;">
+        <span style="font-size:0.75rem; text-transform:uppercase; letter-spacing:0.05em; color:var(--accent);">Тема: ${esc(top.topic_name)}</span>
+        ${task.difficulty ? `<span style="font-size:0.75rem; margin-left:8px; opacity:0.7">· ${task.difficulty === 'easy' ? 'базовое' : 'среднее'}</span>` : ''}
+      </div>
+
+      ${task.image ? `
+        <div style="text-align:center; margin:10px 0 14px;">
+          <img src="${esc(task.image)}" alt="Иллюстрация к заданию" 
+               style="max-width:100%; max-height:220px; border-radius:16px; object-fit:contain; box-shadow:0 6px 20px rgba(0,0,0,0.18);" loading="lazy">
+        </div>
+      ` : ''}
+
+      ${task.reading_text ? `<div style="background:var(--bg-subtle, rgba(255,255,255,0.05)); padding:12px; border-radius:10px; margin-bottom:12px; font-size:0.9rem; line-height:1.4">${esc(task.reading_text)}</div>` : ''}
+
+      <h3 style="font-size:1.1rem; line-height:1.4; margin:0 0 16px;">${esc(task.question)}</h3>
+
+      ${
+        task.options && task.options.length
+          ? `<div style="display:flex; flex-direction:column; gap:8px; margin-bottom:16px;">
+              ${task.options
+                .map((opt) => {
+                  const isSelected = state.extraTaskSelected === opt;
+                  let optCls = '';
+                  if (fb) {
+                    if (opt === fb.correct_answer) {
+                      optCls = ' correct-ans';
+                    } else if (isSelected && !fb.is_correct) {
+                      optCls = ' wrong-ans';
+                    }
+                  } else if (isSelected) {
+                    optCls = ' selected';
+                  }
+                  return `
+                    <button type="button" 
+                            class="extra-opt-btn${optCls}" 
+                            ${fb ? 'disabled' : ''}
+                            data-action="select-extra-opt" 
+                            data-opt="${esc(opt)}">
+                      ${esc(opt)}
+                    </button>
+                  `;
+                })
+                .join('')}
+            </div>`
+          : `<div style="margin-bottom:16px;">
+              <input type="text" id="extra-task-text" placeholder="Введи ответ…" value="${esc(state.extraTaskText || '')}" ${fb ? 'disabled' : ''} style="width:100%; padding:12px; border-radius:10px; border:1px solid var(--card-border); background:var(--card); color:var(--fg);">
+            </div>`
+      }
+
+      ${
+        fb
+          ? `<div style="margin:14px 0; padding:14px; border-radius:12px; border:1px solid ${fb.is_correct ? '#10b981' : '#ef4444'}; background:${fb.is_correct ? 'rgba(16,185,129,0.12)' : 'rgba(239,68,68,0.12)'};">
+              <strong style="color:${fb.is_correct ? '#10b981' : '#ef4444'}; font-size:1rem;">
+                ${fb.is_correct ? '✓ Правильно! +' + fb.xp_earned + ' XP' : '✗ Неверно!'}
+              </strong>
+              ${!fb.is_correct && fb.correct_answer ? `<div style="margin-top:6px; font-size:0.9rem;">Правильный ответ: <strong>${esc(fb.correct_answer)}</strong></div>` : ''}
+              ${fb.explanation ? `<div style="margin-top:8px; font-size:0.88rem; line-height:1.4; color:var(--fg); opacity:0.9;"><strong>💡 Правило / Пояснение:</strong> ${esc(fb.explanation)}</div>` : ''}
+            </div>
+            <button type="button" class="btn block primary" style="margin-top:10px;" data-action="next-extra-task">
+              ${idx + 1 < total ? 'Следующее задание →' : 'Завершить тему'}
+            </button>`
+          : `<button type="button" class="btn block primary" data-action="submit-extra-task">Проверить ответ</button>`
+      }
+    </section>
   `;
 }
 
@@ -640,17 +1008,24 @@ function renderGradeCurriculum() {
               💡 <strong>Правило:</strong> ${esc(top.summary_key_points.slice(0, 110))}${top.summary_key_points.length > 110 ? '…' : ''}
             </div>
           ` : ''}
-          <div style="margin-top:10px">
+          <div style="margin-top:10px; display:flex; flex-direction:column; gap:6px;">
             ${tasks > 0 ? `
               <button type="button" class="btn block secondary small"
                 data-action="start-topic-practice"
                 data-topic="${top.id}"
                 data-grade="${cur.grade}">
-                ⚡ Тренировать тему
+                ⚡ Тренировать тему учебника (${tasks} зад.)
               </button>
             ` : `
               <button type="button" class="btn block secondary small" disabled style="opacity:0.6">Материалы пополняются</button>
             `}
+            ${top.extra_task_count > 0 ? `
+              <button type="button" class="btn block small" style="background:rgba(200, 255, 61, 0.12); color:#c8ff3d; border:1px solid rgba(200, 255, 61, 0.35); font-weight:600;"
+                data-action="open-extra-topic"
+                data-topic-id="${top.id}">
+                🧩 Доп. задания по теме (${top.extra_task_count} с картинками)
+              </button>
+            ` : ''}
           </div>
         </div>
       `;
@@ -695,6 +1070,11 @@ function renderGradeCurriculum() {
         <button type="button" class="btn block primary" data-action="start-grade-mix-practice" data-grade="${cur.grade}">
           🎯 Тренировать ${cur.grade} класс (${cur.school_tasks_count || cur.total_tasks} заданий · микс тем учебника)
         </button>
+        ${(cur.total_extra_tasks || 0) > 0 ? `
+          <button type="button" class="btn block secondary" style="margin-top:8px; border-color:rgba(200, 255, 61, 0.4); color:var(--accent); font-weight:600;" data-action="go-extra-tasks">
+            🧩 Банк доп. заданий (${cur.total_extra_tasks} с картинками)
+          </button>
+        ` : ''}
       </section>
       ${sectionsHtml || '<section class="card"><p class="muted">В этом классе темы ещё формируются.</p></section>'}
     `;
@@ -1006,6 +1386,13 @@ function renderPractice() {
             ? `<button class="btn block" style="margin-top:8px" data-action="izlo-random">Ещё изложения</button>`
             : ''
         }
+      </section>
+      <section class="card" style="margin-top:12px">
+        <h2>🧩 Дополнительные задания</h2>
+        <p class="muted">Хочешь продолжить практику? Проходи красочные карточки по темам школьной программы!</p>
+        <button class="btn block" style="background:#c8ff3d; color:#121212; font-weight:700" data-action="go-extra-tasks">
+          🧩 Решать доп. задания
+        </button>
       </section>`;
   }
 
@@ -1054,9 +1441,12 @@ function renderPractice() {
        </div>`;
 
   const topicMeta = (task.section_name || task.topic_name)
-    ? `<div style="background:var(--bg-secondary); padding:8px 12px; border-radius:10px; margin-bottom:10px; font-size:0.83rem; display:flex; align-items:center; justify-content:space-between">
+    ? `<div style="background:var(--bg-secondary); padding:8px 12px; border-radius:10px; margin-bottom:10px; font-size:0.83rem; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:6px;">
          <span>🎒 <strong>${task.grade_level ? task.grade_level + ' кл.' : ''}</strong> ${task.section_name ? '· ' + esc(task.section_name) : ''} · 📌 <strong>${esc(task.topic_name || '')}</strong></span>
-         ${task.topic_summary ? `<button type="button" class="btn secondary small" style="padding:2px 8px; font-size:0.75rem" data-action="toggle-rule">💡 Правило</button>` : ''}
+         <div style="display:flex; gap:6px; align-items:center;">
+           ${task.topic_id ? `<button type="button" class="btn secondary small" style="padding:2px 8px; font-size:0.75rem; border-color:rgba(200,255,61,0.4); color:var(--accent);" data-action="open-extra-topic" data-topic-id="${task.topic_id}">🧩 Доп. задания</button>` : ''}
+           ${task.topic_summary ? `<button type="button" class="btn secondary small" style="padding:2px 8px; font-size:0.75rem" data-action="toggle-rule">💡 Правило</button>` : ''}
+         </div>
        </div>`
     : '';
 
@@ -1836,7 +2226,14 @@ function render() {
 
   const theme = THEMES[getTheme()];
   document.getElementById('theme-toggle-label').textContent = theme.nextLabel;
-  document.getElementById('brand-sub').textContent = theme.sub;
+  const myGrade = Number(state.me?.grade) || 0;
+  if (myGrade > 0 && myGrade <= 9) {
+    document.getElementById('brand-sub').textContent = `${myGrade} класс · Школьная программа`;
+  } else if (myGrade >= 10) {
+    document.getElementById('brand-sub').textContent = 'ЦТ · ЦЭ · Подготовка';
+  } else {
+    document.getElementById('brand-sub').textContent = theme.sub;
+  }
 
   if (state.loading && !state.me) {
     root.innerHTML = `<div class="card empty">Подключаем Telegram…</div>`;
@@ -1877,6 +2274,7 @@ function render() {
 
   if (state.route === 'home') root.innerHTML = renderHome();
   else if (state.route === 'courses') root.innerHTML = renderCourses();
+  else if (state.route === 'extra-tasks') root.innerHTML = renderExtraTasks();
   else if (state.route === 'practice') root.innerHTML = renderPractice();
   else if (state.route === 'stats') root.innerHTML = renderStats();
   else if (state.route === 'rating') root.innerHTML = renderRating();
@@ -1910,6 +2308,8 @@ function render() {
       state.reportTo = e.target.value;
     });
   }
+
+  syncTabbar();
 }
 
 async function submitAnswer() {
@@ -2017,8 +2417,9 @@ function bindUi() {
       await openPanel('scores');
       return;
     }
-    if (action === 'open-streak') {
-      await openPanel('streak');
+    if (action === 'open-streak' || action === 'go-rating') {
+      state.panel = null;
+      setRoute('rating');
       return;
     }
     if (action === 'open-tariffs') {
@@ -2042,10 +2443,12 @@ function bindUi() {
       await loadScoresPage((state.scores?.page || 1) + 1);
       return;
     }
-    if (action === 'tariff-soon' || action === 'buy-plan') {
-      const planCode = t.dataset.plan === 'mentor' ? 'pro_3m' : (t.dataset.plan === 'focus' ? 'pro_12m' : 'pro_1m');
+    if (action === 'buy-plan') {
+      const planCode = t.dataset.plan || 'pro_1m';
+      if (state.loading) return;
+      t.disabled = true;
+      t.textContent = 'Подготовка счёта…';
       state.loading = true;
-      render();
       try {
         const order = await api.createCheckout(planCode);
         if (order.checkout_url) {
@@ -2062,6 +2465,81 @@ function bindUi() {
         state.loading = false;
         render();
       }
+      return;
+    }
+    if (action === 'go-my-curriculum') {
+      const myGrade = state.me?.grade ? Number(state.me.grade) : 1;
+      setRoute('courses');
+      state.inCoursesCatalog = false;
+      state.loading = true;
+      render();
+      try {
+        state.selectedGradeCurriculum = await api.getGradeCurriculum(myGrade, tgId());
+      } catch (err) {
+        console.error('Ошибка загрузки программы:', err);
+      } finally {
+        state.loading = false;
+        render();
+      }
+      return;
+    }
+    if (action === 'go-extra-tasks') {
+      state.activeExtraTopic = null;
+      state.extraTopicsSearch = '';
+      state.extraTasksGrade = Number(state.me?.grade) || 1;
+      setRoute('extra-tasks');
+      return;
+    }
+    if (action === 'change-extra-grade') {
+      state.extraTasksGrade = Number(t.dataset.grade);
+      state.activeExtraTopic = null;
+      state.extraTopicsSearch = '';
+      await loadForRoute();
+      return;
+    }
+    if (action === 'open-extra-topic') {
+      const topicId = Number(t.dataset.topicId || t.dataset.topic);
+      if (state.route !== 'extra-tasks') {
+        state.extraTasksReturnRoute = state.route;
+        state.route = 'extra-tasks';
+        syncTabbar();
+      }
+      await openExtraTopic(topicId);
+      return;
+    }
+    if (action === 'back-from-extra-topic') {
+      state.activeExtraTopic = null;
+      state.extraTaskFeedback = null;
+      state.extraTaskSelected = null;
+      state.extraTaskText = '';
+      if (state.extraTasksReturnRoute) {
+        const retRoute = state.extraTasksReturnRoute;
+        state.extraTasksReturnRoute = null;
+        setRoute(retRoute);
+      } else {
+        await loadForRoute();
+      }
+      return;
+    }
+    if (action === 'select-extra-opt') {
+      state.extraTaskSelected = t.dataset.opt;
+      render();
+      return;
+    }
+    if (action === 'submit-extra-task') {
+      await submitExtraTaskAnswer();
+      return;
+    }
+    if (action === 'next-extra-task') {
+      if (state.extraTaskIndex + 1 < (state.activeExtraTopic?.tasks?.length || 0)) {
+        nextExtraTask();
+      } else {
+        await finishExtraTopic();
+      }
+      return;
+    }
+    if (action === 'finish-extra-topic') {
+      await finishExtraTopic();
       return;
     }
     if (action === 'go-practice') setRoute('practice');
@@ -2487,10 +2965,6 @@ function bindUi() {
       render();
       return;
     }
-    if (action === 'open-tariffs') {
-      setRoute('tariffs');
-      return;
-    }
     if (action === 'next' || action === 'reload-daily') {
       state.feedback = null;
       await loadForRoute();
@@ -2629,6 +3103,28 @@ function bindUi() {
       }
     }
   });
+
+  root.addEventListener('input', (e) => {
+    if (e.target && e.target.id === 'extra-task-text') {
+      state.extraTaskText = e.target.value;
+    }
+    if (e.target && e.target.id === 'extra-topics-search') {
+      state.extraTopicsSearch = e.target.value;
+      render();
+      const el = document.getElementById('extra-topics-search');
+      if (el) {
+        el.focus();
+        el.selectionStart = el.selectionEnd = el.value.length;
+      }
+    }
+  });
+
+  root.addEventListener('keydown', async (e) => {
+    if (e.target && e.target.id === 'extra-task-text' && e.key === 'Enter') {
+      e.preventDefault();
+      await submitExtraTaskAnswer();
+    }
+  });
 }
 
 async function main() {
@@ -2636,8 +3132,36 @@ async function main() {
   const theme = initTheme();
   startAtmosphere(theme);
   bindUi();
-  await loadMe();
-  await loadForRoute();
+
+  // Автопроверка статуса (например, после возврата из оплаты в браузере)
+  window.addEventListener('focus', async () => {
+    if (state.me && !state.me.is_pro) {
+      try {
+        const id = tgId();
+        if (id) {
+          const fresh = await api.me(id);
+          if (fresh && fresh.is_pro) {
+            state.me = fresh;
+            toast('🎉 Подписка успешно активирована!');
+            render();
+          }
+        }
+      } catch (_) {}
+    }
+  });
+
+  try {
+    await loadMe();
+    await loadForRoute();
+  } catch (err) {
+    console.error('App init error:', err);
+  } finally {
+    const splash = document.getElementById('app-splash');
+    if (splash) {
+      splash.classList.add('hidden');
+      setTimeout(() => splash.remove(), 400);
+    }
+  }
 }
 
 main();

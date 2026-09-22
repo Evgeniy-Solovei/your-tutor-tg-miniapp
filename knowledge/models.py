@@ -566,3 +566,74 @@ class VariantTask(models.Model):
 
     def __str__(self):
         return f'{self.variant_id} #{self.order}'
+
+
+class TopicExtraTask(models.Model):
+    """Дополнительные задания по теме (сгенерированные или авторские)."""
+
+    class Difficulty(models.TextChoices):
+        EASY = 'easy', 'Лёгкое'
+        MEDIUM = 'medium', 'Среднее'
+        HARD = 'hard', 'Сложное'
+
+    topic = models.ForeignKey(
+        Topic,
+        on_delete=models.CASCADE,
+        related_name='extra_tasks',
+        verbose_name='Тема',
+    )
+    question = models.TextField(verbose_name='Вопрос / Условие')
+    reading_text = models.TextField(blank=True, default='', verbose_name='Текст к вопросу')
+    image = models.ImageField(
+        upload_to='extra_tasks/%Y/%m/',
+        blank=True,
+        null=True,
+        verbose_name='Картинка к заданию',
+        help_text='Красочная карточка или иллюстрация к заданию',
+    )
+    image_url = models.CharField(
+        max_length=500,
+        blank=True,
+        default='',
+        verbose_name='URL или путь к картинке',
+    )
+    options = models.JSONField(
+        default=list,
+        blank=True,
+        verbose_name='Варианты ответа',
+        help_text='Список вариантов ответов',
+    )
+    correct_answer = models.CharField(max_length=255, verbose_name='Правильный ответ')
+    explanation = models.TextField(blank=True, verbose_name='Пояснение / Правило')
+    difficulty = models.CharField(
+        max_length=20,
+        choices=Difficulty.choices,
+        default=Difficulty.MEDIUM,
+        verbose_name='Сложность',
+    )
+    source = models.CharField(
+        max_length=100,
+        default='ai_generated',
+        verbose_name='Источник генерации',
+    )
+    order = models.PositiveSmallIntegerField(default=0, verbose_name='Порядок')
+    is_active = models.BooleanField(default=True, verbose_name='Активно')
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='Создано')
+
+    class Meta:
+        verbose_name = 'Дополнительное задание'
+        verbose_name_plural = 'Дополнительные задания'
+        ordering = ['topic', 'order', 'id']
+        indexes = [
+            models.Index(fields=['topic', 'is_active']),
+        ]
+
+    def __str__(self):
+        return f'{self.topic.name} — доп. задание #{self.id}'
+
+    @property
+    def get_image_url(self) -> str:
+        if self.image:
+            return self.image.url
+        return self.image_url or ''
+

@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="ru" data-theme="calm">
+<html lang="ru" data-theme="vibe">
   <head>
     <meta charset="UTF-8" />
     <meta
@@ -7,6 +7,26 @@
       content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
     />
     <title>Твой Репетитор — ЦТ / ЦЭ</title>
+    <script>
+      (function() {
+        try {
+          var saved = localStorage.getItem('tutor_theme') || 'vibe';
+          document.documentElement.setAttribute('data-theme', saved);
+        } catch(e) {}
+      })();
+    </script>
+    <style>
+      html, body {
+        background-color: #0b0b12;
+        color: #f4f1ff;
+        margin: 0;
+        padding: 0;
+      }
+      [data-theme='calm'] body {
+        background-color: #f3f6f4;
+        color: #1c2a24;
+      }
+    </style>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -14,9 +34,18 @@
       href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700;800&family=Unbounded:wght@600;700;800&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="./styles.css" />
+    <link rel="stylesheet" href="./styles.css?v=20260922-grade1-50tasks" />
   </head>
   <body>
+    <!-- Заставка при запуске приложения -->
+    <div id="app-splash" class="app-splash">
+      <div class="splash-gears">
+        <span class="splash-gear splash-gear-main">⚙️</span>
+        <span class="splash-gear splash-gear-sub">⚙️</span>
+      </div>
+      <div class="splash-title">Твой Репетитор</div>
+      <div class="splash-loading-text">Загрузка...</div>
+    </div>
     <div id="atmosphere" class="atmosphere" aria-hidden="true"></div>
     <div class="app-shell">
       <header class="topbar">
@@ -43,6 +72,6 @@
         <button type="button" class="tab" data-route="profile">Профиль & Семья</button>
       </nav>
     </div>
-    <script type="module" src="./app.js?v=20260822-answer-fix"></script>
+    <script type="module" src="./app.js?v=20260922-grade1-50tasks"></script>
   </body>
 </html>

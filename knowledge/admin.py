@@ -1,4 +1,6 @@
 from django.contrib import admin
+from django.utils.html import escape
+from django.utils.safestring import mark_safe
 from import_export.admin import ImportExportModelAdmin
 from unfold.admin import ModelAdmin, TabularInline
 
@@ -19,6 +21,7 @@ from knowledge.models import (
     TextbookChapter,
     TextbookFragment,
     Topic,
+    TopicExtraTask,
     TopicSummary,
     VariantTask,
 )
@@ -228,3 +231,81 @@ class VariantTaskAdmin(ModelAdmin):
     list_display = ['variant', 'order', 'task']
     list_filter = ['variant__collection']
     autocomplete_fields = ['variant', 'task']
+
+
+@admin.register(TopicExtraTask)
+class TopicExtraTaskAdmin(ModelAdmin):
+    list_display = [
+        'image_thumbnail',
+        'topic',
+        'grade_display',
+        'difficulty',
+        'question_preview',
+        'correct_answer',
+        'is_active',
+    ]
+    list_filter = ['topic__grade_level', 'difficulty', 'is_active', 'topic']
+    search_fields = ['question', 'correct_answer', 'topic__name', 'explanation']
+    autocomplete_fields = ['topic']
+    readonly_fields = ['image_preview_large', 'formatted_options', 'created_at']
+    fieldsets = [
+        ('Основное', {
+            'fields': ['topic', 'difficulty', 'is_active', 'order', 'source']
+        }),
+        ('Иллюстрация', {
+            'fields': ['image_preview_large', 'image', 'image_url']
+        }),
+        ('Задание и ответы', {
+            'fields': ['question', 'reading_text', 'formatted_options', 'options', 'correct_answer', 'explanation']
+        }),
+        ('Даты', {
+            'fields': ['created_at'],
+            'classes': ['collapse']
+        }),
+    ]
+
+    def grade_display(self, obj):
+        return f'{obj.topic.grade_level} класс' if obj.topic else '—'
+    grade_display.short_description = 'Класс'
+    grade_display.admin_order_field = 'topic__grade_level'
+
+    def image_thumbnail(self, obj):
+        url = obj.get_image_url
+        if url:
+            return mark_safe(f'<img src="{url}" style="height:36px; width:64px; object-fit:cover; border-radius:6px; border:1px solid #cbd5e1;" />')
+        return '—'
+    image_thumbnail.short_description = 'Карточка'
+
+    def image_preview_large(self, obj):
+        url = obj.get_image_url
+        if url:
+            return mark_safe(
+                f'<div style="background:#f8fafc; padding:12px; border-radius:12px; display:inline-block; border:1px solid #e2e8f0;">'
+                f'<img src="{url}" style="max-width:420px; max-height:240px; border-radius:8px; display:block; box-shadow:0 2px 8px rgba(0,0,0,0.08);" />'
+                f'<div style="margin-top:6px; font-size:12px; color:#64748b;">Путь: <code>{url}</code></div>'
+                f'</div>'
+            )
+        return 'Изображение не прикреплено'
+    image_preview_large.short_description = 'Превью карточки'
+
+    def formatted_options(self, obj):
+        opts = obj.options or []
+        if not opts:
+            return '—'
+        items = []
+        for o in opts:
+            escaped_opt = escape(str(o))
+            is_c = str(o).strip().lower() == str(obj.correct_answer).strip().lower()
+            if is_c:
+                items.append(f'<li style="color:#16a34a; font-weight:600;">✓ {escaped_opt} <i>(верный ответ)</i></li>')
+            else:
+                items.append(f'<li style="color:#475569;">• {escaped_opt}</li>')
+        return mark_safe(f'<ul style="margin:0; padding-left:18px; line-height:1.6;">{"".join(items)}</ul>')
+    formatted_options.short_description = 'Варианты ответов'
+
+    def question_preview(self, obj):
+        q = obj.question or ''
+        preview = (q[:60] + '…') if len(q) > 60 else q
+        return escape(preview)
+    question_preview.short_description = 'Вопрос'
+

@@ -1,9 +1,10 @@
 from adrf.views import APIView
+from django.conf import settings
 from django.db.models import Count, Q
 from rest_framework.response import Response
 
 from core.api import telegram_auth_classes
-from knowledge.models import ExamTrack, ExamVariant, Subject, Task, Topic
+from knowledge.models import ExamTrack, ExamVariant, Subject, Task, Topic, TopicExtraTask
 
 
 class SubjectListView(APIView):
@@ -139,12 +140,14 @@ class GradeCurriculumView(APIView):
             topics_qs = topics_qs.filter(grade_level=grade)
 
         topics = [t async for t in topics_qs.order_by('section__order', 'order', 'name')]
-
         topic_ids = [t.id for t in topics]
         task_counts = {}
+        extra_counts = {}
         if topic_ids:
             async for row in Task.objects.filter(is_active=True, topic_id__in=topic_ids).values('topic_id').annotate(cnt=Count('id')):
                 task_counts[row['topic_id']] = row['cnt']
+            async for row in TopicExtraTask.objects.filter(is_active=True, topic_id__in=topic_ids).values('topic_id').annotate(cnt=Count('id')):
+                extra_counts[row['topic_id']] = row['cnt']
 
         solved_counts = {}
         masteries = {}
@@ -186,6 +189,7 @@ class GradeCurriculumView(APIView):
                 'name': t.name,
                 'exam_weight': t.exam_weight,
                 'task_count': t_count,
+                'extra_task_count': extra_counts.get(t.id, 0),
                 'solved_count': s_count,
                 'progress_percent': pct,
                 'mastery_score': pct,
@@ -197,6 +201,7 @@ class GradeCurriculumView(APIView):
         sorted_sections = sorted(sections_map.values(), key=lambda s: (s['order'], s['name']))
 
         total_tasks = sum(task_counts.values())
+        total_extra_tasks = sum(extra_counts.values())
         total_topics = len(topics)
 
         extra_stats = {}
@@ -298,9 +303,286 @@ class GradeCurriculumView(APIView):
             'title': f'{grade} класс' if grade <= 10 else '11 класс / ЦТ и ЦЭ',
             'total_topics': total_topics,
             'total_tasks': total_tasks,
+            'total_extra_tasks': total_extra_tasks,
             'sections': sorted_sections,
             'collections': collections,
             'has_extra_materials': has_extra_materials,
             **extra_stats,
         })
+
+
+class TopicExtraTasksView(APIView):
+    """Список дополнительных заданий по выбранной теме."""
+
+    authentication_classes = telegram_auth_classes()
+
+    async def get(self, request, topic_id: int):
+        topic = await Topic.objects.filter(id=topic_id, is_active=True).select_related('section').afirst()
+        if not topic:
+            return Response({'detail': 'Тема не найдена'}, status=404)
+
+        tg_id_param = request.query_params.get('tg_id')
+        student = None
+        if tg_id_param:
+            try:
+                from core.api import aget_student_by_tg
+                student, _ = await aget_student_by_tg(request, int(tg_id_param))
+            except Exception:
+                pass
+        if not student:
+            user = getattr(request, 'telegram_user', None)
+            if user:
+                from students.models import Student
+                student = await Student.objects.filter(tg_id=user.id).afirst()
+            elif tg_id_param and settings.DEBUG:
+                from students.models import Student
+                student = await Student.objects.filter(tg_id=int(tg_id_param)).afirst()
+
+        FREE_LIMIT = 10
+        total_completed_all = 0
+        is_pro = False
+        if student:
+            is_pro = bool(student.is_pro)
+            from learning.models import TaskAttempt
+            total_completed_all = await TaskAttempt.objects.filter(
+                student=student, extra_task__isnull=False
+            ).values('extra_task_id').distinct().acount()
+
+        paywall_active = (not is_pro) and (total_completed_all >= FREE_LIMIT)
+        if paywall_active:
+            return Response({
+                'paywall_required': True,
+                'free_limit': FREE_LIMIT,
+                'total_completed_all': total_completed_all,
+                'detail': 'Ты выполнил 10 бесплатных заданий! Все 50 заданий по каждой теме доступны по подписке «Твой Репетитор PRO».',
+                'topic_id': topic.id,
+                'topic_name': topic.name,
+                'count': 0,
+                'tasks': [],
+            })
+
+        extra_tasks_qs = TopicExtraTask.objects.filter(topic=topic, is_active=True).order_by('order', 'id')
+        tasks = []
+        async for item in extra_tasks_qs:
+            tasks.append({
+                'id': item.id,
+                'topic_id': topic.id,
+                'topic_name': topic.name,
+                'question': item.question,
+                'reading_text': item.reading_text,
+                'image': item.get_image_url,
+                'options': item.options,
+                'difficulty': item.difficulty,
+                'source': item.source,
+                'has_explanation': bool(item.explanation),
+            })
+
+        return Response({
+            'topic_id': topic.id,
+            'topic_name': topic.name,
+            'section_name': topic.section.name if topic.section else '',
+            'grade_level': topic.grade_level,
+            'count': len(tasks),
+            'tasks': tasks,
+            'is_pro': is_pro,
+            'free_limit': FREE_LIMIT,
+            'total_completed_all': total_completed_all,
+            'free_tasks_left': max(0, FREE_LIMIT - total_completed_all) if not is_pro else None,
+        })
+
+
+class GradeExtraTasksSummaryView(APIView):
+    """Сводка тем с дополнительными заданиями по классу."""
+
+    authentication_classes = telegram_auth_classes()
+
+    async def get(self, request):
+        grade_param = request.query_params.get('grade', 1)
+        try:
+            grade = int(grade_param)
+        except (ValueError, TypeError):
+            grade = 1
+
+        tg_id_param = request.query_params.get('tg_id')
+        student = None
+        if tg_id_param:
+            try:
+                from core.api import aget_student_by_tg
+                student, _ = await aget_student_by_tg(request, int(tg_id_param))
+            except Exception:
+                pass
+        if not student:
+            user = getattr(request, 'telegram_user', None)
+            if user:
+                from students.models import Student
+                student = await Student.objects.filter(tg_id=user.id).afirst()
+            elif tg_id_param and settings.DEBUG:
+                from students.models import Student
+                student = await Student.objects.filter(tg_id=int(tg_id_param)).afirst()
+
+        from django.db.models import Count, Q
+        topics_qs = (
+            Topic.objects.filter(is_active=True, grade_level=grade)
+            .select_related('section')
+            .annotate(extra_tasks_count=Count('extra_tasks', filter=Q(extra_tasks__is_active=True)))
+            .filter(extra_tasks_count__gt=0)
+            .order_by('section__order', 'order', 'id')
+        )
+
+        solved_counts = {}
+        mastery_scores = {}
+        total_completed_all = 0
+        is_pro = False
+        FREE_LIMIT = 10
+        if student:
+            is_pro = bool(student.is_pro)
+            from learning.models import TaskAttempt, TopicMastery
+            total_completed_all = await TaskAttempt.objects.filter(
+                student=student, extra_task__isnull=False
+            ).values('extra_task_id').distinct().acount()
+
+            async for att in TaskAttempt.objects.filter(
+                student=student, extra_task__isnull=False, extra_task__topic__grade_level=grade, is_correct=True
+            ).values('extra_task__topic_id').annotate(c=Count('extra_task_id', distinct=True)):
+                solved_counts[att['extra_task__topic_id']] = att['c']
+
+            async for m in TopicMastery.objects.filter(student=student, topic__grade_level=grade):
+                mastery_scores[m.topic_id] = round(m.mastery_score * 100)
+
+        paywall_active = (not is_pro) and (total_completed_all >= FREE_LIMIT)
+
+        topics_data = []
+        total_tasks = 0
+        total_solved = 0
+        async for topic in topics_qs:
+            cnt = topic.extra_tasks_count
+            total_tasks += cnt
+            solved = solved_counts.get(topic.id, 0)
+            total_solved += solved
+            mastery = mastery_scores.get(topic.id, 0)
+            topics_data.append({
+                'id': topic.id,
+                'topic_id': topic.id,
+                'name': topic.name,
+                'topic_name': topic.name,
+                'section_id': topic.section_id,
+                'section_name': topic.section.name if topic.section else 'Общие темы',
+                'extra_tasks_count': cnt,
+                'solved_count': solved,
+                'mastery_score': mastery,
+            })
+
+        return Response({
+            'grade': grade,
+            'total_topics': len(topics_data),
+            'total_extra_tasks': total_tasks,
+            'total_solved': total_solved,
+            'total_completed_all': total_completed_all,
+            'free_limit': FREE_LIMIT,
+            'is_pro': is_pro,
+            'paywall_active': paywall_active,
+            'topics': topics_data,
+        })
+
+
+class TopicExtraTaskSubmitView(APIView):
+    """Проверка ответа на дополнительное задание по теме."""
+
+    authentication_classes = telegram_auth_classes()
+
+    async def post(self, request, task_id: int):
+        tg_id = request.data.get('tg_id')
+        if not tg_id:
+            user = getattr(request, 'telegram_user', None)
+            tg_id = user.id if user else None
+
+        if not tg_id:
+            return Response({'detail': 'tg_id обязателен'}, status=400)
+
+        from core.api import aget_student_by_tg
+        student, err = await aget_student_by_tg(request, int(tg_id))
+        if (err or not student) and settings.DEBUG:
+            from students.models import Student
+            student = await Student.objects.filter(tg_id=int(tg_id)).afirst()
+            err = None
+        if err or not student:
+            return err or Response({'detail': 'Ученик не найден'}, status=404)
+
+        task = await TopicExtraTask.objects.select_related('topic').filter(id=task_id, is_active=True).afirst()
+        if not task:
+            return Response({'detail': 'Задание не найдено'}, status=404)
+
+        FREE_LIMIT = 10
+        is_pro = bool(student.is_pro)
+        if not is_pro:
+            from learning.models import TaskAttempt
+            total_completed = await TaskAttempt.objects.filter(
+                student=student, extra_task__isnull=False
+            ).values('extra_task_id').distinct().acount()
+            if total_completed >= FREE_LIMIT:
+                return Response({
+                    'paywall_required': True,
+                    'detail': 'Ты выполнил 10 бесплатных заданий! Все 50 заданий по каждой теме доступны по подписке «Твой Репетитор PRO».',
+                }, status=403)
+
+        user_answer = str(request.data.get('answer', '')).strip()
+        correct_answer = str(task.correct_answer or '').strip()
+
+        # Check answer: normalize whitespace and lower
+        def normalize(s):
+            return ' '.join(s.lower().replace('ё', 'е').split())
+
+        is_correct = False
+        norm_user = normalize(user_answer)
+        norm_correct = normalize(correct_answer)
+
+        if norm_user == norm_correct:
+            is_correct = True
+        elif task.options:
+            for idx, opt in enumerate(task.options, 1):
+                if str(opt).strip() == correct_answer and (norm_user == str(idx) or norm_user == normalize(str(opt))):
+                    is_correct = True
+                    break
+
+        xp_earned = 10 if is_correct else 2
+        student.xp = (student.xp or 0) + xp_earned
+        await student.asave(update_fields=['xp'])
+
+        from learning.models import TaskAttempt, TopicMastery
+        await TaskAttempt.objects.acreate(
+            student=student,
+            task=None,
+            extra_task=task,
+            answer_text=user_answer,
+            is_correct=is_correct,
+            points_earned=1 if is_correct else 0,
+            max_points=1,
+        )
+
+        mastery, _ = await TopicMastery.objects.aget_or_create(student=student, topic=task.topic)
+        if is_correct:
+            mastery.correct_count += 1
+        else:
+            mastery.wrong_count += 1
+        mastery.recalculate_score()
+        await mastery.asave()
+
+        free_tasks_left = None
+        if not is_pro:
+            new_distinct = await TaskAttempt.objects.filter(
+                student=student, extra_task__isnull=False
+            ).values('extra_task_id').distinct().acount()
+            free_tasks_left = max(0, FREE_LIMIT - new_distinct)
+
+        return Response({
+            'is_correct': is_correct,
+            'correct_answer': task.correct_answer,
+            'explanation': task.explanation or '',
+            'xp_earned': xp_earned,
+            'user_xp': student.xp,
+            'mastery_score': round(mastery.mastery_score * 100),
+            'is_pro': is_pro,
+            'free_tasks_left': free_tasks_left,
+        })
+
 

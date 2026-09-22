@@ -199,20 +199,40 @@ class DailySessionView(APIView):
         from learning.models import DailySession
         from learning.views import serialize_current_task
 
-        # Активная тренировка (изложения и т.п.) важнее дневной сессии
-        train = await (
-            DailySession.objects.filter(
-                student=student,
-                status=DailySession.Status.IN_PROGRESS,
-                kind=DailySession.Kind.TRAIN,
+        from django.utils import timezone
+        today = timezone.localdate()
+
+        # Архивируем старые незавершённые сессии за прошлые дни, чтобы они не висели
+        await DailySession.objects.filter(
+            student=student,
+            session_date__lt=today,
+            status=DailySession.Status.IN_PROGRESS,
+        ).aupdate(status=DailySession.Status.COMPLETED)
+
+        req_mode = getattr(request, 'query_params', getattr(request, 'GET', {})).get('mode')
+        if req_mode == 'train':
+            train = await (
+                DailySession.objects.filter(
+                    student=student,
+                    session_date=today,
+                    status=DailySession.Status.IN_PROGRESS,
+                    kind=DailySession.Kind.TRAIN,
+                )
+                .order_by('-id')
+                .afirst()
             )
-            .order_by('-id')
-            .afirst()
-        )
-        if train and await train.session_tasks.filter(is_answered=False).aexists():
-            session = train
+            if train and await train.session_tasks.filter(is_answered=False).aexists():
+                session = train
+            else:
+                session = await get_or_create_daily_session(student)
         else:
             session = await get_or_create_daily_session(student)
+
+        # Синхронизируем tasks_completed со строго реально решёнными задачами в этой сессии
+        real_completed = await session.session_tasks.filter(is_answered=True).acount()
+        if session.tasks_completed != real_completed:
+            session.tasks_completed = real_completed
+            await session.asave(update_fields=['tasks_completed'])
 
         next_task = await get_next_session_task(session)
         task_data = await serialize_current_task(next_task)
@@ -801,8 +821,24 @@ class BePaidCheckoutView(APIView):
         checkout_url = ''
         bepaid_token = ''
 
-        notification_url = request.build_absolute_uri('/api/tutor/payments/bepaid/webhook/')
-        return_url = request.build_absolute_uri('/app/')
+        bot_username = getattr(settings, 'TELEGRAM_BOT_USERNAME', 'tutor_by_bot')
+        app_name = getattr(settings, 'TELEGRAM_MINI_APP_SHORT_NAME', 'app')
+
+        from core.webapp_url import get_web_app_url
+        configured_web_url = get_web_app_url()
+        host = request.get_host()
+        if configured_web_url and not host.startswith(('localhost', '127.0.0.1')):
+            notification_url = f"{configured_web_url}/api/tutor/payments/bepaid/webhook/"
+            base_return = f"{configured_web_url}/app/payment-return.html?bot={bot_username}&app={app_name}&order_id={order_id}"
+        else:
+            notification_url = request.build_absolute_uri('/api/tutor/payments/bepaid/webhook/')
+            base_return = request.build_absolute_uri(f'/app/payment-return.html?bot={bot_username}&app={app_name}&order_id={order_id}')
+
+        if not host.startswith(('localhost', '127.0.0.1')):
+            if notification_url.startswith('http://'):
+                notification_url = 'https://' + notification_url[7:]
+            if base_return.startswith('http://'):
+                base_return = 'https://' + base_return[7:]
 
         payload = {
             "checkout": {
@@ -820,10 +856,14 @@ class BePaidCheckoutView(APIView):
                     "first_name": student.display_name or "Ученик",
                 },
                 "settings": {
-                    "success_url": return_url,
-                    "decline_url": return_url,
-                    "fail_url": return_url,
+                    "auto_return": 3,
+                    "return_url": f"{base_return}&status=success",
+                    "success_url": f"{base_return}&status=success",
+                    "decline_url": f"{base_return}&status=decline",
+                    "fail_url": f"{base_return}&status=fail",
+                    "cancel_url": f"{base_return}&status=cancel",
                     "notification_url": notification_url,
+                    "button_text": "Вернуться в Telegram",
                     "language": "ru",
                 },
                 "payment_method": {

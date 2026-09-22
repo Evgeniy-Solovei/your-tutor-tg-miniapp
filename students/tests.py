@@ -92,6 +92,9 @@ class BePaidWebhookTests(TestCase):
         checkout = post.await_args.kwargs['json']['checkout']
         self.assertEqual(url, 'https://checkout.bepaid.by/ctp/api/checkouts')
         self.assertIn('notification_url', checkout['settings'])
+        self.assertIn('payment-return.html', checkout['settings']['success_url'])
+        self.assertEqual(checkout['settings']['button_text'], 'Вернуться в Telegram')
+        self.assertEqual(checkout['settings']['auto_return'], 3)
         self.assertNotIn('notification_url', {key: value for key, value in checkout.items() if key != 'settings'})
         self.assertTrue(checkout['test'])
 
