@@ -3104,7 +3104,8 @@ function bindUi() {
     }
   });
 
-  root.addEventListener('input', (e) => {
+  const viewEl = view();
+  viewEl?.addEventListener('input', (e) => {
     if (e.target && e.target.id === 'extra-task-text') {
       state.extraTaskText = e.target.value;
     }
@@ -3119,7 +3120,7 @@ function bindUi() {
     }
   });
 
-  root.addEventListener('keydown', async (e) => {
+  viewEl?.addEventListener('keydown', async (e) => {
     if (e.target && e.target.id === 'extra-task-text' && e.key === 'Enter') {
       e.preventDefault();
       await submitExtraTaskAnswer();
@@ -3128,33 +3129,35 @@ function bindUi() {
 }
 
 async function main() {
-  bootTelegram();
-  const theme = initTheme();
-  startAtmosphere(theme);
-  bindUi();
-
-  // Автопроверка статуса (например, после возврата из оплаты в браузере)
-  window.addEventListener('focus', async () => {
-    if (state.me && !state.me.is_pro) {
-      try {
-        const id = tgId();
-        if (id) {
-          const fresh = await api.me(id);
-          if (fresh && fresh.is_pro) {
-            state.me = fresh;
-            toast('🎉 Подписка успешно активирована!');
-            render();
-          }
-        }
-      } catch (_) {}
-    }
-  });
-
   try {
+    bootTelegram();
+    const theme = initTheme();
+    startAtmosphere(theme);
+    bindUi();
+
+    // Автопроверка статуса (например, после возврата из оплаты в браузере)
+    window.addEventListener('focus', async () => {
+      if (state.me && !state.me.is_pro) {
+        try {
+          const id = tgId();
+          if (id) {
+            const fresh = await api.me(id);
+            if (fresh && fresh.is_pro) {
+              state.me = fresh;
+              toast('🎉 Подписка успешно активирована!');
+              render();
+            }
+          }
+        } catch (_) {}
+      }
+    });
+
     await loadMe();
     await loadForRoute();
   } catch (err) {
     console.error('App init error:', err);
+    state.error = err.message || 'Ошибка запуска приложения';
+    render();
   } finally {
     const splash = document.getElementById('app-splash');
     if (splash) {
