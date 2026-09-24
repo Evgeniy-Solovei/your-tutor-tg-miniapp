@@ -35,6 +35,83 @@
       rel="stylesheet"
     />
     <link rel="stylesheet" href="./styles.css?v=20260923-fixed-splash" />
+
+    <!-- ═══════════════════════════════════════════════════════════════
+         Глобальный перехватчик JS-ошибок → логи контейнера через бэкенд.
+         ДОЛЖЕН стоять ДО загрузки app.js, чтобы поймать ошибки старта.
+         ═══════════════════════════════════════════════════════════════ -->
+    <script>
+      (function () {
+        var LOG_URL = '/api/tutor/logs/client-error/';
+        var _lastSent = 0;
+        var THROTTLE_MS = 3000; // не чаще 1 раза в 3 сек (защита от спама)
+
+        function sendError(payload) {
+          var now = Date.now();
+          if (now - _lastSent < THROTTLE_MS) return;
+          _lastSent = now;
+
+          var body = JSON.stringify(payload);
+          // fetch предпочтительнее sendBeacon (sendBeacon не гарантирует отправку в Telegram WebView)
+          try {
+            fetch(LOG_URL, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: body,
+              keepalive: true
+            }).catch(function () {
+              // если fetch недоступен — пробуем sendBeacon как резерв
+              if (navigator.sendBeacon) navigator.sendBeacon(LOG_URL, body);
+            });
+          } catch (e) {
+            if (navigator.sendBeacon) navigator.sendBeacon(LOG_URL, body);
+          }
+        }
+
+        function getTgId() {
+          try {
+            return window.Telegram && window.Telegram.WebApp
+              ? (window.Telegram.WebApp.initDataUnsafe &&
+                 window.Telegram.WebApp.initDataUnsafe.user &&
+                 window.Telegram.WebApp.initDataUnsafe.user.id) || 'no_tg_user'
+              : 'browser';
+          } catch (e) { return 'unknown'; }
+        }
+
+        function getRoute() {
+          try { return window.location.hash || window.location.pathname; } catch (e) { return ''; }
+        }
+
+        // Перехват синхронных ошибок (ReferenceError, SyntaxError, TypeError, etc.)
+        window.addEventListener('error', function (event) {
+          sendError({
+            message: event.message || 'Unknown error',
+            source: event.filename || '',
+            lineno: event.lineno || 0,
+            colno: event.colno || 0,
+            stack: event.error ? (event.error.stack || '') : '',
+            url: window.location.href,
+            route: getRoute(),
+            tg_id: getTgId()
+          });
+        });
+
+        // Перехват необработанных Promise-rejection (async/await ошибки)
+        window.addEventListener('unhandledrejection', function (event) {
+          var reason = event.reason;
+          sendError({
+            message: 'UnhandledRejection: ' + (reason && reason.message ? reason.message : String(reason)),
+            source: '',
+            lineno: 0,
+            colno: 0,
+            stack: reason && reason.stack ? reason.stack : '',
+            url: window.location.href,
+            route: getRoute(),
+            tg_id: getTgId()
+          });
+        });
+      })();
+    </script>
   </head>
   <body>
     <!-- Заставка при запуске приложения -->

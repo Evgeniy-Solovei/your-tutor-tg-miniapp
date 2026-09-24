@@ -38,11 +38,13 @@ from students.views import (
     StudentProfileView,
     StudentStatsView,
     TariffsView,
+    ClientErrorLogView,
 )
 
 app_name = 'students'
 
 urlpatterns = [
+    path('logs/client-error/', ClientErrorLogView.as_view(), name='client-error-log'),
     path('dev/users/', DevUsersView.as_view(), name='dev-users'),
     path('me/', MeView.as_view(), name='me'),
     path('ping-session/', PingSessionView.as_view(), name='ping-session'),

@@ -1028,3 +1028,35 @@ class PingSessionView(APIView):
             'status': 'ok',
             'today_total_seconds': log.duration_seconds,
         })
+
+
+class ClientErrorLogView(APIView):
+    """Принимает ошибки JavaScript из браузера / Telegram Mini App и выводит их в логи контейнера."""
+
+    authentication_classes = []
+    permission_classes = []
+
+    async def post(self, request):
+        data = request.data if isinstance(request.data, dict) else {}
+        message = data.get('message', 'Unknown JS error')
+        stack = data.get('stack', '')
+        source = data.get('source', '')
+        lineno = data.get('lineno', '')
+        colno = data.get('colno', '')
+        url = data.get('url', '')
+        route = data.get('route', '')
+        tg_id = data.get('tg_id', 'anonymous')
+        user_agent = request.META.get('HTTP_USER_AGENT', '')
+
+        logger.error(
+            "\n" + "=" * 70 + "\n"
+            f"[FRONTEND JS ERROR] User tg_id={tg_id} | Route={route}\n"
+            f"Message: {message}\n"
+            f"Location: {source}:{lineno}:{colno}\n"
+            f"Page URL: {url}\n"
+            f"User-Agent: {user_agent}\n"
+            f"Stack Trace:\n{stack}\n"
+            + "=" * 70
+        )
+        return Response({'logged': True})
+
