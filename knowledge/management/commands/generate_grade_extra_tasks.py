@@ -19,7 +19,7 @@ from django.db.models import Count, Q
 from knowledge.models import Task, Topic, TopicExtraTask
 
 
-SOURCE_TAG = 'illustrated_extra_v100'
+SOURCE_TAG = 'illustrated_extra_v1000'
 
 
 class Command(BaseCommand):
@@ -27,13 +27,13 @@ class Command(BaseCommand):
 
     def add_arguments(self, parser):
         parser.add_argument('--grade', type=int, required=True)
-        parser.add_argument('--per-topic', type=int, default=100)
+        parser.add_argument('--per-topic', type=int, default=1000)
         parser.add_argument('--topic-id', type=int, default=0)
         parser.add_argument(
             '--only-below',
             type=int,
             default=0,
-            help='Только темы, где активных доп. меньше этого числа (например 100)',
+            help='Только темы, где активных доп. меньше этого числа (например 1000)',
         )
         parser.add_argument('--no-images', action='store_true')
         parser.add_argument('--replace', action='store_true', help='Удалить старые доп. по теме перед генерацией')
@@ -140,19 +140,43 @@ class Command(BaseCommand):
                 need = max(0, per - existing)
                 tasks_data = tasks_data[:need]
 
-            created_for_topic = 0
-            for i, item in enumerate(tasks_data, start=start_order):
-                opts = list(item.get('options') or [])
-                random.shuffle(opts)
-                # correct must stay in options
-                correct = item['correct_answer']
-                if correct not in opts:
-                    opts = [correct] + [o for o in opts if o != correct][:3]
+            if not use_images or not render_card_image:
+                rows = []
+                for i, item in enumerate(tasks_data, start=start_order):
+                    opts = list(item.get('options') or [])
                     random.shuffle(opts)
+                    correct = item['correct_answer']
+                    if correct not in opts:
+                        opts = [correct] + [o for o in opts if o != correct][:3]
+                        random.shuffle(opts)
+                    rows.append(TopicExtraTask(
+                        topic=topic,
+                        question=item['question'],
+                        reading_text=item.get('reading_text', ''),
+                        image='',
+                        image_url='',
+                        options=opts,
+                        correct_answer=correct,
+                        explanation=item.get('explanation', ''),
+                        difficulty=item.get('difficulty', 'medium'),
+                        order=i,
+                        source=SOURCE_TAG,
+                        is_active=True,
+                    ))
+                TopicExtraTask.objects.bulk_create(rows, batch_size=500)
+                created_for_topic = len(rows)
+                total_created += created_for_topic
+            else:
+                created_for_topic = 0
+                batch = []
+                for i, item in enumerate(tasks_data, start=start_order):
+                    opts = list(item.get('options') or [])
+                    random.shuffle(opts)
+                    correct = item['correct_answer']
+                    if correct not in opts:
+                        opts = [correct] + [o for o in opts if o != correct][:3]
+                        random.shuffle(opts)
 
-                img_rel = ''
-                img_url = ''
-                if use_images and render_card_image:
                     img_rel_dir = f'extra_tasks/grade{grade}/topic_{topic.id}'
                     img_filename = f'task_{i}.png'
                     img_full = os.path.join(media_root, img_rel_dir, img_filename)
@@ -165,24 +189,29 @@ class Command(BaseCommand):
                         palette_idx=(topic.id + i) % max(1, len(PALETTES)),
                     )
                     img_rel = f'{img_rel_dir}/{img_filename}'
-                    img_url = f'/media/{img_rel}'
-
-                TopicExtraTask.objects.create(
-                    topic=topic,
-                    question=item['question'],
-                    reading_text=item.get('reading_text', ''),
-                    image=img_rel,
-                    image_url=img_url,
-                    options=opts,
-                    correct_answer=correct,
-                    explanation=item.get('explanation', ''),
-                    difficulty=item.get('difficulty', 'medium'),
-                    order=i,
-                    source=SOURCE_TAG,
-                    is_active=True,
-                )
-                created_for_topic += 1
-                total_created += 1
+                    batch.append(TopicExtraTask(
+                        topic=topic,
+                        question=item['question'],
+                        reading_text=item.get('reading_text', ''),
+                        image=img_rel,
+                        image_url=f'/media/{img_rel}',
+                        options=opts,
+                        correct_answer=correct,
+                        explanation=item.get('explanation', ''),
+                        difficulty=item.get('difficulty', 'medium'),
+                        order=i,
+                        source=SOURCE_TAG,
+                        is_active=True,
+                    ))
+                    if len(batch) >= 100:
+                        TopicExtraTask.objects.bulk_create(batch, batch_size=100)
+                        created_for_topic += len(batch)
+                        total_created += len(batch)
+                        batch = []
+                if batch:
+                    TopicExtraTask.objects.bulk_create(batch, batch_size=100)
+                    created_for_topic += len(batch)
+                    total_created += len(batch)
 
             self.stdout.write(
                 f'[{topic_idx}/{len(topics)}] «{topic.name}»: +{created_for_topic} '
