@@ -2,6 +2,7 @@ from adrf.views import APIView
 from django.conf import settings
 from django.db.models import Count, Q
 from rest_framework.response import Response
+import random
 
 from core.api import telegram_auth_classes
 from knowledge.models import ExamTrack, ExamVariant, Subject, Task, Topic, TopicExtraTask
@@ -376,7 +377,7 @@ class TopicExtraTasksView(APIView):
                 'paywall_required': True,
                 'free_limit': FREE_LIMIT,
                 'total_completed_all': total_completed_all,
-                'detail': 'Ты выполнил 10 бесплатных заданий! Все 50 заданий по каждой теме доступны по подписке «Твой Репетитор PRO».',
+                'detail': 'Ты выполнил 10 бесплатных заданий! Все 100 заданий по каждой теме доступны по подписке «Твой Репетитор PRO».',
                 'topic_id': topic.id,
                 'topic_name': topic.name,
                 'count': 0,
@@ -386,6 +387,8 @@ class TopicExtraTasksView(APIView):
         extra_tasks_qs = TopicExtraTask.objects.filter(topic=topic, is_active=True).order_by('order', 'id')
         tasks = []
         async for item in extra_tasks_qs:
+            opts = list(item.options or [])
+            random.shuffle(opts)
             tasks.append({
                 'id': item.id,
                 'topic_id': topic.id,
@@ -393,7 +396,7 @@ class TopicExtraTasksView(APIView):
                 'question': item.question,
                 'reading_text': item.reading_text,
                 'image': item.get_image_url,
-                'options': item.options,
+                'options': opts,
                 'difficulty': item.difficulty,
                 'source': item.source,
                 'has_explanation': bool(item.explanation),
@@ -544,7 +547,7 @@ class TopicExtraTaskSubmitView(APIView):
             if total_completed >= FREE_LIMIT:
                 return Response({
                     'paywall_required': True,
-                    'detail': 'Ты выполнил 10 бесплатных заданий! Все 50 заданий по каждой теме доступны по подписке «Твой Репетитор PRO».',
+                    'detail': 'Ты выполнил 10 бесплатных заданий! Все 100 заданий по каждой теме доступны по подписке «Твой Репетитор PRO».',
                 }, status=403)
 
         user_answer = str(request.data.get('answer', '')).strip()

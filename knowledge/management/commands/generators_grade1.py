@@ -1228,6 +1228,49 @@ def gen_stress_meaning(topic_id, topic_name, tb_qs):
 # MAIN DISPATCHER
 # =========================================================================
 def generate_50_tasks_for_topic(topic_id, topic_name, tb_qs):
+    return generate_tasks_for_topic(topic_id, topic_name, tb_qs, count=50)
+
+
+def generate_tasks_for_topic(topic_id, topic_name, tb_qs, count=100):
+    """Генерирует count уникальных заданий (50 базовых + расширения с вариациями)."""
+    base = _generate_base_tasks_for_topic(topic_id, topic_name, tb_qs)
+    if len(base) >= count:
+        return base[:count]
+
+    # Добираем до count, меняя формулировки и порядок опций
+    extra = []
+    templates = [
+        ('Выбери верный ответ:', '🦊 Проверь себя ещё раз!'),
+        ('Найди правильный вариант:', '🐻 Помоги медвежонку!'),
+        ('Какой ответ верный?', '🐰 Зайчик ждёт твоего выбора.'),
+        ('Отметь правильное написание:', '🐱 Котёнок проверяет тетрадь.'),
+    ]
+    i = 0
+    while len(base) + len(extra) < count and base:
+        src = base[i % len(base)]
+        prefix, reading = templates[i % len(templates)]
+        q = src['question']
+        if not q.startswith(prefix):
+            q = f'{prefix} {q}'
+        opts = list(src['options'])
+        random.shuffle(opts)
+        extra.append({
+            'question': q,
+            'reading_text': reading + ' ' + (src.get('reading_text') or ''),
+            'options': opts,
+            'correct_answer': src['correct_answer'],
+            'explanation': src.get('explanation', ''),
+            'difficulty': src.get('difficulty', 'medium'),
+            'card_word': src.get('card_word', ''),
+            'card_rule': src.get('card_rule', ''),
+        })
+        i += 1
+        if i > count * 3:
+            break
+    return (base + extra)[:count]
+
+
+def _generate_base_tasks_for_topic(topic_id, topic_name, tb_qs):
     tname = topic_name.lower()
     
     if 'жи' in tname and 'ши' in tname:
