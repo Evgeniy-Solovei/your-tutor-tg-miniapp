@@ -92,6 +92,12 @@ class Command(BaseCommand):
             )
             gen_fn = generate_tasks_for_topic
             use_images = not options['no_images']
+        elif grade in (5, 6, 7, 8):
+            from knowledge.management.commands.generators_grades_5_8 import generate_tasks_for_topic
+            gen_fn = generate_tasks_for_topic
+            use_images = False
+            PALETTES = []
+            render_card_image = None
         else:
             from knowledge.management.commands.generators_grade2 import generate_tasks_for_topic
             try:
