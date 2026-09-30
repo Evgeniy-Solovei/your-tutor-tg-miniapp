@@ -80,8 +80,13 @@ venv.bak/
 .cursorrules
 .DS_Store
 
-# Media & Uploads
+# Media & Uploads — всё runtime, на сервер только scp/rsync (не git)
 media/
+
+# Дампы БД и бандлы для заливки на сервер (не в публичный git)
+backups/
+*.dump
+*.sql.gz
 
 # Binaries & Scans
 bin/
@@ -111,12 +116,3 @@ tutor-bot-cursor.md
 # Крупные архивы
 data/BY.zip
 data/BY.txt
-
-# Версионируемые иллюстрации учебных заданий. Остальной media/ остаётся
-# runtime-хранилищем и в Git не попадает.
-!media/
-media/*
-!media/tasks/
-!media/task_options/
-!media/tasks/**
-!media/task_options/**
