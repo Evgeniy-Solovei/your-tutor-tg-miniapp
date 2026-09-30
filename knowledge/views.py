@@ -5,6 +5,7 @@ from rest_framework.response import Response
 
 from core.api import telegram_auth_classes
 from knowledge.models import ExamTrack, ExamVariant, Subject, Task, Topic, TopicExtraTask
+from knowledge.textbook_tasks import filter_school_textbook_tasks
 
 
 class SubjectListView(APIView):
@@ -66,15 +67,24 @@ class CatalogView(APIView):
             subject
             async for subject in Subject.objects.filter(is_active=True).order_by('order', 'name')
         ]
+        base_task_qs = Task.objects.filter(
+            is_active=True,
+            topic__section__exam_track__subject_id__in=[s.id for s in subjects],
+            topic__grade_level__range=(1, 11),
+        )
         counts = {
             (row['topic__section__exam_track__subject_id'], row['topic__grade_level']): row
-            async for row in Task.objects.filter(
-                is_active=True,
-                topic__section__exam_track__subject_id__in=[s.id for s in subjects],
-                topic__grade_level__range=(1, 11),
-            )
+            async for row in base_task_qs.values(
+                'topic__section__exam_track__subject_id', 'topic__grade_level'
+            ).annotate(task_count=Count('id'), topic_count=Count('topic_id', distinct=True))
+        }
+        textbook_counts = {
+            (row['topic__section__exam_track__subject_id'], row['topic__grade_level']): row[
+                'task_count'
+            ]
+            async for row in filter_school_textbook_tasks(base_task_qs)
             .values('topic__section__exam_track__subject_id', 'topic__grade_level')
-            .annotate(task_count=Count('id'), topic_count=Count('topic_id', distinct=True))
+            .annotate(task_count=Count('id'))
         }
         res = []
         for subject in subjects:
@@ -85,6 +95,8 @@ class CatalogView(APIView):
                     {'task_count': 0, 'topic_count': 0},
                 )
                 task_count = count_row['task_count']
+                if g <= 10:
+                    task_count = textbook_counts.get((subject.id, g), 0) or task_count
                 topic_count = count_row['topic_count']
                 grades_data.append({
                     'grade': g,
@@ -109,9 +121,9 @@ class CatalogView(APIView):
             # Старые клиенты использовали subjects, не ломаем их.
             'subjects': res,
             'how_it_works': [
-                'Выбери предмет и класс.',
-                'Классы с заданиями можно открыть сразу.',
-                'После выбора практика подстроится под новый класс.',
+                '1. Выбери свой класс и тему.',
+                '2. Решай задания из учебника (шаг «Учебник»).',
+                '3. Закрепляй тему в доп. тренажёре и смотри разбор с ИИ, если ошибся.',
             ],
         })
 
@@ -144,7 +156,10 @@ class GradeCurriculumView(APIView):
         task_counts = {}
         extra_counts = {}
         if topic_ids:
-            async for row in Task.objects.filter(is_active=True, topic_id__in=topic_ids).values('topic_id').annotate(cnt=Count('id')):
+            task_qs = Task.objects.filter(is_active=True, topic_id__in=topic_ids)
+            if grade <= 10:
+                task_qs = filter_school_textbook_tasks(task_qs)
+            async for row in task_qs.values('topic_id').annotate(cnt=Count('id')):
                 task_counts[row['topic_id']] = row['cnt']
             async for row in TopicExtraTask.objects.filter(is_active=True, topic_id__in=topic_ids).values('topic_id').annotate(cnt=Count('id')):
                 extra_counts[row['topic_id']] = row['cnt']
@@ -203,6 +218,11 @@ class GradeCurriculumView(APIView):
         total_tasks = sum(task_counts.values())
         total_extra_tasks = sum(extra_counts.values())
         total_topics = len(topics)
+        school_textbook_tasks_count = total_tasks
+        if grade == 11 and topic_ids:
+            school_textbook_tasks_count = await filter_school_textbook_tasks(
+                Task.objects.filter(is_active=True, topic_id__in=topic_ids)
+            ).acount()
 
         extra_stats = {}
         if grade == 9:
@@ -263,6 +283,7 @@ class GradeCurriculumView(APIView):
                 'part_a_count': part_a_cnt,
                 'part_b_count': part_b_cnt,
                 'available_years': years_stats,
+                'school_tasks_count': school_textbook_tasks_count,
             }
 
         # Дополнительные сборники и спецматериалы формируются только при их реальном наличии
@@ -303,6 +324,7 @@ class GradeCurriculumView(APIView):
             'title': f'{grade} класс' if grade <= 10 else '11 класс / ЦТ и ЦЭ',
             'total_topics': total_topics,
             'total_tasks': total_tasks,
+            'school_textbook_tasks_count': school_textbook_tasks_count,
             'total_extra_tasks': total_extra_tasks,
             'sections': sorted_sections,
             'collections': collections,

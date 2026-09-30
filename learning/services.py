@@ -8,10 +8,19 @@ from django.utils import timezone
 
 from core.services import aget_app_settings
 from knowledge.models import ExamVariant, Task, TaskSolution, Topic, VariantTask
+from knowledge.textbook_tasks import filter_school_textbook_tasks
 from learning.models import DailySession, SessionTask, TaskAttempt, TopicMastery
 from students.models import Student
 
 logger = logging.getLogger(__name__)
+
+
+async def _prefer_textbook_tasks(qs):
+    """Если в теме есть учебник — берём только его, без сид-квизов и ЦТ."""
+    tb = filter_school_textbook_tasks(qs)
+    if await tb.aexists():
+        return tb
+    return qs
 
 
 async def _sample_tasks(queryset, count: int) -> list[Task]:
@@ -133,6 +142,8 @@ async def _populate_session_tasks(
 
     if topic_id:
         qs = Task.objects.filter(topic_id=topic_id, is_active=True)
+        if not mode or mode == 'school':
+            qs = await _prefer_textbook_tasks(qs)
         if year:
             qs = qs.filter(Q(source__icontains=str(year)) | Q(variant_links__variant__year=year))
         if mode == 'part_a':
@@ -142,7 +153,7 @@ async def _populate_session_tasks(
         elif mode == 'izlozhenie':
             qs = qs.filter(source__startswith='Сборник изложений')
         elif mode == 'school':
-            qs = qs.exclude(source__startswith='Сборник изложений')
+            qs = await _prefer_textbook_tasks(qs.exclude(source__startswith='Сборник изложений'))
 
         sampled = await _sample_tasks(qs.distinct(), total)
         await SessionTask.objects.abulk_create([
@@ -176,7 +187,7 @@ async def _populate_session_tasks(
         elif mode == 'izlozhenie':
             qs = qs.filter(source__startswith='Сборник изложений')
         elif mode == 'school':
-            qs = qs.exclude(source__startswith='Сборник изложений')
+            qs = await _prefer_textbook_tasks(qs.exclude(source__startswith='Сборник изложений'))
 
         sampled = await _sample_tasks(qs.distinct(), total)
         await SessionTask.objects.abulk_create([

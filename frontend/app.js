@@ -47,6 +47,8 @@ const state = {
   showRuleModal: false,
   exam: null,
   examTimer: null,
+  /** Пошаговый маршрут по теме: учебник → доп. тренажёр → ИИ */
+  practiceFlow: null,
 };
 
 let citySearchTimer = null;
@@ -92,6 +94,36 @@ function esc(s) {
 
 function escAttr(s) {
   return esc(s).replaceAll("'", '&#39;');
+}
+
+/**
+ * @param {1|2|3} activeStep — текущий шаг (0 = обзор)
+ * @param {{ hasExtra?: boolean }} opts
+ */
+function renderLearningPath(activeStep, opts = {}) {
+  const hasExtra = opts.hasExtra !== false;
+  const steps = [
+    { n: 1, icon: '📖', title: 'Учебник', sub: 'задания из книги' },
+    { n: 2, icon: '🧩', title: 'Доп. тренажёр', sub: hasExtra ? 'картинки · закрепление' : 'скоро по теме' },
+    { n: 3, icon: '🤖', title: 'Разбор с ИИ', sub: 'если ошибся' },
+  ];
+  return `
+    <div class="learning-path" role="list" aria-label="Как учиться по теме">
+      ${steps
+        .map((s) => {
+          const done = activeStep > s.n;
+          const active = activeStep === s.n;
+          const muted = s.n === 2 && !hasExtra;
+          return `
+        <div class="learning-step${active ? ' active' : ''}${done ? ' done' : ''}${muted ? ' muted' : ''}" role="listitem">
+          <div class="learning-step-num">${done ? '✓' : s.n}</div>
+          <div class="learning-step-icon">${s.icon}</div>
+          <div class="learning-step-title">${esc(s.title)}</div>
+          <div class="learning-step-sub">${esc(s.sub)}</div>
+        </div>`;
+        })
+        .join('')}
+    </div>`;
 }
 
 function syncTabbar() {
@@ -578,32 +610,24 @@ function renderHome() {
       <button type="button" class="stat clickable" data-action="open-tariffs"><strong>${esc(tariffShortLabel())}</strong><span>тариф</span></button>
     </div>
     <section class="card">
+      <h2>Как учиться</h2>
+      <p class="muted" style="margin-bottom:10px">Всегда в одном порядке — без путаницы с ЦТ и «на сегодня».</p>
+      ${renderLearningPath(0, { hasExtra: true })}
+      <button class="btn block primary" style="margin-top:14px" data-action="go-my-curriculum">
+        📚 Шаг 1: открыть программу ${studentGrade} класса
+      </button>
+    </section>
+
+    <section class="card" style="margin-top:12px">
       <h2>На сегодня</h2>
+      <p class="muted" style="font-size:0.88rem">Быстрая подборка на ${studentGrade} класс — можно после темы из учебника.</p>
       ${
         daily?.can_practice === false
           ? `<p class="muted">${esc(daily.reason || 'Лимит на сегодня')}</p>`
           : `<p class="muted">${daily ? `${daily.tasks_completed} из ${daily.tasks_total}` : '—'} заданий</p>
              <div class="progress"><i style="width:${progress}%"></i></div>
-             <button class="btn block" data-action="go-practice">${vibe ? 'Погнали' : 'Решать'}</button>`
+             <button class="btn block secondary" data-action="go-practice">${vibe ? 'Погнали' : 'Решать подборку'}</button>`
       }
-    </section>
-
-    <!-- Школьная программа для класса ученика -->
-    <section class="card" style="margin-top:12px">
-      <h2>📚 Школьная программа · ${studentGrade} класс</h2>
-      <p class="muted">Учебные темы, правила и уроки программы ${studentGrade} класса.</p>
-      <button class="btn block" data-action="go-my-curriculum">Перейти к программе (${studentGrade} класс)</button>
-    </section>
-
-    <!-- Дополнительные задания по темам программы -->
-    <section class="card" style="margin-top:12px">
-      <div style="display:flex; justify-content:space-between; align-items:center;">
-        <h2>🧩 Дополнительные задания</h2>
-        <span class="chip active" style="font-size:0.72rem; padding:2px 8px;">PRO</span>
-      </div>
-      <p class="muted">Банк иллюстрированных карточек по темам ${studentGrade} класса: закрепляй правила вместе с забавными персонажами!</p>
-      ${studentGrade === 1 ? `<div style="font-size:0.85rem; color:var(--accent); font-weight:700; margin:6px 0 10px;">✨ 58 тем · 2 900 заданий с цветными карточками</div>` : ''}
-      <button class="btn block secondary" data-action="go-extra-tasks">🧩 Открыть банк доп. заданий (${studentGrade} класс)</button>
     </section>
 
     ${
@@ -714,6 +738,7 @@ async function finishExtraTopic() {
   state.extraTaskFeedback = null;
   state.extraTaskSelected = null;
   state.extraTaskText = '';
+  state.practiceFlow = null;
   toast('🎉 Отличная работа! Все задания темы пройдены!');
   if (state.extraTasksReturnRoute) {
     const retRoute = state.extraTasksReturnRoute;
@@ -742,9 +767,10 @@ function renderExtraTasks() {
     <section class="card" style="margin-bottom:12px">
       <div class="panel-head">
         <button type="button" class="linkish" data-action="go-home">← Главная</button>
-        <h2>🧩 Дополнительные задания</h2>
+        <h2>🧩 Шаг 2 · Доп. тренажёр</h2>
       </div>
-      <p class="muted">Банк сгенерированных заданий по темам программы для углублённого закрепления и проверки знаний.</p>
+      <p class="muted">Сгенерированные карточки по темам — после учебника. Не путать с заданиями из книги.</p>
+      ${renderLearningPath(2, { hasExtra: true })}
       
       <!-- Grade selector pills -->
       <div class="grade-pills-row">
@@ -871,10 +897,11 @@ function renderActiveExtraTopic() {
           <span class="muted" style="font-size:0.85rem">${idx + 1} из ${total}</span>
         </div>
       </div>
+      ${renderLearningPath(2, { hasExtra: true })}
       <div class="progress" style="margin:8px 0 14px;"><i style="width:${progressPct}%"></i></div>
       
       <div style="margin-bottom:8px;">
-        <span style="font-size:0.75rem; text-transform:uppercase; letter-spacing:0.05em; color:var(--accent);">Тема: ${esc(top.topic_name)}</span>
+        <span style="font-size:0.75rem; text-transform:uppercase; letter-spacing:0.05em; color:var(--accent);">🧩 Шаг 2 · ${esc(top.topic_name)}</span>
         ${task.difficulty ? `<span style="font-size:0.75rem; margin-left:8px; opacity:0.7">· ${task.difficulty === 'easy' ? 'базовое' : 'среднее'}</span>` : ''}
       </div>
 
@@ -1008,23 +1035,35 @@ function renderGradeCurriculum() {
               💡 <strong>Правило:</strong> ${esc(top.summary_key_points.slice(0, 110))}${top.summary_key_points.length > 110 ? '…' : ''}
             </div>
           ` : ''}
+          ${renderLearningPath(
+            pct >= 80 && top.extra_task_count > 0 ? 2 : 1,
+            { hasExtra: top.extra_task_count > 0 },
+          )}
           <div style="margin-top:10px; display:flex; flex-direction:column; gap:6px;">
             ${tasks > 0 ? `
-              <button type="button" class="btn block secondary small"
+              <button type="button" class="btn block primary small"
                 data-action="start-topic-practice"
                 data-topic="${top.id}"
-                data-grade="${cur.grade}">
-                ⚡ Тренировать тему учебника (${tasks} зад.)
+                data-grade="${cur.grade}"
+                data-topic-name="${escAttr(top.name)}"
+                data-extra-count="${top.extra_task_count || 0}">
+                📖 Шаг 1: учебник (${tasks} зад.)
               </button>
             ` : `
-              <button type="button" class="btn block secondary small" disabled style="opacity:0.6">Материалы пополняются</button>
+              <button type="button" class="btn block secondary small" disabled style="opacity:0.6">Учебник пополняется</button>
             `}
             ${top.extra_task_count > 0 ? `
-              <button type="button" class="btn block small" style="background:rgba(200, 255, 61, 0.12); color:#c8ff3d; border:1px solid rgba(200, 255, 61, 0.35); font-weight:600;"
+              <button type="button" class="btn block small secondary"
                 data-action="open-extra-topic"
-                data-topic-id="${top.id}">
-                🧩 Доп. задания по теме (${top.extra_task_count} с картинками)
+                data-topic-id="${top.id}"
+                data-topic-name="${escAttr(top.name)}">
+                🧩 Шаг 2: доп. тренажёр (${top.extra_task_count})
               </button>
+            ` : `
+              <p class="muted" style="font-size:0.78rem; margin:4px 0 0">Шаг 2: доп. карточки по теме скоро появятся</p>
+            `}
+            ${top.has_summary ? `
+              <p class="muted" style="font-size:0.78rem; margin:0">Шаг 3: после ошибки — «Разбор с ИИ» на экране ответа</p>
             ` : ''}
           </div>
         </div>
@@ -1065,14 +1104,17 @@ function renderGradeCurriculum() {
 
   if (currentTab !== 'collections') {
     // 📚 Школьная программа по учебнику
+    const textbookCnt = cur.school_textbook_tasks_count ?? cur.school_tasks_count ?? cur.total_tasks;
     contentHtml = `
       <section class="card" style="margin-bottom:12px">
-        <button type="button" class="btn block primary" data-action="start-grade-mix-practice" data-grade="${cur.grade}">
-          🎯 Тренировать ${cur.grade} класс (${cur.school_tasks_count || cur.total_tasks} заданий · микс тем учебника)
+        <p class="muted" style="font-size:0.88rem; margin-bottom:10px">Выбери тему ниже — внутри те же три шага. Или микс по всему учебнику:</p>
+        ${renderLearningPath(0, { hasExtra: (cur.total_extra_tasks || 0) > 0 })}
+        <button type="button" class="btn block secondary" style="margin-top:12px" data-action="start-grade-mix-practice" data-grade="${cur.grade}">
+          🎯 Микс по учебнику · ${textbookCnt} заданий
         </button>
         ${(cur.total_extra_tasks || 0) > 0 ? `
-          <button type="button" class="btn block secondary" style="margin-top:8px; border-color:rgba(200, 255, 61, 0.4); color:var(--accent); font-weight:600;" data-action="go-extra-tasks">
-            🧩 Банк доп. заданий (${cur.total_extra_tasks} с картинками)
+          <button type="button" class="btn block secondary" style="margin-top:8px" data-action="go-extra-tasks">
+            🧩 Все доп. тренажёры класса (${cur.total_extra_tasks})
           </button>
         ` : ''}
       </section>
@@ -1218,7 +1260,9 @@ function renderGradeCurriculum() {
         `}
       </div>
       <h1>${esc(cur.title)}</h1>
-      <p class="muted">${cur.total_topics} тем · ${cur.total_tasks} заданий в базе</p>
+      <p class="muted">${cur.total_topics} тем · учебник: ${cur.school_textbook_tasks_count ?? cur.total_tasks} зад.${
+        cur.total_extra_tasks ? ` · доп. тренажёр: ${cur.total_extra_tasks}` : ''
+      }</p>
     </section>
 
     ${tabSwitcherHtml}
@@ -1297,9 +1341,9 @@ function renderCourses() {
 
   return `
     <section class="hero">
-      <h1>Курсы и экзамены</h1>
-      <p>Выбирай класс школьной программы или направления подготовки к экзаменам. Сейчас у тебя: ${
-        myGrade ? `<strong>${myGrade} класс</strong>` : 'класс не выбран'
+      <h1>Учёба</h1>
+      <p>Школьная программа по учебнику — отдельно от ЦТ/изложений. Твой класс: ${
+        myGrade ? `<strong>${myGrade}</strong>` : 'не выбран'
       }.</p>
     </section>
     ${how ? `<section class="card"><ol class="how-list">${how}</ol></section>` : ''}
@@ -1322,8 +1366,8 @@ function renderCourses() {
            ${myGrade === 9 ? (izloCardHtml + ctCardHtml) : (ctCardHtml + izloCardHtml)}
 
            <section class="card">
-             <h2>🏫 Школьная программа по классам</h2>
-             <p class="muted" style="margin-bottom:12px">Выбери класс для изучения тем учебника и прохождения заданий:</p>
+             <h2>🏫 Программа по учебнику</h2>
+             <p class="muted" style="margin-bottom:12px">Класс → тема → шаг 1 учебник → шаг 2 доп. тренажёр → шаг 3 ИИ при ошибке.</p>
              <div class="grade-grid">
                ${sortedGrades
                  .map((g) => {
@@ -1374,26 +1418,37 @@ function renderPractice() {
         <button class="btn block secondary" data-action="reload-daily">Обновить</button>
       </section>`;
     }
+    const flow = state.practiceFlow;
+    const flowBlock =
+      flow && flow.step === 1
+        ? `<section class="card" style="margin-top:12px">
+            <h2>Шаг 1 готов ✓</h2>
+            <p class="muted">Тема «${esc(flow.topicName || '')}» — учебник пройден. Дальше закрепи в доп. тренажёре.</p>
+            ${renderLearningPath(2, { hasExtra: flow.extraCount > 0 })}
+            ${
+              flow.extraCount > 0 && flow.topicId
+                ? `<button class="btn block primary" style="margin-top:12px" data-action="flow-open-extra" data-topic-id="${flow.topicId}">🧩 Шаг 2: доп. тренажёр</button>`
+                : `<button class="btn block secondary" style="margin-top:12px" data-action="go-courses">← К программе класса</button>`
+            }
+          </section>`
+        : `<section class="card" style="margin-top:12px">
+            <p class="muted">Продолжить по программе — выбери следующую тему в разделе «Учёба».</p>
+            <button class="btn block secondary" data-action="go-courses">← К программе</button>
+          </section>`;
     return `
       <section class="card">
-        <h2>Сессия закрыта</h2>
+        <h2>Сессия завершена</h2>
         <p class="ok">Первичный: ${daily.primary_score}/${daily.max_primary}
         ${daily.test_score != null ? ` · тестовый ≈${daily.test_score}` : ''}</p>
         <p class="muted">XP за сессию: ${daily.xp_earned}</p>
-        <button class="btn block secondary" data-action="reload-daily">Обновить</button>
+        <button class="btn block secondary" data-action="reload-daily">Новая подборка «На сегодня»</button>
         ${
           Number(state.me?.grade) === 9
             ? `<button class="btn block" style="margin-top:8px" data-action="izlo-random">Ещё изложения</button>`
             : ''
         }
       </section>
-      <section class="card" style="margin-top:12px">
-        <h2>🧩 Дополнительные задания</h2>
-        <p class="muted">Хочешь продолжить практику? Проходи красочные карточки по темам школьной программы!</p>
-        <button class="btn block" style="background:#c8ff3d; color:#121212; font-weight:700" data-action="go-extra-tasks">
-          🧩 Решать доп. задания
-        </button>
-      </section>`;
+      ${flowBlock}`;
   }
 
   const pct =
@@ -1434,7 +1489,13 @@ function renderPractice() {
          <div class="stimulus">${esc(task.stimulus_text || '')}</div>
        </div>`
     : `<div class="task-block${task.is_primary || task.image_url ? ' primary' : ''}">
-         ${task.is_primary || task.image_url ? `<p class="izlo-badge">Картинка · ${esc(String(state.me?.grade || ''))} класс</p>` : ''}
+         ${
+           state.practiceFlow?.step === 1
+             ? `<p class="izlo-badge">📖 Шаг 1 · Учебник${state.practiceFlow.topicName ? ' · ' + esc(state.practiceFlow.topicName) : ''}</p>`
+             : task.is_primary || task.image_url
+               ? `<p class="izlo-badge">📖 Учебник · ${esc(String(task.grade_level || state.me?.grade || ''))} класс</p>`
+               : ''
+         }
          ${taskImage}
          ${readingBlock}
          <h2 class="task-question">${esc(task.question)}</h2>
@@ -1444,7 +1505,7 @@ function renderPractice() {
     ? `<div style="background:var(--bg-secondary); padding:8px 12px; border-radius:10px; margin-bottom:10px; font-size:0.83rem; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:6px;">
          <span>🎒 <strong>${task.grade_level ? task.grade_level + ' кл.' : ''}</strong> ${task.section_name ? '· ' + esc(task.section_name) : ''} · 📌 <strong>${esc(task.topic_name || '')}</strong></span>
          <div style="display:flex; gap:6px; align-items:center;">
-           ${task.topic_id ? `<button type="button" class="btn secondary small" style="padding:2px 8px; font-size:0.75rem; border-color:rgba(200,255,61,0.4); color:var(--accent);" data-action="open-extra-topic" data-topic-id="${task.topic_id}">🧩 Доп. задания</button>` : ''}
+           ${task.topic_id ? `<button type="button" class="btn secondary small" style="padding:2px 8px; font-size:0.75rem" data-action="open-extra-topic" data-topic-id="${task.topic_id}">🧩 Шаг 2</button>` : ''}
            ${task.topic_summary ? `<button type="button" class="btn secondary small" style="padding:2px 8px; font-size:0.75rem" data-action="toggle-rule">💡 Правило</button>` : ''}
          </div>
        </div>`
@@ -1500,8 +1561,8 @@ function renderPractice() {
             ${
               state.feedback.can_request_ai
                 ? (state.me?.is_pro
-                    ? `<button class="btn block secondary" data-action="explain" style="margin-top:8px">🤖 Разбор с ИИ</button>`
-                    : `<button class="btn block secondary pro-locked-btn" data-action="open-tariffs" style="margin-top:8px; opacity:0.65;">🤖 Разбор с ИИ 🔒 (В тарифе Pro)</button>`)
+                    ? `<button class="btn block secondary" data-action="explain" style="margin-top:8px">🤖 Шаг 3: разбор с ИИ</button>`
+                    : `<button class="btn block secondary pro-locked-btn" data-action="open-tariffs" style="margin-top:8px; opacity:0.65;">🤖 Шаг 3: разбор с ИИ 🔒 Pro</button>`)
                 : ''
             }
             ${
@@ -2499,6 +2560,13 @@ function bindUi() {
     }
     if (action === 'open-extra-topic') {
       const topicId = Number(t.dataset.topicId || t.dataset.topic);
+      const topicName = t.dataset.topicName || state.practiceFlow?.topicName || '';
+      state.practiceFlow = {
+        step: 2,
+        topicId,
+        topicName,
+        extraCount: state.practiceFlow?.extraCount || 0,
+      };
       if (state.route !== 'extra-tasks') {
         state.extraTasksReturnRoute = state.route;
         state.route = 'extra-tasks';
@@ -2619,6 +2687,11 @@ function bindUi() {
       }
       return;
     }
+    if (action === 'flow-open-extra') {
+      const topicId = Number(t.dataset.topicId);
+      if (topicId) await openExtraTopic(topicId);
+      return;
+    }
     if (action === 'start-topic-practice') {
       const topicId = Number(t.dataset.topic);
       const id = tgId();
@@ -2626,7 +2699,13 @@ function bindUi() {
       state.loading = true;
       render();
       try {
-        state.daily = await api.startTopicPractice(id, topicId);
+        state.practiceFlow = {
+          step: 1,
+          topicId,
+          topicName: t.dataset.topicName || '',
+          extraCount: Number(t.dataset.extraCount) || 0,
+        };
+        state.daily = await api.startTopicPractice(id, topicId, 'school');
         if (state.daily?.current_task?.options) {
           state.daily.current_task.options = shuffleArray(state.daily.current_task.options);
         }

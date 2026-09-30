@@ -1038,6 +1038,71 @@ textarea.input {
   background: linear-gradient(90deg, #ff4d8d, #c8ff3d);
 }
 
+/* Пошаговый маршрут: учебник → доп. тренажёр → ИИ */
+.learning-path {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin: 4px 0 0;
+}
+
+.learning-step {
+  text-align: center;
+  padding: 10px 6px 8px;
+  border-radius: 12px;
+  border: 1px solid var(--card-border, rgba(255, 255, 255, 0.12));
+  background: var(--bg-secondary, rgba(255, 255, 255, 0.04));
+  position: relative;
+}
+
+.learning-step.active {
+  border-color: color-mix(in srgb, var(--accent) 55%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 25%, transparent);
+}
+
+.learning-step.done {
+  border-color: rgba(16, 185, 129, 0.45);
+  opacity: 0.92;
+}
+
+.learning-step.muted {
+  opacity: 0.55;
+}
+
+.learning-step-num {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  font-size: 0.65rem;
+  font-weight: 800;
+  opacity: 0.65;
+}
+
+.learning-step-icon {
+  font-size: 1.35rem;
+  line-height: 1;
+  margin-bottom: 4px;
+}
+
+.learning-step-title {
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.learning-step-sub {
+  font-size: 0.62rem;
+  color: var(--muted);
+  margin-top: 3px;
+  line-height: 1.25;
+}
+
+@media (max-width: 360px) {
+  .learning-path {
+    grid-template-columns: 1fr;
+  }
+}
+
 .toast {
   position: fixed;
   left: 50%;
