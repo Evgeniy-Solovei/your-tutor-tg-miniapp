@@ -370,6 +370,17 @@ class TopicExtraTasksView(APIView):
             total_completed_all = await TaskAttempt.objects.filter(
                 student=student, extra_task__isnull=False
             ).values('extra_task_id').distinct().acount()
+            if topic.grade_level and int(topic.grade_level) != int(student.grade):
+                return Response(
+                    {
+                        'detail': f'Доп. задания доступны только для вашего класса ({student.grade}).',
+                        'topic_id': topic.id,
+                        'topic_name': topic.name,
+                        'count': 0,
+                        'tasks': [],
+                    },
+                    status=403,
+                )
 
         paywall_active = (not is_pro) and (total_completed_all >= FREE_LIMIT)
         if paywall_active:

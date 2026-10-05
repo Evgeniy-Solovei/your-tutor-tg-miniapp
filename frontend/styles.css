@@ -1069,6 +1069,106 @@ textarea.input {
   opacity: 0.55;
 }
 
+.learning-step.pro-on {
+  border-color: rgba(16, 185, 129, 0.55);
+  background: rgba(16, 185, 129, 0.12);
+}
+
+.topic-card-head {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px;
+  background: transparent;
+  border: 0;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.topic-card-head-main {
+  min-width: 0;
+  flex: 1;
+}
+
+.topic-card-head-side {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.topic-chevron {
+  font-size: 0.95rem;
+  opacity: 0.7;
+  width: 1.1em;
+  text-align: center;
+}
+
+.topic-card-body {
+  padding: 0 12px 12px;
+  border-top: 1px solid var(--card-border, rgba(255, 255, 255, 0.08));
+  padding-top: 12px;
+}
+
+.curriculum-topic-card.is-open {
+  border-color: color-mix(in srgb, var(--accent) 40%, transparent);
+}
+
+.ai-btn-active {
+  background: linear-gradient(135deg, #10b981, #059669) !important;
+  color: #fff !important;
+  border: none !important;
+}
+
+.grade-tile.locked {
+  opacity: 0.55;
+  filter: grayscale(0.25);
+}
+
+.reg-steps {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin: 8px 0 4px;
+}
+
+.reg-step-dot {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  font-weight: 700;
+  border: 1px solid var(--card-border);
+  background: var(--bg-secondary, rgba(255, 255, 255, 0.04));
+}
+
+.reg-step-dot.active {
+  border-color: var(--accent);
+  color: var(--accent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 25%, transparent);
+}
+
+.reg-step-dot.done {
+  background: rgba(16, 185, 129, 0.2);
+  border-color: rgba(16, 185, 129, 0.5);
+  color: #6ee7b7;
+}
+
+.reg-step-line {
+  width: 18px;
+  height: 2px;
+  background: var(--card-border);
+  opacity: 0.7;
+}
+
+
 .learning-step-num {
   position: absolute;
   top: 6px;

@@ -294,6 +294,32 @@ class DailySessionView(APIView):
             except (ValueError, TypeError):
                 year = None
 
+        # Ученик решает только свой класс (нельзя «посмотреть» чужой)
+        if grade and int(student.grade) != grade:
+            return Response(
+                {
+                    'detail': f'Доступны задания только вашего класса ({student.grade}).',
+                    'can_practice': False,
+                    'reason': f'Доступны задания только вашего класса ({student.grade}).',
+                },
+                status=403,
+            )
+        if topic_id:
+            from knowledge.models import Topic
+
+            topic = await Topic.objects.filter(id=topic_id, is_active=True).afirst()
+            if not topic:
+                return Response({'detail': 'Тема не найдена'}, status=404)
+            if topic.grade_level and int(topic.grade_level) != int(student.grade):
+                return Response(
+                    {
+                        'detail': f'Эта тема для {topic.grade_level} класса. Ваш класс — {student.grade}.',
+                        'can_practice': False,
+                        'reason': f'Эта тема для {topic.grade_level} класса.',
+                    },
+                    status=403,
+                )
+
         from learning.services import create_train_session, get_next_session_task
         from learning.views import serialize_current_task
 

@@ -49,6 +49,8 @@ const state = {
   examTimer: null,
   /** Пошаговый маршрут по теме: учебник → доп. тренажёр → ИИ */
   practiceFlow: null,
+  /** Развёрнутые темы в программе класса */
+  expandedTopicIds: new Set(),
 };
 
 let citySearchTimer = null;
@@ -100,12 +102,23 @@ function escAttr(s) {
  * @param {1|2|3} activeStep — текущий шаг (0 = обзор)
  * @param {{ hasExtra?: boolean }} opts
  */
+function isProUser() {
+  return Boolean(state.me?.is_pro || state.stats?.is_pro);
+}
+
 function renderLearningPath(activeStep, opts = {}) {
   const hasExtra = opts.hasExtra !== false;
+  const pro = isProUser();
   const steps = [
     { n: 1, icon: '📖', title: 'Учебник', sub: 'задания из книги' },
-    { n: 2, icon: '🧩', title: 'Доп. тренажёр', sub: hasExtra ? 'картинки · закрепление' : 'скоро по теме' },
-    { n: 3, icon: '🤖', title: 'Разбор с ИИ', sub: 'если ошибся' },
+    { n: 2, icon: '🧩', title: 'Доп. задания', sub: hasExtra ? 'закрепление темы' : 'нет по теме' },
+    {
+      n: 3,
+      icon: '🤖',
+      title: 'Разбор с ИИ',
+      sub: pro ? 'активировано' : 'по подписке',
+      proActive: pro,
+    },
   ];
   return `
     <div class="learning-path" role="list" aria-label="Как учиться по теме">
@@ -114,8 +127,9 @@ function renderLearningPath(activeStep, opts = {}) {
           const done = activeStep > s.n;
           const active = activeStep === s.n;
           const muted = s.n === 2 && !hasExtra;
+          const proCls = s.proActive ? ' pro-on' : '';
           return `
-        <div class="learning-step${active ? ' active' : ''}${done ? ' done' : ''}${muted ? ' muted' : ''}" role="listitem">
+        <div class="learning-step${active ? ' active' : ''}${done ? ' done' : ''}${muted ? ' muted' : ''}${proCls}" role="listitem">
           <div class="learning-step-num">${done ? '✓' : s.n}</div>
           <div class="learning-step-icon">${s.icon}</div>
           <div class="learning-step-title">${esc(s.title)}</div>
@@ -755,8 +769,9 @@ function renderExtraTasks() {
   }
 
   const sum = state.extraTasksSummary;
-  const currentGrade = state.extraTasksGrade || Number(state.me?.grade) || 1;
-  const grades = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
+  const myGrade = Number(state.me?.grade) || 1;
+  const currentGrade = myGrade;
+  state.extraTasksGrade = myGrade;
   const query = (state.extraTopicsSearch || '').toLowerCase().trim();
   const allTopics = sum?.topics || [];
   const filteredTopics = query
@@ -769,24 +784,7 @@ function renderExtraTasks() {
         <button type="button" class="linkish" data-action="go-home">← Главная</button>
         <h2>🧩 Шаг 2 · Доп. тренажёр</h2>
       </div>
-      <p class="muted">Сгенерированные карточки по темам — после учебника. Не путать с заданиями из книги.</p>
-      ${renderLearningPath(2, { hasExtra: true })}
-      
-      <!-- Grade selector pills -->
-      <div class="grade-pills-row">
-        ${grades
-          .map(
-            (g) => `
-          <button type="button" 
-                  class="btn ${g === currentGrade ? 'primary' : 'secondary'}" 
-                  style="padding:6px 14px; font-size:0.85rem; border-radius:20px; white-space:nowrap; flex-shrink:0;"
-                  data-action="change-extra-grade" 
-                  data-grade="${g}">
-            ${g} класс
-          </button>`
-          )
-          .join('')}
-      </div>
+      <p class="muted">Доп. карточки для <strong>${currentGrade} класса</strong> — после учебника. Не путать с заданиями из книги.</p>
 
       ${
         sum
@@ -835,7 +833,7 @@ function renderExtraTasks() {
 
     ${
       !sum || !sum.topics || sum.topics.length === 0
-        ? `<section class="card empty">Для ${currentGrade} класса задания сейчас генерируются. Выбери другой класс выше.</section>`
+        ? `<section class="card empty">Для ${currentGrade} класса доп. задания пока не загружены.</section>`
         : filteredTopics.length === 0
         ? `<section class="card empty">Ничего не найдено по запросу «${esc(state.extraTopicsSearch)}». Попробуй другое слово.</section>`
         : `<div style="display:flex; flex-direction:column; gap:10px;">
@@ -976,96 +974,95 @@ function renderGradeCurriculum() {
   const sectionsHtml = (cur.sections || []).map((sec) => {
     const topicsHtml = (sec.topics || []).map((top) => {
       const tasks = top.task_count || 0;
+      const extras = top.extra_task_count || 0;
       const solved = top.solved_count || 0;
       const pct = top.progress_percent !== undefined
         ? top.progress_percent
         : (tasks > 0 ? Math.min(100, Math.round((solved / tasks) * 100)) : 0);
+      const expanded = state.expandedTopicIds.has(top.id);
+      const pro = isProUser();
 
       let progressBorder = 'rgba(255, 255, 255, 0.12)';
       let progressTextColor = 'var(--muted)';
-      let progressFill = 'rgba(255, 255, 255, 0.08)';
 
       if (pct > 0 && pct < 40) {
         progressBorder = 'rgba(245, 158, 11, 0.45)';
         progressTextColor = '#fbbf24';
-        progressFill = 'linear-gradient(90deg, #f59e0b, #d97706)';
       } else if (pct >= 40 && pct < 80) {
         progressBorder = 'rgba(99, 102, 241, 0.45)';
         progressTextColor = '#a5b4fc';
-        progressFill = 'linear-gradient(90deg, #6366f1, #3b82f6)';
       } else if (pct >= 80) {
         progressBorder = 'rgba(16, 185, 129, 0.5)';
         progressTextColor = '#6ee7b7';
-        progressFill = 'linear-gradient(90deg, #10b981, #059669)';
       }
 
+      const metaBits = [];
+      if (tasks > 0) metaBits.push(`📖 ${tasks}`);
+      if (extras > 0) metaBits.push(`🧩 ${extras}`);
+      const metaLine = metaBits.length ? metaBits.join(' · ') : 'нет заданий';
+
       return `
-        <div class="curriculum-topic-card" style="background:var(--bg-secondary); border-radius:14px; padding:12px; margin-bottom:10px; border:1px solid var(--card-border)">
-          <div style="display:flex; align-items:center; justify-content:space-between; gap:8px">
-            <strong style="font-size:0.95rem; line-height:1.3">📌 ${esc(top.name)}</strong>
-            ${tasks > 0 ? `
-              <div class="topic-progress-badge" title="Решено ${solved} из ${tasks} заданий" style="
-                border: 1px solid ${progressBorder};
-              ">
-                <div class="topic-progress-fill" style="
-                  position: absolute;
-                  left: 0;
-                  top: 0;
-                  bottom: 0;
-                  width: ${pct}%;
-                  background: ${progressFill};
-                  opacity: 0.38;
-                  transition: width 0.3s ease;
-                "></div>
-                <span style="position: relative; z-index: 1; font-size: 0.74rem; font-weight: 700; color: ${progressTextColor}">
-                  ${pct === 100 ? '✅ ' : ''}${pct}% · ${solved}/${tasks} зад.
+        <div class="curriculum-topic-card${expanded ? ' is-open' : ''}" style="background:var(--bg-secondary); border-radius:14px; margin-bottom:10px; border:1px solid var(--card-border); overflow:hidden">
+          <button type="button" class="topic-card-head" data-action="toggle-topic" data-topic-id="${top.id}" aria-expanded="${expanded ? 'true' : 'false'}">
+            <div class="topic-card-head-main">
+              <strong style="font-size:0.95rem; line-height:1.3">📌 ${esc(top.name)}</strong>
+              <span class="muted" style="font-size:0.78rem; margin-top:4px; display:block">${metaLine}${tasks > 0 ? ` · решено ${solved}/${tasks}` : ''}</span>
+            </div>
+            <div class="topic-card-head-side">
+              ${tasks > 0 ? `
+                <span class="topic-progress-badge" style="border:1px solid ${progressBorder}">
+                  <span style="position:relative;z-index:1;font-size:0.72rem;font-weight:700;color:${progressTextColor}">
+                    ${pct === 100 ? '✅ ' : ''}${pct}%
+                  </span>
                 </span>
+              ` : ''}
+              <span class="topic-chevron" aria-hidden="true">${expanded ? '▾' : '▸'}</span>
+            </div>
+          </button>
+          ${expanded ? `
+            <div class="topic-card-body">
+              ${top.has_summary && top.summary_key_points ? `
+                <div style="font-size:0.82rem; color:var(--muted); margin-bottom:10px">
+                  💡 ${esc(top.summary_key_points.slice(0, 140))}${top.summary_key_points.length > 140 ? '…' : ''}
+                </div>
+              ` : ''}
+              <div style="display:flex; flex-direction:column; gap:8px;">
+                ${tasks > 0 ? `
+                  <button type="button" class="btn block primary small"
+                    data-action="start-topic-practice"
+                    data-topic="${top.id}"
+                    data-grade="${cur.grade}"
+                    data-topic-name="${escAttr(top.name)}"
+                    data-extra-count="${extras}">
+                    📖 Учебник · ${tasks} заданий
+                  </button>
+                  <p class="muted" style="font-size:0.75rem; margin:-2px 0 0">Упражнения из школьного учебника по этой теме</p>
+                ` : ''}
+                ${extras > 0 ? `
+                  <button type="button" class="btn block secondary small"
+                    data-action="open-extra-topic"
+                    data-topic-id="${top.id}"
+                    data-topic-name="${escAttr(top.name)}">
+                    🧩 Доп. задания · ${extras}
+                  </button>
+                  <p class="muted" style="font-size:0.75rem; margin:-2px 0 0">Карточки для закрепления: орфография, выбор ответа, факты РБ</p>
+                ` : ''}
+                ${tasks === 0 && extras === 0 ? `
+                  <p class="muted" style="font-size:0.85rem; margin:0">По этой теме пока нет заданий.</p>
+                ` : ''}
+                ${pro
+                  ? `<button type="button" class="btn block small ai-btn-active" data-action="ai-hint-pro" style="margin-top:2px">
+                       🤖 Разбор с ИИ · активировано
+                     </button>
+                     <p class="muted" style="font-size:0.75rem; margin:-2px 0 0">Кнопка появится после ответа на задании, если нужна помощь</p>`
+                  : `<button type="button" class="btn block secondary small pro-locked-btn" data-action="open-tariffs" style="margin-top:2px; opacity:0.85">
+                       🤖 Разбор с ИИ · открыть по подписке
+                     </button>
+                     <p class="muted" style="font-size:0.75rem; margin:-2px 0 0">После ошибки на задании — персональный разбор</p>`
+                }
               </div>
-            ` : `
-              <span class="chip" style="font-size:0.75rem; opacity:0.6; flex-shrink:0">скоро</span>
-            `}
-          </div>
-          ${tasks > 0 ? `
-            <div style="margin-top:8px; height:4px; border-radius:2px; background:rgba(255,255,255,0.06); overflow:hidden">
-              <div style="height:100%; width:${pct}%; background:${progressFill}; transition:width 0.3s ease"></div>
             </div>
           ` : ''}
-          ${top.has_summary && top.summary_key_points ? `
-            <div style="font-size:0.82rem; color:var(--muted); margin-top:6px">
-              💡 <strong>Правило:</strong> ${esc(top.summary_key_points.slice(0, 110))}${top.summary_key_points.length > 110 ? '…' : ''}
-            </div>
-          ` : ''}
-          ${renderLearningPath(
-            pct >= 80 && top.extra_task_count > 0 ? 2 : 1,
-            { hasExtra: top.extra_task_count > 0 },
-          )}
-          <div style="margin-top:10px; display:flex; flex-direction:column; gap:6px;">
-            ${tasks > 0 ? `
-              <button type="button" class="btn block primary small"
-                data-action="start-topic-practice"
-                data-topic="${top.id}"
-                data-grade="${cur.grade}"
-                data-topic-name="${escAttr(top.name)}"
-                data-extra-count="${top.extra_task_count || 0}">
-                📖 Шаг 1: учебник (${tasks} зад.)
-              </button>
-            ` : `
-              <button type="button" class="btn block secondary small" disabled style="opacity:0.6">Учебник пополняется</button>
-            `}
-            ${top.extra_task_count > 0 ? `
-              <button type="button" class="btn block small secondary"
-                data-action="open-extra-topic"
-                data-topic-id="${top.id}"
-                data-topic-name="${escAttr(top.name)}">
-                🧩 Шаг 2: доп. тренажёр (${top.extra_task_count})
-              </button>
-            ` : `
-              <p class="muted" style="font-size:0.78rem; margin:4px 0 0">Шаг 2: доп. карточки по теме скоро появятся</p>
-            `}
-            ${top.has_summary ? `
-              <p class="muted" style="font-size:0.78rem; margin:0">Шаг 3: после ошибки — «Разбор с ИИ» на экране ответа</p>
-            ` : ''}
-          </div>
         </div>
       `;
     }).join('');
@@ -1107,14 +1104,13 @@ function renderGradeCurriculum() {
     const textbookCnt = cur.school_textbook_tasks_count ?? cur.school_tasks_count ?? cur.total_tasks;
     contentHtml = `
       <section class="card" style="margin-bottom:12px">
-        <p class="muted" style="font-size:0.88rem; margin-bottom:10px">Выбери тему ниже — внутри те же три шага. Или микс по всему учебнику:</p>
-        ${renderLearningPath(0, { hasExtra: (cur.total_extra_tasks || 0) > 0 })}
-        <button type="button" class="btn block secondary" style="margin-top:12px" data-action="start-grade-mix-practice" data-grade="${cur.grade}">
+        <p class="muted" style="font-size:0.88rem; margin-bottom:10px">Нажми тему ниже — откроются учебник, доп. задания и разбор с ИИ. Или микс по всему классу:</p>
+        <button type="button" class="btn block secondary" data-action="start-grade-mix-practice" data-grade="${cur.grade}">
           🎯 Микс по учебнику · ${textbookCnt} заданий
         </button>
         ${(cur.total_extra_tasks || 0) > 0 ? `
           <button type="button" class="btn block secondary" style="margin-top:8px" data-action="go-extra-tasks">
-            🧩 Все доп. тренажёры класса (${cur.total_extra_tasks})
+            🧩 Все доп. задания класса · ${cur.total_extra_tasks}
           </button>
         ` : ''}
       </section>
@@ -1363,31 +1359,36 @@ function renderCourses() {
     ${
       subject
         ? `
-           ${myGrade === 9 ? (izloCardHtml + ctCardHtml) : (ctCardHtml + izloCardHtml)}
+           ${myGrade === 9 ? izloCardHtml : ''}
+           ${myGrade === 11 ? ctCardHtml : ''}
 
            <section class="card">
              <h2>🏫 Программа по учебнику</h2>
-             <p class="muted" style="margin-bottom:12px">Класс → тема → шаг 1 учебник → шаг 2 доп. тренажёр → шаг 3 ИИ при ошибке.</p>
+             <p class="muted" style="margin-bottom:12px">Открой свой класс → тему → учебник / доп. задания / разбор с ИИ.</p>
              <div class="grade-grid">
                ${sortedGrades
                  .map((g) => {
                    const active = myGrade === g.grade;
+                   const locked = Boolean(myGrade) && !active;
                    const empty = !g.available;
                    return `
                      <button type="button"
-                       class="grade-tile${active ? ' active my-grade' : ''}${empty ? ' empty' : ''}"
+                       class="grade-tile${active ? ' active my-grade' : ''}${empty ? ' empty' : ''}${locked ? ' locked' : ''}"
                        data-action="courses-pick-grade"
                        data-grade="${g.grade}"
                        data-subject="${subject.id}"
-                       ${empty ? 'data-empty="1"' : ''}>
+                       ${empty ? 'data-empty="1"' : ''}
+                       ${locked ? 'data-locked="1"' : ''}>
                        <span class="grade-tile-title">${esc(g.title)}</span>
-                       <span class="grade-tile-badge">${active ? '⭐ Твой класс' : esc(g.badge || '')}</span>
+                       <span class="grade-tile-badge">${active ? '⭐ Твой класс' : (locked ? '🔒 Другой класс' : esc(g.badge || ''))}</span>
                        <span class="muted">${
-                         g.available
-                           ? `${g.tasks} заданий · ${g.topics} тем`
-                           : 'скоро'
+                         locked
+                           ? 'доступен только свой класс'
+                           : (g.available
+                             ? `${g.tasks} заданий · ${g.topics} тем`
+                             : 'нет заданий')
                        }</span>
-                       <span class="grade-tile-hint">${esc(g.hint || '')}</span>
+                       <span class="grade-tile-hint">${active ? esc(g.hint || '') : (locked ? 'Чтобы открыть — смени класс в профиле' : esc(g.hint || ''))}</span>
                        ${active ? '<span class="grade-tile-now">твой класс</span>' : ''}
                      </button>`;
                  })
@@ -1560,9 +1561,9 @@ function renderPractice() {
             </p>
             ${
               state.feedback.can_request_ai
-                ? (state.me?.is_pro
-                    ? `<button class="btn block secondary" data-action="explain" style="margin-top:8px">🤖 Шаг 3: разбор с ИИ</button>`
-                    : `<button class="btn block secondary pro-locked-btn" data-action="open-tariffs" style="margin-top:8px; opacity:0.65;">🤖 Шаг 3: разбор с ИИ 🔒 Pro</button>`)
+                ? (isProUser()
+                    ? `<button class="btn block ai-btn-active" data-action="explain" style="margin-top:8px">🤖 Разбор с ИИ</button>`
+                    : `<button class="btn block secondary pro-locked-btn" data-action="open-tariffs" style="margin-top:8px; opacity:0.85;">🤖 Разбор с ИИ · по подписке</button>`)
                 : ''
             }
             ${
@@ -1778,8 +1779,9 @@ function renderRegistration() {
   if (!state.reg) return `<section class="card empty">Готовим регистрацию…</section>`;
   return renderRegForm(state.reg, {
     title: 'Регистрация',
-    subtitle: 'Имя, класс, цель, предмет, город и школа — всё обязательно.',
+    subtitle: 'По шагам: класс → цель → школа.',
     submitLabel: state.reg.saving ? 'Сохраняем…' : 'Готово, начать',
+    profileMode: false,
   });
 }
 
@@ -1942,6 +1944,7 @@ function renderProfileAndFamily() {
         title: '⚙️ Настройки профиля',
         subtitle: 'Класс обучения, цель, имя, город и школа.',
         submitLabel: state.reg.saving ? 'Сохраняем…' : 'Сохранить изменения',
+        profileMode: true,
       })
     : '<section class="card empty">Загружаем настройки…</section>';
 
@@ -2552,10 +2555,28 @@ function bindUi() {
       return;
     }
     if (action === 'change-extra-grade') {
-      state.extraTasksGrade = Number(t.dataset.grade);
+      const myGrade = Number(state.me?.grade) || 1;
+      const asked = Number(t.dataset.grade);
+      if (asked !== myGrade) {
+        toast(`Доступен только твой класс (${myGrade}). Сменить можно в профиле.`);
+        return;
+      }
+      state.extraTasksGrade = myGrade;
       state.activeExtraTopic = null;
       state.extraTopicsSearch = '';
       await loadForRoute();
+      return;
+    }
+    if (action === 'toggle-topic') {
+      const tid = Number(t.dataset.topicId);
+      if (!tid) return;
+      if (state.expandedTopicIds.has(tid)) state.expandedTopicIds.delete(tid);
+      else state.expandedTopicIds.add(tid);
+      render();
+      return;
+    }
+    if (action === 'ai-hint-pro') {
+      toast('Ответь на задание — кнопка разбора появится после проверки');
       return;
     }
     if (action === 'open-extra-topic') {
@@ -2672,9 +2693,19 @@ function bindUi() {
     if (action === 'courses-pick-grade') {
       const grade = Number(t.dataset.grade);
       if (!grade) return;
+      const myGrade = Number(state.me?.grade) || null;
+      if (myGrade && grade !== myGrade) {
+        toast(`Открыт только твой класс (${myGrade}). Другой класс — через смену класса в профиле.`);
+        return;
+      }
+      if (t.dataset.empty === '1') {
+        toast('В этом классе пока нет заданий');
+        return;
+      }
       state.loading = true;
       state.inCoursesCatalog = false;
       state.selectedExamYear = null;
+      state.expandedTopicIds = new Set();
       render();
       try {
         const id = tgId();
@@ -2726,10 +2757,15 @@ function bindUi() {
       const grade = Number(t.dataset.grade);
       const id = tgId();
       if (!id) return;
+      const myGrade = Number(state.me?.grade) || null;
+      if (myGrade && grade && grade !== myGrade) {
+        toast(`Можно решать только задания своего класса (${myGrade}).`);
+        return;
+      }
       state.loading = true;
       render();
       try {
-        state.daily = await api.startTopicPractice(id, null, 'school', grade);
+        state.daily = await api.startTopicPractice(id, null, 'school', myGrade || grade);
         if (state.daily?.current_task?.options) {
           state.daily.current_task.options = shuffleArray(state.daily.current_task.options);
         }
@@ -2753,10 +2789,15 @@ function bindUi() {
       const year = t.dataset.year ? Number(t.dataset.year) : (state.selectedExamYear || null);
       const id = tgId();
       if (!id) return;
+      const myGrade = Number(state.me?.grade) || null;
+      if (myGrade && grade && grade !== myGrade) {
+        toast(`Этот раздел для ${grade} класса. Твой класс — ${myGrade}.`);
+        return;
+      }
       state.loading = true;
       render();
       try {
-        state.daily = await api.startTopicPractice(id, null, mode, grade, year);
+        state.daily = await api.startTopicPractice(id, null, mode, myGrade || grade, year);
         if (state.daily?.current_task?.options) {
           state.daily.current_task.options = shuffleArray(state.daily.current_task.options);
         }
@@ -2864,7 +2905,59 @@ function bindUi() {
     }
     if (action === 'reg-set-role') {
       state.reg.role = t.dataset.role || null;
+      state.reg.step = state.reg.role ? 2 : 1;
+      state.reg.error = '';
       render();
+      return;
+    }
+    if (action === 'reg-back') {
+      if (!state.reg) return;
+      if (state.reg.step <= 2) {
+        state.reg.role = null;
+        state.reg.step = 1;
+      } else {
+        state.reg.step = Math.max(2, Number(state.reg.step) - 1);
+      }
+      state.reg.error = '';
+      render();
+      return;
+    }
+    if (action === 'reg-next') {
+      if (!state.reg) return;
+      syncRegInputsFromDom();
+      const step = Number(state.reg.step) || 2;
+      if (step <= 2) {
+        if (!state.reg.display_name?.trim()) {
+          state.reg.error = 'Укажи имя для рейтинга';
+          render();
+          return;
+        }
+        if (!state.reg.grade) {
+          state.reg.error = 'Выбери свой класс';
+          render();
+          return;
+        }
+        state.reg.step = 3;
+        state.reg.error = '';
+        render();
+        return;
+      }
+      if (step === 3) {
+        if (!state.reg.goal) {
+          state.reg.error = 'Выбери цель подготовки';
+          render();
+          return;
+        }
+        if (!state.reg.subject_id) {
+          state.reg.error = 'Выбери предмет';
+          render();
+          return;
+        }
+        state.reg.step = 4;
+        state.reg.error = '';
+        render();
+        return;
+      }
       return;
     }
     if (action === 'family-invite-telegram') {
@@ -2983,6 +3076,10 @@ function bindUi() {
         return;
       }
       if (state.reg.role !== 'parent') {
+        if (!state.reg.grade) {
+          toast('Выбери класс');
+          return;
+        }
         if (!state.reg.subject_id) {
           toast('Выбери предмет');
           return;
@@ -3091,6 +3188,11 @@ function bindUi() {
       return;
     }
     if (action === 'start-exam') {
+      const myGrade = Number(state.me?.grade) || null;
+      if (myGrade && myGrade !== 11) {
+        toast('Симулятор ЦТ/ЦЭ доступен ученикам 11 класса.');
+        return;
+      }
       const year = t.dataset.year ? Number(t.dataset.year) : (state.selectedExamYear || null);
       state.route = 'exam';
       await startExamSimulator(null, year);

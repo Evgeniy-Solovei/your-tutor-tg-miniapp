@@ -18,10 +18,10 @@ const DEFAULT_GRADE_HINTS = {
 
 export function emptyRegForm(prefill = {}) {
   return {
-    step: 1,
+    step: 1, // 1 роль, 2 имя+класс, 3 цель+предмет, 4 город+школа
     role: prefill.role || null, // 'student' | 'parent'
     display_name: prefill.display_name || '',
-    grade: prefill.grade || 9,
+    grade: prefill.grade || null,
     goal: prefill.goal || 'improve',
     subject_id: prefill.subject_id || prefill.subject || null,
     city_id: prefill.city_id || prefill.city || null,
@@ -55,9 +55,11 @@ export async function loadRegMeta(form) {
   if (!form.subject_id && form.subjects[0]) {
     form.subject_id = form.subjects[0].id;
   }
-  form.goals = goalsForGrade(form.allGoals, form.grade);
-  if (!form.goals.find((g) => g.id === form.goal)) {
-    form.goal = form.goals[0]?.id || 'improve';
+  if (form.grade) {
+    form.goals = goalsForGrade(form.allGoals, form.grade);
+    if (!form.goals.find((g) => g.id === form.goal)) {
+      form.goal = form.goals[0]?.id || 'improve';
+    }
   }
   return form;
 }
@@ -74,23 +76,35 @@ export function goalsForGrade(allGoals, grade) {
   });
 }
 
-export function renderRegForm(form, { title, subtitle, submitLabel }) {
+function stepDots(current, total = 4) {
+  return `
+    <div class="reg-steps" aria-label="Шаг регистрации ${current} из ${total}">
+      ${Array.from({ length: total }, (_, i) => {
+        const n = i + 1;
+        const cls = n < current ? 'done' : n === current ? 'active' : '';
+        return `<span class="reg-step-dot ${cls}">${n < current ? '✓' : n}</span>`;
+      }).join('<span class="reg-step-line"></span>')}
+    </div>`;
+}
+
+export function renderRegForm(form, { title, subtitle, submitLabel, profileMode = false }) {
   if (!form.role) {
     return `
       <section class="hero">
         <h1>Добро пожаловать!</h1>
-        <p>Выберите, кто вы, чтобы настроить удобный интерфейс:</p>
+        <p>Кто будет пользоваться приложением?</p>
       </section>
+      ${stepDots(1)}
       <section class="card goal-list" style="margin-top:12px">
         <button type="button" class="goal-card" data-action="reg-set-role" data-role="student" style="padding:18px;text-align:left">
           <div style="font-size:24px;margin-bottom:6px">🎓 Я ученик</div>
-          <strong>Решаю тесты, качаю XP и готовлюсь к ЦТ/ЦЭ</strong>
-          <p class="muted" style="margin-top:4px">Учеба, практика, статистика и турнирный рейтинг</p>
+          <strong>Решаю задания и готовлюсь к экзаменам</strong>
+          <p class="muted" style="margin-top:4px">Учебник, доп. задания, рейтинг</p>
         </button>
         <button type="button" class="goal-card" data-action="reg-set-role" data-role="parent" style="padding:18px;text-align:left;margin-top:10px">
           <div style="font-size:24px;margin-bottom:6px">👨‍👩‍👧 Я родитель</div>
-          <strong>Хочу следить за успеваемостью ребёнка</strong>
-          <p class="muted" style="margin-top:4px">Отчёты в Telegram, прогресс, балл и активность</p>
+          <strong>Слежу за успеваемостью ребёнка</strong>
+          <p class="muted" style="margin-top:4px">Отчёты в Telegram, прогресс</p>
         </button>
       </section>
     `;
@@ -107,9 +121,9 @@ export function renderRegForm(form, { title, subtitle, submitLabel }) {
     return `
       <section class="hero">
         <h1>Профиль родителя</h1>
-        <p>Укажите имя и город для получения отчётов об успеваемости ребёнка</p>
+        <p>Имя и город — для отчётов об успеваемости</p>
       </section>
-      <button type="button" class="linkish" data-action="reg-set-role" data-role="" style="margin-bottom:12px;display:inline-block">← Сменить роль (${form.role === 'parent' ? 'Родитель' : 'Ученик'})</button>
+      <button type="button" class="linkish" data-action="reg-set-role" data-role="" style="margin-bottom:12px;display:inline-block">← Сменить роль</button>
       ${form.error ? `<p class="err">${esc(form.error)}</p>` : ''}
       <section class="card">
         <label class="field-label">Ваше имя (как обращаться)
@@ -122,17 +136,159 @@ export function renderRegForm(form, { title, subtitle, submitLabel }) {
         <input class="family-input" id="city-q" value="${escAttr(form.cityQuery)}" placeholder="Начни вводить город…" style="width:100%;margin:8px 0" />
         <div class="pick-list">${cityList || (form.cityQuery ? '<p class="muted">Ничего не найдено</p>' : '')}</div>
         ${form.city_id ? `<button type="button" class="linkish" data-action="clear-city">Сбросить город</button>` : ''}
-        <p class="muted" style="margin-top:10px;font-size:12px">Если не нашли свой город, обратитесь в поддержку.</p>
       </section>
       <button type="button" class="btn block" data-action="reg-submit" ${form.saving ? 'disabled' : ''}>Сохранить и продолжить</button>
     `;
   }
 
-  const goals = goalsForGrade(form.allGoals || form.goals || [], form.grade);
+  // Профиль уже зарегистрированного — компактная форма без wizard
+  if (profileMode || form.step >= 99) {
+    return renderStudentProfileEdit(form, { title, subtitle, submitLabel, cityList });
+  }
+
+  const step = Number(form.step) || 2;
+  const backBtn = `<button type="button" class="linkish" data-action="reg-back" style="margin-bottom:12px;display:inline-block">← Назад</button>`;
+
+  if (step <= 2) {
+    const gradeHint = form.grade
+      ? form.gradeHints?.[String(form.grade)] || form.gradeHints?.[form.grade] || ''
+      : '';
+    return `
+      <section class="hero">
+        <h1>Класс и имя</h1>
+        <p>Класс нельзя «переключать» в учёбе — только здесь в профиле.</p>
+      </section>
+      ${stepDots(2)}
+      ${backBtn}
+      ${form.error ? `<p class="err">${esc(form.error)}</p>` : ''}
+      <section class="card">
+        <label class="field-label">Как тебя показывать в рейтинге
+          <input class="family-input" id="reg-name" maxlength="100" placeholder="Имя или ник" value="${escAttr(form.display_name)}" />
+        </label>
+        <p class="field-label" style="margin-top:14px">Твой класс</p>
+        <p class="muted" style="margin:4px 0 8px">Выбери один класс — задания будут только по нему.</p>
+        <div class="period-row grade-row">
+          ${(form.grades || listRange(1, 12))
+            .map(
+              (g) =>
+                `<button type="button" class="period-chip${Number(form.grade) === g ? ' active' : ''}" data-action="reg-grade" data-grade="${g}">${g}</button>`,
+            )
+            .join('')}
+        </div>
+        ${gradeHint ? `<div class="hint-box"><strong>${esc(form.grade)} класс:</strong> ${esc(gradeHint)}</div>` : ''}
+      </section>
+      <button type="button" class="btn block" data-action="reg-next">Далее</button>
+    `;
+  }
+
+  if (step === 3) {
+    const goals = goalsForGrade(form.allGoals || form.goals || [], form.grade);
+    form.goals = goals;
+    const subjects = form.subjects || [];
+    const activeGoal = goals.find((g) => g.id === form.goal);
+    return `
+      <section class="hero">
+        <h1>Цель подготовки</h1>
+        <p>${esc(form.grade)} класс · выбери, зачем учишься</p>
+      </section>
+      ${stepDots(3)}
+      ${backBtn}
+      ${form.error ? `<p class="err">${esc(form.error)}</p>` : ''}
+      <section class="card">
+        <div class="goal-list">
+          ${goals
+            .map(
+              (g) => `
+              <button type="button" class="goal-card${form.goal === g.id ? ' active' : ''}" data-action="reg-goal" data-goal="${escAttr(g.id)}">
+                <strong>${esc(g.label)}</strong>
+                <span class="muted">${esc(g.hint || '')}</span>
+              </button>`,
+            )
+            .join('')}
+        </div>
+        ${
+          activeGoal?.hint
+            ? `<div class="hint-box ok-tint" style="margin-top:10px">Выбрано: <strong>${esc(activeGoal.label)}</strong></div>`
+            : ''
+        }
+        <p class="field-label" style="margin-top:14px">Предмет</p>
+        <div class="period-row">
+          ${
+            subjects.length
+              ? subjects
+                  .map(
+                    (s) =>
+                      `<button type="button" class="period-chip${Number(form.subject_id) === s.id ? ' active' : ''}" data-action="reg-subject" data-id="${s.id}">${esc(s.name)}</button>`,
+                  )
+                  .join('')
+              : `<p class="muted">Предметы ещё не загружены</p>`
+          }
+        </div>
+      </section>
+      <button type="button" class="btn block" data-action="reg-next">Далее</button>
+    `;
+  }
+
+  // step 4 — city + school
+  const cityCard = form.city_id
+    ? `<section class="card">
+        <h2>Город</h2>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-top:8px">
+          <span style="font-size:17px;font-weight:700;color:var(--accent)">✓ ${esc(form.city_name)}</span>
+          <button type="button" class="linkish" data-action="clear-city">Изменить</button>
+        </div>
+      </section>`
+    : `<section class="card">
+        <h2>Город</h2>
+        <p class="muted">Нужен для рейтинга школы и города</p>
+        <input class="family-input" id="city-q" value="${escAttr(form.cityQuery)}" placeholder="Начни вводить город…" style="width:100%;margin:8px 0" />
+        <div class="pick-list">${cityList || (form.cityQuery ? '<p class="muted">Ничего не найдено</p>' : '')}</div>
+      </section>`;
+
+  let schoolCard = '';
+  if (!form.city_id) {
+    schoolCard = `<section class="card"><h2>Школа</h2><p class="muted">Сначала выбери город</p></section>`;
+  } else if (form.school_id) {
+    schoolCard = `<section class="card">
+      <h2>Школа</h2>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-top:8px">
+        <span style="font-size:17px;font-weight:700;color:var(--accent)">✓ ${esc(form.school_name)}</span>
+        <button type="button" class="linkish" data-action="clear-school">Изменить</button>
+      </div>
+    </section>`;
+  } else {
+    const schoolList = (form.schoolResults || [])
+      .map(
+        (s) =>
+          `<button type="button" class="pick-row" data-action="pick-school" data-id="${s.id}" data-name="${escAttr(s.name)}">${esc(s.name)}</button>`,
+      )
+      .join('');
+    schoolCard = `<section class="card">
+      <h2>Школа</h2>
+      <input class="family-input" id="school-q" value="${escAttr(form.schoolQuery)}" placeholder="Номер или название…" style="width:100%;margin:8px 0" />
+      <div class="pick-list">${schoolList || (form.schoolQuery ? '<p class="muted">Ничего не найдено</p>' : '')}</div>
+    </section>`;
+  }
+
+  return `
+    <section class="hero">
+      <h1>Город и школа</h1>
+      <p>Последний шаг — и можно учиться</p>
+    </section>
+    ${stepDots(4)}
+    ${backBtn}
+    ${form.error ? `<p class="err">${esc(form.error)}</p>` : ''}
+    ${cityCard}
+    ${schoolCard}
+    <button type="button" class="btn block" data-action="reg-submit" ${form.saving ? 'disabled' : ''}>${esc(submitLabel)}</button>
+  `;
+}
+
+function renderStudentProfileEdit(form, { title, subtitle, submitLabel, cityList }) {
+  const goals = goalsForGrade(form.allGoals || form.goals || [], form.grade || 1);
   form.goals = goals;
   const subjects = form.subjects || [];
-  const gradeHint = form.gradeHints?.[String(form.grade)] || form.gradeHints?.[form.grade] || '';
-  const activeGoal = goals.find((g) => g.id === form.goal);
+  const gradeHint = form.gradeHints?.[String(form.grade)] || '';
   const schoolList = (form.schoolResults || [])
     .map(
       (s) =>
@@ -140,57 +296,18 @@ export function renderRegForm(form, { title, subtitle, submitLabel }) {
     )
     .join('');
 
-  const cityCard = form.city_id
-    ? `<section class="card">
-        <h2>Город</h2>
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-top:8px">
-          <span style="font-size:17px;font-weight:700;color:var(--accent)">✓ ${esc(form.city_name)}</span>
-          <button type="button" class="linkish" data-action="clear-city">Изменить город</button>
-        </div>
-      </section>`
-    : `<section class="card">
-        <h2>Город</h2>
-        <p class="muted">Найдите и выберите свой город из списка</p>
-        <input class="family-input" id="city-q" value="${escAttr(form.cityQuery)}" placeholder="Начни вводить город…" style="width:100%;margin:8px 0" />
-        <div class="pick-list">${cityList || (form.cityQuery ? '<p class="muted">Ничего не найдено</p>' : '')}</div>
-        <p class="muted" style="margin-top:10px;font-size:12px">Если не нашли свой город, обратитесь в поддержку.</p>
-      </section>`;
-
-  let schoolCard = '';
-  if (!form.city_id) {
-    schoolCard = `<section class="card"><h2>Школа</h2><p class="muted">Сначала выбери город выше</p></section>`;
-  } else if (form.school_id) {
-    schoolCard = `<section class="card">
-      <h2>Школа</h2>
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-top:8px">
-        <span style="font-size:17px;font-weight:700;color:var(--accent)">✓ ${esc(form.school_name)}</span>
-        <button type="button" class="linkish" data-action="clear-school">Изменить школу</button>
-      </div>
-    </section>`;
-  } else {
-    schoolCard = `<section class="card">
-      <h2>Школа</h2>
-      <p class="muted">Выбери свою школу из списка ниже</p>
-      <input class="family-input" id="school-q" value="${escAttr(form.schoolQuery)}" placeholder="Номер или название школы…" style="width:100%;margin:8px 0" />
-      <div class="pick-list">${schoolList || (form.schoolQuery ? '<p class="muted">Ничего не найдено</p>' : '')}</div>
-      <p class="muted" style="margin-top:10px;font-size:12px">Если не нашли свою школу, обратитесь в поддержку.</p>
-    </section>`;
-  }
-
   return `
     <section class="hero">
       <h1>${esc(title)}</h1>
       <p>${esc(subtitle)}</p>
     </section>
-    <button type="button" class="linkish" data-action="reg-set-role" data-role="" style="margin-bottom:12px;display:inline-block">← Сменить роль (${form.role === 'parent' ? 'Родитель' : 'Ученик'})</button>
     ${form.error ? `<p class="err">${esc(form.error)}</p>` : ''}
     <section class="card">
       <label class="field-label">Имя в рейтинге
         <input class="family-input" id="reg-name" maxlength="100" value="${escAttr(form.display_name)}" />
       </label>
-
       <p class="field-label" style="margin-top:14px">Класс обучения</p>
-      <p class="muted" style="margin:4px 0 8px">Выбери класс, по которому будешь заниматься сейчас.</p>
+      <p class="muted" style="margin:4px 0 8px">Смена класса открывает другую программу (только свои задания).</p>
       <div class="period-row grade-row">
         ${(form.grades || listRange(1, 12))
           .map(
@@ -200,9 +317,7 @@ export function renderRegForm(form, { title, subtitle, submitLabel }) {
           .join('')}
       </div>
       ${gradeHint ? `<div class="hint-box"><strong>${esc(form.grade)} класс:</strong> ${esc(gradeHint)}</div>` : ''}
-
-      <p class="field-label" style="margin-top:14px">Цель подготовки</p>
-      <p class="muted" style="margin:4px 0 8px">От цели зависит формат: школа, изложение или тесты ЦТ/ЦЭ.</p>
+      <p class="field-label" style="margin-top:14px">Цель</p>
       <div class="goal-list">
         ${goals
           .map(
@@ -214,30 +329,35 @@ export function renderRegForm(form, { title, subtitle, submitLabel }) {
           )
           .join('')}
       </div>
-      ${
-        activeGoal?.hint
-          ? `<div class="hint-box ok-tint">Сейчас выбрано: <strong>${esc(activeGoal.label)}</strong> — ${esc(activeGoal.hint)}</div>`
-          : ''
-      }
-
       <p class="field-label" style="margin-top:14px">Предмет</p>
       <div class="period-row">
-        ${
-          subjects.length
-            ? subjects
-                .map(
-                  (s) =>
-                    `<button type="button" class="period-chip${Number(form.subject_id) === s.id ? ' active' : ''}" data-action="reg-subject" data-id="${s.id}">${esc(s.name)}</button>`,
-                )
-                .join('')
-            : `<p class="muted">Предметы ещё не загружены</p>`
-        }
+        ${subjects
+          .map(
+            (s) =>
+              `<button type="button" class="period-chip${Number(form.subject_id) === s.id ? ' active' : ''}" data-action="reg-subject" data-id="${s.id}">${esc(s.name)}</button>`,
+          )
+          .join('')}
       </div>
     </section>
-    ${cityCard}
-    ${schoolCard}
+    <section class="card">
+      <h2>Город</h2>
+      <p class="muted">${form.city_name ? `Выбрано: ${esc(form.city_name)}` : 'Выбери город'}</p>
+      <input class="family-input" id="city-q" value="${escAttr(form.cityQuery)}" placeholder="Город…" style="width:100%;margin:8px 0" />
+      <div class="pick-list">${cityList || ''}</div>
+      ${form.city_id ? `<button type="button" class="linkish" data-action="clear-city">Сбросить</button>` : ''}
+    </section>
+    <section class="card">
+      <h2>Школа</h2>
+      ${
+        !form.city_id
+          ? '<p class="muted">Сначала город</p>'
+          : form.school_id
+            ? `<div style="display:flex;justify-content:space-between"><strong>✓ ${esc(form.school_name)}</strong><button type="button" class="linkish" data-action="clear-school">Изменить</button></div>`
+            : `<input class="family-input" id="school-q" value="${escAttr(form.schoolQuery)}" placeholder="Школа…" style="width:100%;margin:8px 0" />
+               <div class="pick-list">${schoolList || ''}</div>`
+      }
+    </section>
     <button type="button" class="btn block" data-action="reg-submit" ${form.saving ? 'disabled' : ''}>${esc(submitLabel)}</button>
-    <button type="button" class="btn secondary block" style="margin-top:8px" data-action="go-courses">Сначала посмотреть курсы</button>
   `;
 }
 
