@@ -87,6 +87,12 @@ class CatalogView(APIView):
             .values('topic__section__exam_track__subject_id', 'topic__grade_level')
             .annotate(task_count=Count('id'))
         }
+        extra_by_grade = {
+            row['topic__grade_level']: row['cnt']
+            async for row in TopicExtraTask.objects.filter(
+                is_active=True, topic__is_active=True, topic__grade_level__range=(1, 11)
+            ).values('topic__grade_level').annotate(cnt=Count('id'))
+        }
         res = []
         for subject in subjects:
             grades_data = []
@@ -99,14 +105,17 @@ class CatalogView(APIView):
                 if g <= 10:
                     task_count = textbook_counts.get((subject.id, g), 0) or task_count
                 topic_count = count_row['topic_count']
+                extras = extra_by_grade.get(g, 0)
+                available = task_count > 0 or extras > 0
                 grades_data.append({
                     'grade': g,
                     # Поля ниже — публичный контракт страницы «Курсы».
                     'title': f'{g} класс',
-                    'badge': 'Доступно' if task_count else 'Скоро',
-                    'available': task_count > 0,
+                    'badge': 'Доступно' if available else 'Скоро',
+                    'available': available,
                     'tasks': task_count,
                     'topics': topic_count,
+                    'extra_tasks': extras,
                     # Оставляем прежнее имя для обратной совместимости API.
                     'task_count': task_count,
                     'hint': grade_hints.get(g, ''),
@@ -129,6 +138,198 @@ class CatalogView(APIView):
         })
 
 
+async def _curriculum_base_payload(grade: int) -> dict:
+    """Структура класса без прогресса ученика — кэшируется (счётчики почти статичны)."""
+    from django.core.cache import cache
+
+    cache_key = f'curriculum_base_v3_g{grade}'
+    try:
+        cached = await cache.aget(cache_key)
+        if cached:
+            return cached
+    except Exception:
+        cached = None
+
+    topics_qs = (
+        Topic.objects.filter(is_active=True)
+        .select_related('section', 'summary')
+        .defer('summary__content')
+    )
+    if grade == 11:
+        topics_qs = topics_qs.filter(
+            Q(grade_level=11) | Q(section__exam_track__track_type__in=['ct_11', 'ce_11'])
+        )
+    else:
+        topics_qs = topics_qs.filter(grade_level=grade)
+
+    topics = [t async for t in topics_qs.order_by('section__order', 'order', 'name')]
+    topic_ids = [t.id for t in topics]
+    task_counts: dict[int, int] = {}
+    extra_counts: dict[int, int] = {}
+    if topic_ids:
+        task_qs = Task.objects.filter(is_active=True, topic_id__in=topic_ids)
+        if grade <= 10:
+            task_qs = filter_school_textbook_tasks(task_qs)
+        async for row in task_qs.values('topic_id').annotate(cnt=Count('id')):
+            task_counts[row['topic_id']] = row['cnt']
+        # Счётчики доп. заданий — через grade_level (индекс topic+is_active), без огромного IN.
+        extra_filter = TopicExtraTask.objects.filter(is_active=True)
+        if grade == 11:
+            extra_filter = extra_filter.filter(topic_id__in=topic_ids)
+        else:
+            extra_filter = extra_filter.filter(topic__grade_level=grade, topic__is_active=True)
+        async for row in extra_filter.values('topic_id').annotate(cnt=Count('id')):
+            extra_counts[row['topic_id']] = row['cnt']
+
+    sections_map = {}
+    for t in topics:
+        sec_id = t.section_id
+        if sec_id not in sections_map:
+            sections_map[sec_id] = {
+                'id': sec_id,
+                'name': t.section.name,
+                'order': t.section.order,
+                'topics': [],
+            }
+        has_sum = hasattr(t, 'summary') and t.summary is not None
+        key_points = ''
+        summary_title = ''
+        if has_sum:
+            summary_title = t.summary.title or ''
+            raw_kp = t.summary.key_points or ''
+            key_points = raw_kp[:160] + ('…' if len(raw_kp) > 160 else '')
+        sections_map[sec_id]['topics'].append({
+            'id': t.id,
+            'name': t.name,
+            'exam_weight': t.exam_weight,
+            'task_count': task_counts.get(t.id, 0),
+            'extra_task_count': extra_counts.get(t.id, 0),
+            'has_summary': has_sum,
+            'summary_title': summary_title,
+            'summary_key_points': key_points,
+        })
+
+    sorted_sections = sorted(sections_map.values(), key=lambda s: (s['order'], s['name']))
+    total_tasks = sum(task_counts.values())
+    total_extra_tasks = sum(extra_counts.values())
+    school_textbook_tasks_count = total_tasks
+    if grade == 11 and topic_ids:
+        school_textbook_tasks_count = await filter_school_textbook_tasks(
+            Task.objects.filter(is_active=True, topic_id__in=topic_ids)
+        ).acount()
+
+    extra_stats = {}
+    if grade == 9:
+        izlo_cnt = await Task.objects.filter(
+            is_active=True, topic_id__in=topic_ids, source__startswith='Сборник изложений'
+        ).acount()
+        extra_stats = {
+            'has_izlozheniya': True,
+            'izlozheniya_count': izlo_cnt,
+            'school_tasks_count': max(0, total_tasks - izlo_cnt),
+        }
+    elif grade == 11:
+        try:
+            cached_stats = await cache.aget('g11_curriculum_extra_stats')
+        except Exception:
+            cached_stats = None
+
+        if cached_stats:
+            part_a_cnt, part_b_cnt, years_stats = cached_stats
+        else:
+            part_a_cnt = await Task.objects.filter(
+                is_active=True,
+                topic_id__in=topic_ids,
+                answer_format__in=['single_choice', 'multiple_choice'],
+            ).acount()
+            part_b_cnt = await Task.objects.filter(
+                is_active=True, topic_id__in=topic_ids, answer_format='text'
+            ).acount()
+
+            recent_years = [2025, 2024, 2023, 2022, 2021, 2020]
+            years_stats = []
+            for y in recent_years:
+                y_filter = Q(source__icontains=str(y)) | Q(variant_links__variant__year=y)
+                y_total = await Task.objects.filter(y_filter, is_active=True).distinct().acount()
+                y_part_a = await Task.objects.filter(
+                    y_filter, is_active=True, answer_format__in=['single_choice', 'multiple_choice']
+                ).distinct().acount()
+                y_part_b = await Task.objects.filter(
+                    y_filter, is_active=True, answer_format='text'
+                ).distinct().acount()
+                y_vars = await ExamVariant.objects.filter(year=y, is_active=True).acount()
+                years_stats.append({
+                    'year': y,
+                    'total_tasks': y_total,
+                    'part_a_count': y_part_a,
+                    'part_b_count': y_part_b,
+                    'variants_count': y_vars,
+                })
+            try:
+                await cache.aset(
+                    'g11_curriculum_extra_stats', (part_a_cnt, part_b_cnt, years_stats), 3600
+                )
+            except Exception:
+                pass
+
+        extra_stats = {
+            'has_ct_ce': True,
+            'part_a_count': part_a_cnt,
+            'part_b_count': part_b_cnt,
+            'available_years': years_stats,
+            'school_tasks_count': school_textbook_tasks_count,
+        }
+
+    collections = []
+    if grade == 9 and extra_stats.get('has_izlozheniya'):
+        collections = [
+            {
+                'id': 'c_g9_izlo',
+                'title': 'Сборник материалов для выпускного экзамена (НИО)',
+                'description': '166 официальных художественных текстов для подробных изложений',
+                'tasks_count': extra_stats.get('izlozheniya_count', 0),
+                'status': 'available',
+                'badge': 'Экзамен 9 кл',
+                'action': 'izlozhenie',
+            },
+        ]
+    elif grade == 11 and extra_stats.get('has_ct_ce'):
+        collections = [
+            {
+                'id': 'c_g11_ct_bank',
+                'title': 'Официальный банк заданий ЦТ и ЦЭ (РИКЗ 2003–2025)',
+                'description': '13 345 заданий: Часть А, Часть Б, фильтрация по годам и полные варианты',
+                'tasks_count': total_tasks,
+                'status': 'available',
+                'badge': 'РИКЗ',
+                'action': 'ct_ce',
+            },
+        ]
+
+    payload = {
+        'grade': grade,
+        'title': f'{grade} класс' if grade <= 10 else '11 класс / ЦТ и ЦЭ',
+        'total_topics': len(topics),
+        'total_tasks': total_tasks,
+        'school_textbook_tasks_count': school_textbook_tasks_count,
+        'total_extra_tasks': total_extra_tasks,
+        'topic_ids': topic_ids,
+        'sections': sorted_sections,
+        'collections': collections,
+        'has_extra_materials': bool(
+            extra_stats.get('has_ct_ce')
+            or extra_stats.get('has_izlozheniya')
+            or len(collections) > 0
+        ),
+        **extra_stats,
+    }
+    try:
+        await cache.aset(cache_key, payload, 600)
+    except Exception:
+        pass
+    return payload
+
+
 class GradeCurriculumView(APIView):
     """Детальный обзор разделов и тем выбранного класса (1-11 класс + ЦТ/ЦЭ)."""
 
@@ -144,26 +345,8 @@ class GradeCurriculumView(APIView):
             student_obj, _ = await aget_student_by_tg(request, int(tg_id_param))
             student = student_obj
 
-        topics_qs = Topic.objects.filter(is_active=True).select_related('section', 'summary')
-        if grade == 11:
-            topics_qs = topics_qs.filter(
-                Q(grade_level=11) | Q(section__exam_track__track_type__in=['ct_11', 'ce_11'])
-            )
-        else:
-            topics_qs = topics_qs.filter(grade_level=grade)
-
-        topics = [t async for t in topics_qs.order_by('section__order', 'order', 'name')]
-        topic_ids = [t.id for t in topics]
-        task_counts = {}
-        extra_counts = {}
-        if topic_ids:
-            task_qs = Task.objects.filter(is_active=True, topic_id__in=topic_ids)
-            if grade <= 10:
-                task_qs = filter_school_textbook_tasks(task_qs)
-            async for row in task_qs.values('topic_id').annotate(cnt=Count('id')):
-                task_counts[row['topic_id']] = row['cnt']
-            async for row in TopicExtraTask.objects.filter(is_active=True, topic_id__in=topic_ids).values('topic_id').annotate(cnt=Count('id')):
-                extra_counts[row['topic_id']] = row['cnt']
+        base = await _curriculum_base_payload(grade)
+        topic_ids = base.get('topic_ids') or []
 
         solved_counts = {}
         masteries = {}
@@ -179,159 +362,31 @@ class GradeCurriculumView(APIView):
             ):
                 solved_counts[row['task__topic_id']] = row['solved']
 
-            async for m in TopicMastery.objects.filter(student=student, topic_id__in=topic_ids):
+            async for m in TopicMastery.objects.filter(
+                student=student, topic_id__in=topic_ids
+            ).only('topic_id', 'correct_count'):
                 masteries[m.topic_id] = m.correct_count
 
-        sections_map = {}
-        for t in topics:
-            sec_id = t.section_id
-            if sec_id not in sections_map:
-                sections_map[sec_id] = {
-                    'id': sec_id,
-                    'name': t.section.name,
-                    'order': t.section.order,
-                    'topics': [],
-                }
+        sections = []
+        for sec in base['sections']:
+            topics_out = []
+            for top in sec['topics']:
+                t_count = top['task_count']
+                s_count = solved_counts.get(top['id'], 0)
+                if not s_count and top['id'] in masteries:
+                    s_count = min(t_count, masteries[top['id']])
+                pct = min(100, round((s_count / t_count) * 100)) if t_count > 0 else 0
+                topics_out.append({
+                    **top,
+                    'solved_count': s_count,
+                    'progress_percent': pct,
+                    'mastery_score': pct,
+                })
+            sections.append({**sec, 'topics': topics_out})
 
-            t_count = task_counts.get(t.id, 0)
-            s_count = solved_counts.get(t.id, 0)
-            if not s_count and t.id in masteries:
-                s_count = min(t_count, masteries[t.id])
-            pct = min(100, round((s_count / t_count) * 100)) if t_count > 0 else 0
-
-            has_sum = hasattr(t, 'summary') and t.summary is not None
-            sections_map[sec_id]['topics'].append({
-                'id': t.id,
-                'name': t.name,
-                'exam_weight': t.exam_weight,
-                'task_count': t_count,
-                'extra_task_count': extra_counts.get(t.id, 0),
-                'solved_count': s_count,
-                'progress_percent': pct,
-                'mastery_score': pct,
-                'has_summary': has_sum,
-                'summary_title': t.summary.title if has_sum else '',
-                'summary_key_points': t.summary.key_points if has_sum else '',
-            })
-
-        sorted_sections = sorted(sections_map.values(), key=lambda s: (s['order'], s['name']))
-
-        total_tasks = sum(task_counts.values())
-        total_extra_tasks = sum(extra_counts.values())
-        total_topics = len(topics)
-        school_textbook_tasks_count = total_tasks
-        if grade == 11 and topic_ids:
-            school_textbook_tasks_count = await filter_school_textbook_tasks(
-                Task.objects.filter(is_active=True, topic_id__in=topic_ids)
-            ).acount()
-
-        extra_stats = {}
-        if grade == 9:
-            izlo_cnt = await Task.objects.filter(
-                is_active=True, topic_id__in=topic_ids, source__startswith='Сборник изложений'
-            ).acount()
-            extra_stats = {
-                'has_izlozheniya': True,
-                'izlozheniya_count': izlo_cnt,
-                'school_tasks_count': max(0, total_tasks - izlo_cnt),
-            }
-        elif grade == 11:
-            from django.core.cache import cache
-
-            try:
-                cached_stats = await cache.aget('g11_curriculum_extra_stats')
-            except Exception:
-                cached_stats = None
-
-            if cached_stats:
-                part_a_cnt, part_b_cnt, years_stats = cached_stats
-            else:
-                part_a_cnt = await Task.objects.filter(
-                    is_active=True,
-                    topic_id__in=topic_ids,
-                    answer_format__in=['single_choice', 'multiple_choice'],
-                ).acount()
-                part_b_cnt = await Task.objects.filter(
-                    is_active=True, topic_id__in=topic_ids, answer_format='text'
-                ).acount()
-
-                recent_years = [2025, 2024, 2023, 2022, 2021, 2020]
-                years_stats = []
-                for y in recent_years:
-                    y_filter = Q(source__icontains=str(y)) | Q(variant_links__variant__year=y)
-                    y_total = await Task.objects.filter(y_filter, is_active=True).distinct().acount()
-                    y_part_a = await Task.objects.filter(
-                        y_filter, is_active=True, answer_format__in=['single_choice', 'multiple_choice']
-                    ).distinct().acount()
-                    y_part_b = await Task.objects.filter(
-                        y_filter, is_active=True, answer_format='text'
-                    ).distinct().acount()
-                    y_vars = await ExamVariant.objects.filter(year=y, is_active=True).acount()
-                    years_stats.append({
-                        'year': y,
-                        'total_tasks': y_total,
-                        'part_a_count': y_part_a,
-                        'part_b_count': y_part_b,
-                        'variants_count': y_vars,
-                    })
-                try:
-                    await cache.aset('g11_curriculum_extra_stats', (part_a_cnt, part_b_cnt, years_stats), 3600)
-                except Exception:
-                    pass
-
-            extra_stats = {
-                'has_ct_ce': True,
-                'part_a_count': part_a_cnt,
-                'part_b_count': part_b_cnt,
-                'available_years': years_stats,
-                'school_tasks_count': school_textbook_tasks_count,
-            }
-
-        # Дополнительные сборники и спецматериалы формируются только при их реальном наличии
-        collections = []
-        if grade == 9 and extra_stats.get('has_izlozheniya'):
-            collections = [
-                {
-                    'id': 'c_g9_izlo',
-                    'title': 'Сборник материалов для выпускного экзамена (НИО)',
-                    'description': '166 официальных художественных текстов для подробных изложений',
-                    'tasks_count': extra_stats.get('izlozheniya_count', 0),
-                    'status': 'available',
-                    'badge': 'Экзамен 9 кл',
-                    'action': 'izlozhenie',
-                },
-            ]
-        elif grade == 11 and extra_stats.get('has_ct_ce'):
-            collections = [
-                {
-                    'id': 'c_g11_ct_bank',
-                    'title': 'Официальный банк заданий ЦТ и ЦЭ (РИКЗ 2003–2025)',
-                    'description': '13 345 заданий: Часть А, Часть Б, фильтрация по годам и полные варианты',
-                    'tasks_count': total_tasks,
-                    'status': 'available',
-                    'badge': 'РИКЗ',
-                    'action': 'ct_ce',
-                },
-            ]
-
-        has_extra_materials = bool(
-            extra_stats.get('has_ct_ce')
-            or extra_stats.get('has_izlozheniya')
-            or len(collections) > 0
-        )
-
-        return Response({
-            'grade': grade,
-            'title': f'{grade} класс' if grade <= 10 else '11 класс / ЦТ и ЦЭ',
-            'total_topics': total_topics,
-            'total_tasks': total_tasks,
-            'school_textbook_tasks_count': school_textbook_tasks_count,
-            'total_extra_tasks': total_extra_tasks,
-            'sections': sorted_sections,
-            'collections': collections,
-            'has_extra_materials': has_extra_materials,
-            **extra_stats,
-        })
+        response_data = {k: v for k, v in base.items() if k != 'topic_ids'}
+        response_data['sections'] = sections
+        return Response(response_data)
 
 
 class TopicExtraTasksView(APIView):

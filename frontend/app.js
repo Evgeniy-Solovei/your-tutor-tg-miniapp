@@ -7,7 +7,13 @@ import {
   payloadFromForm,
   renderRegForm,
 } from './registration.js';
-import { bootTelegram, getDevTgId, getUnsafeUser, setDevTgId } from './telegram.js';
+import {
+  bootTelegram,
+  getDevTgId,
+  getUnsafeUser,
+  isWebChannel,
+  setDevTgId,
+} from './telegram.js';
 import { THEMES, getTheme, initTheme, toggleTheme } from './theme.js';
 
 const state = {
@@ -109,15 +115,29 @@ function isProUser() {
 function renderLearningPath(activeStep, opts = {}) {
   const hasExtra = opts.hasExtra !== false;
   const pro = isProUser();
+  const clickable = opts.clickable !== false;
   const steps = [
-    { n: 1, icon: '📖', title: 'Учебник', sub: 'задания из книги' },
-    { n: 2, icon: '🧩', title: 'Доп. задания', sub: hasExtra ? 'закрепление темы' : 'нет по теме' },
+    {
+      n: 1,
+      icon: '📖',
+      title: 'Учебник',
+      sub: 'задания из книги',
+      action: 'go-my-curriculum',
+    },
+    {
+      n: 2,
+      icon: '🧩',
+      title: 'Доп. задания',
+      sub: hasExtra ? 'закрепление темы' : 'нет по теме',
+      action: hasExtra ? 'go-extra-tasks' : '',
+    },
     {
       n: 3,
       icon: '🤖',
       title: 'Разбор с ИИ',
       sub: pro ? 'активировано' : 'по подписке',
       proActive: pro,
+      action: pro ? 'ai-hint-pro' : 'open-tariffs',
     },
   ];
   return `
@@ -128,13 +148,18 @@ function renderLearningPath(activeStep, opts = {}) {
           const active = activeStep === s.n;
           const muted = s.n === 2 && !hasExtra;
           const proCls = s.proActive ? ' pro-on' : '';
+          const canClick = clickable && s.action && !muted;
+          const tag = canClick ? 'button' : 'div';
+          const attrs = canClick
+            ? `type="button" data-action="${escAttr(s.action)}" class="learning-step learning-step-btn${active ? ' active' : ''}${done ? ' done' : ''}${proCls}"`
+            : `class="learning-step${active ? ' active' : ''}${done ? ' done' : ''}${muted ? ' muted' : ''}${proCls}" role="listitem"`;
           return `
-        <div class="learning-step${active ? ' active' : ''}${done ? ' done' : ''}${muted ? ' muted' : ''}${proCls}" role="listitem">
+        <${tag} ${attrs}>
           <div class="learning-step-num">${done ? '✓' : s.n}</div>
           <div class="learning-step-icon">${s.icon}</div>
           <div class="learning-step-title">${esc(s.title)}</div>
           <div class="learning-step-sub">${esc(s.sub)}</div>
-        </div>`;
+        </${tag}>`;
         })
         .join('')}
     </div>`;
@@ -225,11 +250,27 @@ async function loadMe() {
       try {
         const pack = await api.devUsers();
         state.devUsers = pack.users || [];
-        if (state.devUsers[0]) setDevTgId(state.devUsers[0].tg_id);
-        else setDevTgId(777842796); // новый пользователь для локальной регистрации
+        const preferred =
+          (pack.demo_tg_id &&
+            state.devUsers.find((u) => String(u.tg_id) === String(pack.demo_tg_id))) ||
+          state.devUsers[0];
+        if (preferred) setDevTgId(preferred.tg_id);
+        else if (!isWebChannel()) setDevTgId(777842796);
       } catch (_) {
-        setDevTgId(777842796);
+        if (!isWebChannel()) setDevTgId(777842796);
       }
+    }
+    if (!getDevTgId() && !getUnsafeUser()?.id) {
+      state.error = isWebChannel()
+        ? 'Выбери демо-ученика, чтобы открыть приложение'
+        : 'Нет пользователя для входа';
+      try {
+        const pack = await api.devUsers();
+        state.devUsers = pack.users || [];
+      } catch (_) {
+        /* ignore */
+      }
+      return;
     }
     state.me = await api.me();
     if (state.me && state.me.registered === false) {
@@ -2300,26 +2341,37 @@ function render() {
   }
 
   if (state.loading && !state.me) {
-    root.innerHTML = `<div class="card empty">Подключаем Telegram…</div>`;
+    root.innerHTML = `<div class="card empty">${
+      isWebChannel() ? 'Загрузка…' : 'Подключаем Telegram…'
+    }</div>`;
     return;
   }
 
   if (state.error && !state.me) {
     const users = state.devUsers || [];
+    const web = isWebChannel();
     root.innerHTML = `
       <section class="card">
-        <h2>Локальный вход</h2>
-        <p class="muted">${esc(state.error)}</p>
+        <h2>${web ? 'Демо-вход' : 'Локальный вход'}</h2>
+        <p class="muted">${esc(
+          web
+            ? 'Веб-версия «Твой Репетитор» — тот же продукт, что в Telegram. Выбери ученика, чтобы посмотреть функционал.'
+            : state.error,
+        )}</p>
         ${
           users.length
             ? `<p class="muted">Выбери ученика:</p>
                ${users
                  .map(
                    (u) =>
-                     `<button class="btn block secondary" style="margin-top:8px" data-action="dev-login" data-tg="${u.tg_id}">${esc(u.display_name)} · ${u.tg_id}</button>`,
+                     `<button class="btn block secondary" style="margin-top:8px" data-action="dev-login" data-tg="${u.tg_id}">${esc(u.display_name)}${
+                       u.grade ? ` · ${u.grade} кл.` : ''
+                     }</button>`,
                  )
                  .join('')}`
-            : `<p class="muted">Включи TELEGRAM_AUTH_BYPASS=True и открой <code>/app/?dev_tg_id=...</code></p>`
+            : web
+              ? `<p class="muted">Нет зарегистрированных учеников в БД — сначала создай демо-аккаунт или укажи WEB_DEMO_TG_ID.</p>`
+              : `<p class="muted">Включи TELEGRAM_AUTH_BYPASS=True и открой <code>/app/?dev_tg_id=...</code></p>`
         }
       </section>`;
     return;

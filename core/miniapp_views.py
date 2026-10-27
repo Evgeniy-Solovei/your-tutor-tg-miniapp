@@ -2,7 +2,7 @@ from pathlib import Path
 import mimetypes
 
 from django.conf import settings
-from django.http import FileResponse, Http404
+from django.http import FileResponse, HttpResponse
 from django.views.decorators.clickjacking import xframe_options_exempt
 from django.views.decorators.http import require_GET
 
@@ -10,12 +10,32 @@ from django.views.decorators.http import require_GET
 FRONTEND_DIR = Path(settings.BASE_DIR) / 'frontend'
 
 
+def _inject_web_channel(html: str) -> str:
+    """Помечает HTML как веб-сайт (не Telegram Mini App)."""
+    marker = 'data-channel="web"'
+    if marker in html:
+        return html
+    html = html.replace(
+        '<html lang="ru"',
+        '<html lang="ru" data-channel="web"',
+        1,
+    )
+    html = html.replace(
+        '<body>',
+        '<body data-channel="web" class="channel-web">\n'
+        '    <script>window.__TUTOR_CHANNEL__="web";</script>',
+        1,
+    )
+    # Telegram SDK на чистом сайте не обязателен — оставляем, boot сам no-op
+    return html
+
+
 @require_GET
 @xframe_options_exempt
 def miniapp(request, path: str = ''):
     """
-    Отдаёт файлы Mini App из каталога frontend.
-    Поддерживает отдачу статики (.css, .js) и SPA-клиентский роутинг (возврат index.html для всех страниц).
+    Отдаёт файлы Mini App / веб-сайта из каталога frontend.
+    Поддерживает статику (.css, .js) и SPA (index.html для неизвестных путей).
     """
     clean_path = path.strip('/')
     if not clean_path:
@@ -24,12 +44,10 @@ def miniapp(request, path: str = ''):
     root = FRONTEND_DIR.resolve()
     target = (FRONTEND_DIR / clean_path).resolve()
 
-    # Защита от выхода за пределы каталога frontend
     if not str(target).startswith(str(root)):
         target = root / 'index.html'
         clean_path = 'index.html'
 
-    # Если файл не существует (например, клиентский роут /app/practice) — отдаём index.html
     if not target.is_file():
         target = root / 'index.html'
         clean_path = 'index.html'
@@ -42,12 +60,25 @@ def miniapp(request, path: str = ''):
     elif clean_path.endswith('.html'):
         content_type = 'text/html; charset=utf-8'
 
-    response = FileResponse(target.open('rb'), content_type=content_type or 'application/octet-stream')
-    # Telegram WebView агрессивно кеширует JS/CSS. Всегда перепроверяем версию,
-    # иначе после деплоя пользователь может продолжать исполнять старый frontend.
+    web_site = bool(getattr(settings, 'WEB_SITE_ENABLED', False))
+
+    if clean_path.endswith('.html') and web_site:
+        html = target.read_text(encoding='utf-8')
+        html = _inject_web_channel(html)
+        response = HttpResponse(html, content_type=content_type or 'text/html; charset=utf-8')
+    else:
+        response = FileResponse(
+            target.open('rb'),
+            content_type=content_type or 'application/octet-stream',
+        )
+
     response['Cache-Control'] = 'no-cache, must-revalidate'
-    response['Content-Security-Policy'] = (
-        "frame-ancestors 'self' https://web.telegram.org https://telegram.org "
-        'https://*.telegram.org'
-    )
+    if web_site:
+        # Презентации / встраивание для инвестора
+        response['Content-Security-Policy'] = "frame-ancestors *"
+    else:
+        response['Content-Security-Policy'] = (
+            "frame-ancestors 'self' https://web.telegram.org https://telegram.org "
+            'https://*.telegram.org'
+        )
     return response

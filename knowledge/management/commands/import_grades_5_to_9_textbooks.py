@@ -160,7 +160,7 @@ def build_task_entry(grade: int, part: int, num: int, raw_text: str, author: str
         sec_name, top_name = topic_grade9(num)
         part_str = ""
 
-    question_header = f"Упражнение {num} (Учебник {grade} кл.{part_str})\n\n{snippet}"
+    question_header = snippet
 
     if missing_matches:
         target_words = [w for w in missing_matches if len(w) > 2][:3]

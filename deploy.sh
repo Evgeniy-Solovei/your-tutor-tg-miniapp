@@ -47,6 +47,7 @@ echo "🎉 ВСЁ ГОТОВО И ЗАПУЩЕНО В ФОНЕ (Systemd Авто
 echo "- Сайт/API: systemctl status tutor-web"
 echo "- Бот:      systemctl status tutor-bot"
 echo "- Админ:    python manage.py createsuperuser (один раз, если ещё не создан)"
+echo "- Веб-демо: http://127.0.0.1:8006/  (контейнер tutor_site, без Telegram)"
 echo "----------------------------------------------------------------------"
 echo "Осталось только получить SSL (HTTPS) сертификат:"
 echo "   sudo certbot --nginx -d your-tutor.live-dev.by"

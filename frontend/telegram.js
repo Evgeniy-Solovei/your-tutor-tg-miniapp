@@ -1,10 +1,25 @@
 /** Telegram WebApp bootstrap + initData для HMAC на бэке. */
 
+export function isWebChannel() {
+  if (window.__TUTOR_CHANNEL__ === 'web') return true;
+  if (document.documentElement?.dataset?.channel === 'web') return true;
+  if (document.body?.dataset?.channel === 'web') return true;
+  if (document.body?.classList?.contains('channel-web')) return true;
+  const params = new URLSearchParams(window.location.search);
+  return params.get('channel') === 'web';
+}
+
 export function getWebApp() {
+  if (isWebChannel()) return null;
   return window.Telegram?.WebApp ?? null;
 }
 
 export function bootTelegram() {
+  if (isWebChannel()) {
+    document.body?.classList.add('channel-web');
+    document.documentElement?.setAttribute('data-channel', 'web');
+    return null;
+  }
   const tg = getWebApp();
   if (!tg) return null;
   try {
@@ -50,12 +65,18 @@ export function getUnsafeUser() {
   const tg = getWebApp();
   if (tg?.initDataUnsafe?.user) return tg.initDataUnsafe.user;
   const id = getDevTgId();
-  if (id) return { id: Number(id), first_name: 'Dev' };
+  if (id) {
+    return {
+      id: Number(id),
+      first_name: isWebChannel() ? 'Демо' : 'Dev',
+    };
+  }
   return null;
 }
 
 export function isDevBypass() {
-  // Вне Telegram всегда пробуем dev-режим (если бэкенд BYPASS выключен — получим 401)
+  // Веб-сайт и локалка вне Telegram — без HMAC
+  if (isWebChannel()) return true;
   const tg = getWebApp();
   if (tg?.initData) return false;
   return Boolean(getDevTgId()) || true;

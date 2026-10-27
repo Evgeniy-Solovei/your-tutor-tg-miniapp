@@ -23,7 +23,7 @@ from students.serializers import StudentSerializer
 
 
 class DevUsersView(APIView):
-    """Список учеников для локального входа (только DEBUG + BYPASS)."""
+    """Список учеников для локального / веб-демо входа."""
 
     authentication_classes = []
     permission_classes = []
@@ -31,18 +31,27 @@ class DevUsersView(APIView):
     async def get(self, request):
         from django.conf import settings as dj_settings
 
-        if not (dj_settings.DEBUG and getattr(dj_settings, 'TELEGRAM_AUTH_BYPASS', False)):
-            return Response({'detail': 'Только для локальной отладки'}, status=404)
+        bypass = bool(getattr(dj_settings, 'TELEGRAM_AUTH_BYPASS', False))
+        web_site = bool(getattr(dj_settings, 'WEB_SITE_ENABLED', False))
+        if not (bypass and (dj_settings.DEBUG or web_site)):
+            return Response({'detail': 'Только для локальной отладки / веб-демо'}, status=404)
 
         users = [
             {
                 'tg_id': s.tg_id,
                 'display_name': s.display_name,
                 'registered': s.registration_completed,
+                'grade': s.grade,
             }
-            async for s in Student.objects.order_by('display_name')[:50]
+            async for s in Student.objects.filter(registration_completed=True)
+            .order_by('display_name')[:50]
         ]
-        return Response({'users': users, 'bypass': True})
+        return Response({
+            'users': users,
+            'bypass': True,
+            'channel': 'web' if web_site else 'dev',
+            'demo_tg_id': getattr(dj_settings, 'WEB_DEMO_TG_ID', '') or '',
+        })
 
 
 class MeView(APIView):
@@ -240,8 +249,8 @@ class DailySessionView(APIView):
         empty_reason = ''
         if not content_available:
             empty_reason = (
-                f'Для {student.grade} класса заданий пока мало или сессия пуста. '
-                f'Загляни позже — база пополняется.'
+                f'Для {student.grade} класса сейчас нет заданий в этой подборке. '
+                f'Открой «Учёба» → тему → учебник или доп. задания.'
             )
 
         return Response(

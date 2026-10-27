@@ -42,6 +42,10 @@ TELEGRAM_BOT_USERNAME = os.getenv('TELEGRAM_BOT_USERNAME', 'tutor_by_bot')
 TELEGRAM_MINI_APP_SHORT_NAME = os.getenv('TELEGRAM_MINI_APP_SHORT_NAME', 'app')
 # Для локальной отладки Mini App вне Telegram (только при DEBUG=True)
 TELEGRAM_AUTH_BYPASS = env_bool('TELEGRAM_AUTH_BYPASS', False)
+# Отдельный веб-сайт (контейнер tutor_site): тот же продукт без Telegram Mini App
+WEB_SITE_ENABLED = env_bool('WEB_SITE_ENABLED', False)
+# Автовыбор демо-ученика на сайте (tg_id). Пусто = первый из списка /dev/users/
+WEB_DEMO_TG_ID = (os.getenv('WEB_DEMO_TG_ID') or '').strip()
 
 # Локалка + туннели: не упираться в CORS / host
 if DEBUG:

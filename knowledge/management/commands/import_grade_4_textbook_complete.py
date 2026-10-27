@@ -101,7 +101,7 @@ def build_task_data(part: int, ex_num: int, raw_text: str) -> dict:
     else:
         sec_name, top_name = determine_part2_topic(ex_num)
 
-    question = f"Упражнение {ex_num} (Учебник 4 кл., Часть {part})\n\n{snippet}"
+    question = snippet
 
     # Generate meaningful pedagogical options based on textbook tasks
     if missing_matches:

@@ -66,7 +66,7 @@ def build_task_grade10(num: int, raw_text: str) -> dict:
         snippet += "..."
 
     sec_name, top_name = topic_grade10(num)
-    question_header = f"Упражнение {num} (Учебник 10 кл.)\n\n{snippet}"
+    question_header = snippet
 
     q_text = f"{question_header}\n\n❓ Выполните задание упражнения {num}. Какая лингвистическая норма соответствует правилу?"
     correct_ans = "Задание выполнено верно с соблюдением орфографических и грамматических норм 10 класса"

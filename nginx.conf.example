@@ -1,10 +1,14 @@
 # /etc/nginx/sites-available/tutorbot
 # Статика проксируется в WhiteNoise внутри Django-контейнера. Это намеренно:
 # nginx не должен читать /root/... и зависеть от прав на домашний каталог root.
+#
+# Два хоста одного продукта:
+#   your-tutor.live-dev.by      → tutor_web  :8005  (Telegram Mini App)
+#   demo.your-tutor.live-dev.by → tutor_site :8006  (веб для инвестора, без TG)
 
 server {
     listen 80;
-    server_name your-tutor.live-dev.by;
+    server_name your-tutor.live-dev.by demo.your-tutor.live-dev.by;
     return 301 https://$host$request_uri;
 }
 
@@ -42,6 +46,50 @@ server {
 
     location / {
         proxy_pass http://127.0.0.1:8005;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_connect_timeout 5s;
+        proxy_read_timeout 65s;
+    }
+}
+
+# Веб-демо (тот же продукт, контейнер tutor_site)
+server {
+    listen 443 ssl http2;
+    server_name demo.your-tutor.live-dev.by;
+
+    access_log /var/log/nginx/tutorbot_demo_access.log;
+    error_log /var/log/nginx/tutorbot_demo_error.log;
+
+    # После: certbot --nginx -d demo.your-tutor.live-dev.by
+    ssl_certificate /etc/letsencrypt/live/demo.your-tutor.live-dev.by/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/demo.your-tutor.live-dev.by/privkey.pem;
+    include /etc/letsencrypt/options-ssl-nginx.conf;
+    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
+
+    client_max_body_size 25m;
+
+    location /static/ {
+        proxy_pass http://127.0.0.1:8006;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        expires 30d;
+        add_header Cache-Control "public, immutable";
+    }
+
+    location /media/ {
+        proxy_pass http://127.0.0.1:8006;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        expires 7d;
+        add_header Cache-Control "public";
+    }
+
+    location / {
+        proxy_pass http://127.0.0.1:8006;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;

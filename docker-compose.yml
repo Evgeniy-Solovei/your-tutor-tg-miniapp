@@ -49,6 +49,35 @@ services:
       tutor_redis:
         condition: service_healthy
 
+  # Веб-сайт 1:1 с Mini App (для инвестора / демо вне Telegram).
+  # Та же БД и media, отдельный процесс с WEB_SITE_ENABLED.
+  tutor_site:
+    build: .
+    container_name: tutor_site
+    restart: always
+    env_file: .env
+    environment:
+      POSTGRES_HOST: tutor_db
+      POSTGRES_PORT: "5432"
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      REDIS_URL: redis://tutor_redis:6379/0
+      WEB_SITE_ENABLED: "1"
+      TELEGRAM_AUTH_BYPASS: "1"
+      # при необходимости задай в .env: WEB_DEMO_TG_ID=123456789
+    ports:
+      - "127.0.0.1:8006:8005"
+    volumes:
+      - ./media:/app/media
+    depends_on:
+      tutor_db:
+        condition: service_healthy
+      tutor_redis:
+        condition: service_healthy
+      tutor_web:
+        condition: service_started
+
   tutor_bot:
     build: .
     container_name: tutor_bot

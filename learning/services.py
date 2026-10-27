@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 
 async def _prefer_textbook_tasks(qs):
-    """Если в теме есть учебник — берём только его, без сид-квизов и ЦТ."""
+    """Если в теме есть учебник — берём только его, без ЦТ/квизов."""
     tb = filter_school_textbook_tasks(qs)
     if await tb.aexists():
         return tb

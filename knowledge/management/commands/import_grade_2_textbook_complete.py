@@ -92,7 +92,7 @@ def build_task_data(part: int, ex_num: int, raw_text: str) -> dict:
     else:
         sec_name, top_name = determine_grade2_part2_topic(ex_num)
 
-    question = f"Упражнение {ex_num} (Учебник 2 кл., Часть {part})\n\n{snippet}"
+    question = snippet
 
     if missing_matches:
         target_words = [w for w in missing_matches if len(w) > 2][:3]

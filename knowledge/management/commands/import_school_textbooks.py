@@ -460,22 +460,19 @@ class Command(BaseCommand):
             topic = ensure_topic(
                 track, version, 1, '1 кл. · Учебник Антипова', chapter
             )
-            caption = raw or chapter
+            # Картинка страницы — главный стимул; номер стр. только в source.
             question = (
-                f'Страница {printed} учебника 1 класса\n'
-                f'Раздел: {chapter}\n\n'
-                f'{caption}\n\n'
-                f'Прочитай страницу (картинка из учебника). '
-                f'Как называется этот раздел?'
+                'Посмотри на картинку страницы учебника.\n\n'
+                'О чём эта страница?'
             )
             distractors = [t for _, t in G1_TOC if t != chapter]
-            # соседние разделы — реалистичные ошибки
             idx = next(i for i, (_, t) in enumerate(G1_TOC) if t == chapter)
             nearby = []
             for j in (idx - 1, idx + 1, idx - 2, idx + 2, 0, -1):
                 if 0 <= j < len(G1_TOC) and G1_TOC[j][1] != chapter:
-                    nearby.append(G1_TOC[j][1])
-            opts = [chapter] + [x for x in nearby if x][:3]
+                    if G1_TOC[j][1] not in nearby:
+                        nearby.append(G1_TOC[j][1])
+            opts = [chapter] + nearby[:3]
             while len(opts) < 4 and distractors:
                 d = distractors.pop(0)
                 if d not in opts:
@@ -484,7 +481,7 @@ class Command(BaseCommand):
             task = Task.objects.create(
                 topic=topic,
                 question=question,
-                reading_text=caption,
+                reading_text='',  # ответ на картинке, без OCR-мусора
                 answer_format=Task.AnswerFormat.SINGLE_CHOICE,
                 scoring_scheme=Task.ScoringScheme.BINARY_1,
                 difficulty=Task.Difficulty.EASY,
@@ -505,8 +502,8 @@ class Command(BaseCommand):
                 task=task,
                 correct_answer='1',
                 explanation=(
-                    f'Это страница {printed} раздела «{chapter}» '
-                    f'учебника Антиповой / Грабчиковой (2024).'
+                    f'На странице {printed} учебника тема «{chapter}». '
+                    f'Смотри на рисунки и заголовок — ответ на картинке.'
                 ),
             )
             created += 1
@@ -566,7 +563,6 @@ class Command(BaseCommand):
                 topic = ensure_topic(track, version, grade, sec_name, top_name)
                 copy_target = longest_sentence(body)
                 question = (
-                    f'Упражнение {num} (учебник {grade} класса{part_label})\n\n'
                     f'{body}\n\n'
                     f'Выполни упражнение по тексту учебника. '
                     f'Если нужно списать — спиши предложение. '
