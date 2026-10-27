@@ -7,6 +7,52 @@
       content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
     />
     <title>Твой Репетитор — ЦТ / ЦЭ</title>
+    <!-- Критичные стили СПЛЭША — сразу в HTML, без ожидания CSS/шрифтов/Telegram SDK -->
+    <style>
+      html, body {
+        background: #0b0b12;
+        color: #f4f1ff;
+        margin: 0;
+        padding: 0;
+        min-height: 100%;
+      }
+      [data-theme='calm'] body { background: #f3f6f4; color: #1c2a24; }
+      .app-splash {
+        position: fixed;
+        inset: 0;
+        z-index: 99999;
+        background: #0b0b12;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 14px;
+        transition: opacity 0.35s ease, visibility 0.35s ease;
+        font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+      }
+      .app-splash.hidden { opacity: 0; visibility: hidden; pointer-events: none; }
+      .splash-gears { position: relative; width: 76px; height: 76px; }
+      .splash-gear { position: absolute; line-height: 1; }
+      .splash-gear-main {
+        font-size: 46px; top: 0; left: 2px;
+        animation: splash-spin 3s linear infinite;
+      }
+      .splash-gear-sub {
+        font-size: 28px; bottom: 2px; right: 2px;
+        animation: splash-spin-reverse 2.2s linear infinite;
+      }
+      @keyframes splash-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+      @keyframes splash-spin-reverse { from { transform: rotate(0deg); } to { transform: rotate(-360deg); } }
+      .splash-title { font-weight: 700; font-size: 1.15rem; color: #f4f1ff; letter-spacing: 0.5px; }
+      .splash-loading-text {
+        font-size: 0.86rem; color: #b7aecf;
+        animation: splash-pulse 1.3s ease-in-out infinite;
+      }
+      @keyframes splash-pulse { 0%, 100% { opacity: 0.5; } 50% { opacity: 1; } }
+      /* Пока грузится app — прячем оболочку, чтобы не мигала пустая шапка */
+      .app-shell { visibility: hidden; }
+      html.app-ready .app-shell { visibility: visible; }
+    </style>
     <script>
       (function() {
         try {
@@ -15,36 +61,35 @@
         } catch(e) {}
       })();
     </script>
-    <style>
-      html, body {
-        background-color: #0b0b12;
-        color: #f4f1ff;
-        margin: 0;
-        padding: 0;
-      }
-      [data-theme='calm'] body {
-        background-color: #f3f6f4;
-        color: #1c2a24;
-      }
-    </style>
-    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <!-- Внешние CSS не блокируют первый кадр (сплэш уже в inline <style>) -->
+    <link
+      rel="stylesheet"
+      href="./styles.css?v=20261027-boot"
+      media="print"
+      onload="this.media='all'"
+    />
+    <noscript><link rel="stylesheet" href="./styles.css?v=20261027-boot" /></noscript>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700;800&family=Unbounded:wght@600;700;800&display=swap"
       rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700;800&family=Unbounded:wght@600;700;800&display=swap"
+      media="print"
+      onload="this.media='all'"
     />
-    <link rel="stylesheet" href="./styles.css?v=20261027-perf" />
+    <noscript>
+      <link
+        rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700;800&family=Unbounded:wght@600;700;800&display=swap"
+      />
+    </noscript>
 
-    <!-- ═══════════════════════════════════════════════════════════════
-         Глобальный перехватчик JS-ошибок → логи контейнера через бэкенд.
-         ДОЛЖЕН стоять ДО загрузки app.js, чтобы поймать ошибки старта.
-         ═══════════════════════════════════════════════════════════════ -->
+    <!-- Глобальный перехватчик JS-ошибок → логи контейнера через бэкенд -->
     <script>
       (function () {
         var LOG_URL = '/api/tutor/logs/client-error/';
         var _lastSent = 0;
-        var THROTTLE_MS = 3000; // не чаще 1 раза в 3 сек (защита от спама)
+        var THROTTLE_MS = 3000;
 
         function sendError(payload) {
           var now = Date.now();
@@ -52,7 +97,6 @@
           _lastSent = now;
 
           var body = JSON.stringify(payload);
-          // fetch предпочтительнее sendBeacon (sendBeacon не гарантирует отправку в Telegram WebView)
           try {
             fetch(LOG_URL, {
               method: 'POST',
@@ -60,7 +104,6 @@
               body: body,
               keepalive: true
             }).catch(function () {
-              // если fetch недоступен — пробуем sendBeacon как резерв
               if (navigator.sendBeacon) navigator.sendBeacon(LOG_URL, body);
             });
           } catch (e) {
@@ -82,7 +125,6 @@
           try { return window.location.hash || window.location.pathname; } catch (e) { return ''; }
         }
 
-        // Перехват синхронных ошибок (ReferenceError, SyntaxError, TypeError, etc.)
         window.addEventListener('error', function (event) {
           sendError({
             message: event.message || 'Unknown error',
@@ -96,7 +138,6 @@
           });
         });
 
-        // Перехват необработанных Promise-rejection (async/await ошибки)
         window.addEventListener('unhandledrejection', function (event) {
           var reason = event.reason;
           sendError({
@@ -114,7 +155,7 @@
     </script>
   </head>
   <body>
-    <!-- Заставка при запуске приложения -->
+    <!-- Сплэш сразу в body — виден до загрузки JS/шрифтов -->
     <div id="app-splash" class="app-splash">
       <div class="splash-gears">
         <span class="splash-gear splash-gear-main">⚙️</span>
@@ -124,12 +165,12 @@
       <div class="splash-loading-text">Загрузка...</div>
     </div>
     <script>
-      // Сплэш держим до готовности приложения (иначе чёрный экран, пока API думает).
-      // Страховка: максимум 12 с.
+      // Держим сплэш до готовности приложения. Страховка: максимум 12 с.
       window.__TUTOR_HIDE_SPLASH__ = function () {
         var splash = document.getElementById('app-splash');
         if (!splash || splash.dataset.done) return;
         splash.dataset.done = '1';
+        document.documentElement.classList.add('app-ready');
         splash.classList.add('hidden');
         setTimeout(function () {
           if (splash && splash.parentNode) splash.parentNode.removeChild(splash);
@@ -165,6 +206,14 @@
         <button type="button" class="tab" data-route="profile">Профиль & Семья</button>
       </nav>
     </div>
-    <script type="module" src="./app.js?v=20261027-flow"></script>
+    <!-- Telegram SDK после сплэша: не держит чёрный экран до первого paint -->
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <script>
+      try {
+        var _tg = window.Telegram && window.Telegram.WebApp;
+        if (_tg) { _tg.ready(); _tg.expand(); }
+      } catch (e) {}
+    </script>
+    <script type="module" src="./app.js?v=20261027-boot"></script>
   </body>
 </html>
