@@ -2,7 +2,6 @@ from adrf.views import APIView
 from django.conf import settings
 from django.db.models import Count, Q
 from rest_framework.response import Response
-import asyncio
 import random
 
 from core.api import telegram_auth_classes
@@ -150,23 +149,6 @@ async def _curriculum_base_payload(grade: int) -> dict:
             return cached
     except Exception:
         cached = None
-
-    # Антиштамп: один воркер считает, остальные ждут готовый кэш.
-    lock_key = f'{cache_key}:lock'
-    got_lock = False
-    try:
-        got_lock = await cache.aadd(lock_key, 1, 30)
-    except Exception:
-        got_lock = True
-    if not got_lock:
-        for _ in range(40):
-            await asyncio.sleep(0.25)
-            try:
-                cached = await cache.aget(cache_key)
-            except Exception:
-                cached = None
-            if cached:
-                return cached
 
     from django.db.models import Exists, OuterRef
     from knowledge.models import TopicSummary
@@ -330,10 +312,6 @@ async def _curriculum_base_payload(grade: int) -> dict:
     }
     try:
         await cache.aset(cache_key, payload, 21600)  # 6 ч — темы/счётчики почти не меняются
-    except Exception:
-        pass
-    try:
-        await cache.adelete(lock_key)
     except Exception:
         pass
     return payload
