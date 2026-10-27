@@ -2,6 +2,7 @@ from adrf.views import APIView
 from django.conf import settings
 from django.db.models import Count, Q
 from rest_framework.response import Response
+import asyncio
 import random
 
 from core.api import telegram_auth_classes
@@ -138,11 +139,15 @@ class CatalogView(APIView):
         })
 
 
+# Генераторы кладут ровно столько доп. карточек на тему (см. populate / generate_*).
+EXTRA_TASKS_PER_TOPIC = 1000
+
+
 async def _curriculum_base_payload(grade: int) -> dict:
     """Структура класса без прогресса ученика — кэшируется (счётчики почти статичны)."""
     from django.core.cache import cache
 
-    cache_key = f'curriculum_base_v5_g{grade}'
+    cache_key = f'curriculum_base_v6_g{grade}'
     try:
         cached = await cache.aget(cache_key)
         if cached:
@@ -150,11 +155,32 @@ async def _curriculum_base_payload(grade: int) -> dict:
     except Exception:
         cached = None
 
+    # Антиштамп: один воркер считает, остальные ждут готовый кэш (иначе 3× COUNT по 760k).
+    lock_key = f'{cache_key}:lock'
+    got_lock = False
+    try:
+        got_lock = await cache.aadd(lock_key, 1, 30)
+    except Exception:
+        got_lock = True
+    if not got_lock:
+        for _ in range(40):
+            await asyncio.sleep(0.25)
+            try:
+                cached = await cache.aget(cache_key)
+            except Exception:
+                cached = None
+            if cached:
+                return cached
+
     from django.db.models import Exists, OuterRef
     from knowledge.models import TopicSummary
 
     topics_qs = Topic.objects.filter(is_active=True).select_related('section').annotate(
-        has_summary_flag=Exists(TopicSummary.objects.filter(topic_id=OuterRef('pk')))
+        has_summary_flag=Exists(TopicSummary.objects.filter(topic_id=OuterRef('pk'))),
+        # Exists останавливается на первой строке — не COUNT(*) по сотням тысяч.
+        has_extra_flag=Exists(
+            TopicExtraTask.objects.filter(topic_id=OuterRef('pk'), is_active=True)
+        ),
     )
     if grade == 11:
         topics_qs = topics_qs.filter(
@@ -166,21 +192,15 @@ async def _curriculum_base_payload(grade: int) -> dict:
     topics = [t async for t in topics_qs.order_by('section__order', 'order', 'name')]
     topic_ids = [t.id for t in topics]
     task_counts: dict[int, int] = {}
-    extra_counts: dict[int, int] = {}
+    extra_counts: dict[int, int] = {
+        t.id: EXTRA_TASKS_PER_TOPIC for t in topics if getattr(t, 'has_extra_flag', False)
+    }
     if topic_ids:
         task_qs = Task.objects.filter(is_active=True, topic_id__in=topic_ids)
         if grade <= 10:
             task_qs = filter_school_textbook_tasks(task_qs)
         async for row in task_qs.values('topic_id').annotate(cnt=Count('id')):
             task_counts[row['topic_id']] = row['cnt']
-        # Счётчики доп. — один GROUP BY по классу (без JOIN summary).
-        extra_filter = TopicExtraTask.objects.filter(is_active=True)
-        if grade == 11:
-            extra_filter = extra_filter.filter(topic_id__in=topic_ids)
-        else:
-            extra_filter = extra_filter.filter(topic__grade_level=grade, topic__is_active=True)
-        async for row in extra_filter.values('topic_id').annotate(cnt=Count('id')):
-            extra_counts[row['topic_id']] = row['cnt']
 
     sections_map = {}
     for t in topics:
@@ -319,7 +339,11 @@ async def _curriculum_base_payload(grade: int) -> dict:
         **extra_stats,
     }
     try:
-        await cache.aset(cache_key, payload, 1800)
+        await cache.aset(cache_key, payload, 21600)  # 6 ч — темы/счётчики почти не меняются
+    except Exception:
+        pass
+    try:
+        await cache.adelete(lock_key)
     except Exception:
         pass
     return payload

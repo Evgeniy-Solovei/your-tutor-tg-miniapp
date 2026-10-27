@@ -5,6 +5,19 @@ echo "🗄 Выполнение версионированных миграци�
 python manage.py migrate --noinput
 python manage.py collectstatic --noinput --clear
 
+# Прогрев кэша программ классов (без COUNT по 760k доп. — быстрый Exists)
+echo "🔥 Прогрев curriculum cache..."
+python manage.py shell -c "
+from asgiref.sync import async_to_sync
+from knowledge.views import _curriculum_base_payload
+for g in range(1, 12):
+    try:
+        async_to_sync(_curriculum_base_payload)(g)
+        print('  grade', g, 'ok')
+    except Exception as e:
+        print('  grade', g, e)
+" || true
+
 echo "🚀 Запуск Web сервера (Gunicorn на порту 8005)..."
 exec gunicorn \
     --workers "${GUNICORN_WORKERS:-3}" \

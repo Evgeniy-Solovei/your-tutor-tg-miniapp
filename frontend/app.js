@@ -328,6 +328,19 @@ async function loadMe() {
       const suggested = state.me.telegram?.display_name || '';
       state.reg = emptyRegForm({ display_name: suggested });
       await ensureRegForm();
+    } else if (state.me?.grade) {
+      // Прогрев программы класса в фоне — клик «Учёба» не ждёт 10+ с
+      const g = Number(state.me.grade);
+      const id = tgId();
+      if (g && !state.selectedGradeCurriculum) {
+        api.getGradeCurriculum(g, id)
+          .then((cur) => {
+            if (cur && !state.selectedGradeCurriculum) {
+              state.selectedGradeCurriculum = cur;
+            }
+          })
+          .catch(() => {});
+      }
     }
   } catch (e) {
     state.error = e.message || 'Не удалось авторизоваться';
