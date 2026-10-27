@@ -127,6 +127,11 @@ class Topic(models.Model):
     )
     order = models.PositiveSmallIntegerField(default=0, verbose_name='Порядок')
     is_active = models.BooleanField(default=True, verbose_name='Активна')
+    extra_task_count = models.PositiveIntegerField(
+        default=0,
+        verbose_name='Кол-во доп. заданий',
+        help_text='Денормализованный счётчик активных TopicExtraTask (без COUNT по таблице).',
+    )
 
     class Meta:
         verbose_name = 'Тема'
@@ -139,6 +144,76 @@ class Topic(models.Model):
 
     def __str__(self):
         return self.name
+
+    def refresh_extra_task_count(self) -> int:
+        """Пересчитать и сохранить extra_task_count для этой темы."""
+        cnt = self.extra_tasks.filter(is_active=True).count()
+        if self.extra_task_count != cnt:
+            type(self).objects.filter(pk=self.pk).update(extra_task_count=cnt)
+            self.extra_task_count = cnt
+        return cnt
+
+
+def refresh_topic_extra_task_counts(topic_ids=None) -> int:
+    """Массово обновить Topic.extra_task_count. Возвращает число обновлённых тем."""
+    from django.db import connection
+
+    with connection.cursor() as cursor:
+        if topic_ids:
+            ids = list({int(i) for i in topic_ids})
+            if not ids:
+                return 0
+            cursor.execute(
+                """
+                UPDATE knowledge_topic AS t
+                SET extra_task_count = COALESCE(s.cnt, 0)
+                FROM (
+                    SELECT topic_id, COUNT(*)::int AS cnt
+                    FROM knowledge_topicextratask
+                    WHERE is_active = TRUE AND topic_id = ANY(%s)
+                    GROUP BY topic_id
+                ) AS s
+                WHERE t.id = s.topic_id
+                """,
+                [ids],
+            )
+            cursor.execute(
+                """
+                UPDATE knowledge_topic
+                SET extra_task_count = 0
+                WHERE id = ANY(%s)
+                  AND id NOT IN (
+                    SELECT topic_id FROM knowledge_topicextratask
+                    WHERE is_active = TRUE AND topic_id = ANY(%s)
+                  )
+                """,
+                [ids, ids],
+            )
+            return len(ids)
+        cursor.execute(
+            """
+            UPDATE knowledge_topic AS t
+            SET extra_task_count = COALESCE(s.cnt, 0)
+            FROM (
+                SELECT topic_id, COUNT(*)::int AS cnt
+                FROM knowledge_topicextratask
+                WHERE is_active = TRUE
+                GROUP BY topic_id
+            ) AS s
+            WHERE t.id = s.topic_id
+            """
+        )
+        cursor.execute(
+            """
+            UPDATE knowledge_topic
+            SET extra_task_count = 0
+            WHERE extra_task_count <> 0
+              AND id NOT IN (
+                SELECT DISTINCT topic_id FROM knowledge_topicextratask WHERE is_active = TRUE
+              )
+            """
+        )
+        return cursor.rowcount
 
 
 class TopicSummary(models.Model):

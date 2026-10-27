@@ -807,8 +807,16 @@ async function openExtraTopic(topicId) {
   }
 }
 
+function lockExtraOptions() {
+  document.querySelectorAll('[data-action="submit-extra-task"], .extra-opt-btn').forEach((el) => {
+    el.disabled = true;
+    el.style.pointerEvents = 'none';
+  });
+}
+
 async function submitExtraTaskAnswer({ autoAdvance = true } = {}) {
-  if (!state.activeExtraTopic || state.extraSubmitting || state.extraTaskFeedback) return;
+  if (!state.activeExtraTopic || state.extraTaskFeedback) return;
+  if (state._extraAnswerInFlight) return;
   const task = state.activeExtraTopic.tasks?.[state.extraTaskIndex];
   if (!task) return;
   const answer = (
@@ -821,11 +829,10 @@ async function submitExtraTaskAnswer({ autoAdvance = true } = {}) {
     toast('Выбери или введи ответ');
     return;
   }
-  // Не делаем state.loading + полный render — из‑за этого моргает экран и перегружается картинка.
+  // Синхронно до первого await — второй тап уже не пройдёт.
+  state._extraAnswerInFlight = true;
   state.extraSubmitting = true;
-  document.querySelectorAll('[data-action="submit-extra-task"], .extra-opt-btn').forEach((el) => {
-    el.disabled = true;
-  });
+  lockExtraOptions();
   try {
     const res = await api.submitExtraTask(task.id, answer, tgId());
     state.extraTaskFeedback = res;
@@ -844,8 +851,12 @@ async function submitExtraTaskAnswer({ autoAdvance = true } = {}) {
       state._extraAdvanceTimer = setTimeout(() => {
         nextExtraTaskOrFinish();
       }, delay);
+      // Лок держим до следующей задачи.
+      return;
     }
   } catch (err) {
+    state._extraAnswerInFlight = false;
+    state.extraSubmitting = false;
     if (err.status === 403 || err.message?.includes('лимит') || err.message?.includes('подписк')) {
       toast('10 заданий выполнено! Оформи PRO для продолжения.');
       await openPanel('tariffs');
@@ -854,7 +865,10 @@ async function submitExtraTaskAnswer({ autoAdvance = true } = {}) {
     }
     render();
   } finally {
-    state.extraSubmitting = false;
+    if (!autoAdvance || !state.extraTaskFeedback) {
+      state._extraAnswerInFlight = false;
+      state.extraSubmitting = false;
+    }
   }
 }
 
@@ -867,6 +881,8 @@ function nextExtraTask() {
   state.extraTaskIndex += 1;
   state.extraTaskSelected = null;
   state.extraTaskText = '';
+  state.extraSubmitting = false;
+  state._extraAnswerInFlight = false;
   state.extraTaskFeedback = null;
   render();
 }
@@ -2818,9 +2834,8 @@ function bindUi() {
       return;
     }
     if (action === 'select-extra-opt') {
-      if (state.extraTaskFeedback || state.extraSubmitting) return;
+      if (state.extraTaskFeedback || state.extraSubmitting || state._extraAnswerInFlight) return;
       state.extraTaskSelected = t.dataset.opt;
-      // Выбор варианта = сразу проверка, без второй кнопки
       await submitExtraTaskAnswer({ autoAdvance: true });
       return;
     }

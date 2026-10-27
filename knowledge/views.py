@@ -139,15 +139,11 @@ class CatalogView(APIView):
         })
 
 
-# Генераторы кладут ровно столько доп. карточек на тему (см. populate / generate_*).
-EXTRA_TASKS_PER_TOPIC = 1000
-
-
 async def _curriculum_base_payload(grade: int) -> dict:
     """Структура класса без прогресса ученика — кэшируется (счётчики почти статичны)."""
     from django.core.cache import cache
 
-    cache_key = f'curriculum_base_v6_g{grade}'
+    cache_key = f'curriculum_base_v7_g{grade}'
     try:
         cached = await cache.aget(cache_key)
         if cached:
@@ -155,7 +151,7 @@ async def _curriculum_base_payload(grade: int) -> dict:
     except Exception:
         cached = None
 
-    # Антиштамп: один воркер считает, остальные ждут готовый кэш (иначе 3× COUNT по 760k).
+    # Антиштамп: один воркер считает, остальные ждут готовый кэш.
     lock_key = f'{cache_key}:lock'
     got_lock = False
     try:
@@ -177,10 +173,6 @@ async def _curriculum_base_payload(grade: int) -> dict:
 
     topics_qs = Topic.objects.filter(is_active=True).select_related('section').annotate(
         has_summary_flag=Exists(TopicSummary.objects.filter(topic_id=OuterRef('pk'))),
-        # Exists останавливается на первой строке — не COUNT(*) по сотням тысяч.
-        has_extra_flag=Exists(
-            TopicExtraTask.objects.filter(topic_id=OuterRef('pk'), is_active=True)
-        ),
     )
     if grade == 11:
         topics_qs = topics_qs.filter(
@@ -192,9 +184,6 @@ async def _curriculum_base_payload(grade: int) -> dict:
     topics = [t async for t in topics_qs.order_by('section__order', 'order', 'name')]
     topic_ids = [t.id for t in topics]
     task_counts: dict[int, int] = {}
-    extra_counts: dict[int, int] = {
-        t.id: EXTRA_TASKS_PER_TOPIC for t in topics if getattr(t, 'has_extra_flag', False)
-    }
     if topic_ids:
         task_qs = Task.objects.filter(is_active=True, topic_id__in=topic_ids)
         if grade <= 10:
@@ -213,12 +202,13 @@ async def _curriculum_base_payload(grade: int) -> dict:
                 'topics': [],
             }
         # Конспект в список тем не тащим — только флаг (иначе холодный ответ раздувается).
+        # extra_task_count — поле на Topic, без COUNT по 760k строк.
         sections_map[sec_id]['topics'].append({
             'id': t.id,
             'name': t.name,
             'exam_weight': t.exam_weight,
             'task_count': task_counts.get(t.id, 0),
-            'extra_task_count': extra_counts.get(t.id, 0),
+            'extra_task_count': int(t.extra_task_count or 0),
             'has_summary': bool(getattr(t, 'has_summary_flag', False)),
             'summary_title': '',
             'summary_key_points': '',
@@ -226,7 +216,7 @@ async def _curriculum_base_payload(grade: int) -> dict:
 
     sorted_sections = sorted(sections_map.values(), key=lambda s: (s['order'], s['name']))
     total_tasks = sum(task_counts.values())
-    total_extra_tasks = sum(extra_counts.values())
+    total_extra_tasks = sum(int(t.extra_task_count or 0) for t in topics)
     school_textbook_tasks_count = total_tasks
     if grade == 11 and topic_ids:
         school_textbook_tasks_count = await filter_school_textbook_tasks(
@@ -436,14 +426,14 @@ class TopicExtraTasksView(APIView):
                 student = await Student.objects.filter(tg_id=int(tg_id_param)).afirst()
 
         FREE_LIMIT = 10
+        SESSION_TASK_LIMIT = 40
         total_completed_all = 0
         is_pro = False
         if student:
             is_pro = bool(student.is_pro)
-            from learning.models import TaskAttempt
-            total_completed_all = await TaskAttempt.objects.filter(
-                student=student, extra_task__isnull=False
-            ).values('extra_task_id').distinct().acount()
+            total_completed_all = await _count_unique_extra_attempts(
+                student.pk, limit=FREE_LIMIT + 1
+            )
             if topic.grade_level and int(topic.grade_level) != int(student.grade):
                 return Response(
                     {
@@ -462,14 +452,18 @@ class TopicExtraTasksView(APIView):
                 'paywall_required': True,
                 'free_limit': FREE_LIMIT,
                 'total_completed_all': total_completed_all,
-                'detail': 'Ты выполнил 10 бесплатных заданий! Все 100 заданий по каждой теме доступны по подписке «Твой Репетитор PRO».',
+                'detail': 'Ты выполнил 10 бесплатных заданий! Все задания по теме доступны по подписке «Твой Репетитор PRO».',
                 'topic_id': topic.id,
                 'topic_name': topic.name,
                 'count': 0,
                 'tasks': [],
             })
 
-        extra_tasks_qs = TopicExtraTask.objects.filter(topic=topic, is_active=True).order_by('order', 'id')
+        # Не тащим все 1000 карточек в один ответ — сессия из порции.
+        extra_tasks_qs = (
+            TopicExtraTask.objects.filter(topic=topic, is_active=True)
+            .order_by('order', 'id')[:SESSION_TASK_LIMIT]
+        )
         tasks = []
         async for item in extra_tasks_qs:
             opts = list(item.options or [])
@@ -530,12 +524,9 @@ class GradeExtraTasksSummaryView(APIView):
                 from students.models import Student
                 student = await Student.objects.filter(tg_id=int(tg_id_param)).afirst()
 
-        from django.db.models import Count, Q
         topics_qs = (
-            Topic.objects.filter(is_active=True, grade_level=grade)
+            Topic.objects.filter(is_active=True, grade_level=grade, extra_task_count__gt=0)
             .select_related('section')
-            .annotate(extra_tasks_count=Count('extra_tasks', filter=Q(extra_tasks__is_active=True)))
-            .filter(extra_tasks_count__gt=0)
             .order_by('section__order', 'order', 'id')
         )
 
@@ -547,9 +538,9 @@ class GradeExtraTasksSummaryView(APIView):
         if student:
             is_pro = bool(student.is_pro)
             from learning.models import TaskAttempt, TopicMastery
-            total_completed_all = await TaskAttempt.objects.filter(
-                student=student, extra_task__isnull=False
-            ).values('extra_task_id').distinct().acount()
+            total_completed_all = await _count_unique_extra_attempts(
+                student.pk, limit=FREE_LIMIT + 1
+            )
 
             async for att in TaskAttempt.objects.filter(
                 student=student, extra_task__isnull=False, extra_task__topic__grade_level=grade, is_correct=True
@@ -565,7 +556,7 @@ class GradeExtraTasksSummaryView(APIView):
         total_tasks = 0
         total_solved = 0
         async for topic in topics_qs:
-            cnt = topic.extra_tasks_count
+            cnt = int(topic.extra_task_count or 0)
             total_tasks += cnt
             solved = solved_counts.get(topic.id, 0)
             total_solved += solved
@@ -593,6 +584,22 @@ class GradeExtraTasksSummaryView(APIView):
             'paywall_active': paywall_active,
             'topics': topics_data,
         })
+
+
+async def _count_unique_extra_attempts(student_id: int, limit: int = 11) -> int:
+    """Сколько уникальных доп. заданий уже трогал ученик (с ранним выходом по limit)."""
+    from learning.models import TaskAttempt
+
+    seen = set()
+    async for eid in (
+        TaskAttempt.objects.filter(student_id=student_id, extra_task_id__isnull=False)
+        .values_list('extra_task_id', flat=True)
+        .distinct()[:limit]
+    ):
+        seen.add(eid)
+        if len(seen) >= limit:
+            break
+    return len(seen)
 
 
 class TopicExtraTaskSubmitView(APIView):
@@ -625,14 +632,12 @@ class TopicExtraTaskSubmitView(APIView):
         FREE_LIMIT = 10
         is_pro = bool(student.is_pro)
         if not is_pro:
-            from learning.models import TaskAttempt
-            total_completed = await TaskAttempt.objects.filter(
-                student=student, extra_task__isnull=False
-            ).values('extra_task_id').distinct().acount()
+            # Не гоняем полный DISTINCT COUNT по всей истории — хватает первых 11 id.
+            total_completed = await _count_unique_extra_attempts(student.pk, limit=FREE_LIMIT + 1)
             if total_completed >= FREE_LIMIT:
                 return Response({
                     'paywall_required': True,
-                    'detail': 'Ты выполнил 10 бесплатных заданий! Все 100 заданий по каждой теме доступны по подписке «Твой Репетитор PRO».',
+                    'detail': 'Ты выполнил 10 бесплатных заданий! Все задания по теме доступны по подписке «Твой Репетитор PRO».',
                 }, status=403)
 
         user_answer = str(request.data.get('answer', '')).strip()
@@ -679,9 +684,7 @@ class TopicExtraTaskSubmitView(APIView):
 
         free_tasks_left = None
         if not is_pro:
-            new_distinct = await TaskAttempt.objects.filter(
-                student=student, extra_task__isnull=False
-            ).values('extra_task_id').distinct().acount()
+            new_distinct = await _count_unique_extra_attempts(student.pk, limit=FREE_LIMIT + 1)
             free_tasks_left = max(0, FREE_LIMIT - new_distinct)
 
         return Response({

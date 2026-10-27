@@ -273,6 +273,10 @@ class Command(BaseCommand):
                 created_for_topic += 1
                 total_created += 1
 
-            self.stdout.write(f'[{topic_idx}/{len(topics)}] Тема {topic.id} «{topic.name}»: создано {created_for_topic} заданий с картинками')
+            topic.refresh_extra_task_count()
+            self.stdout.write(
+                f'[{topic_idx}/{len(topics)}] Тема {topic.id} «{topic.name}»: '
+                f'создано {created_for_topic} (всего {topic.extra_task_count})'
+            )
 
         self.stdout.write(self.style.SUCCESS(f'✓ Успешно сгенерировано {total_created} заданий с красочными карточками!'))

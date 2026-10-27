@@ -213,9 +213,10 @@ class Command(BaseCommand):
                     created_for_topic += len(batch)
                     total_created += len(batch)
 
+            topic.refresh_extra_task_count()
             self.stdout.write(
                 f'[{topic_idx}/{len(topics)}] «{topic.name}»: +{created_for_topic} '
-                f'(цель {per})'
+                f'(цель {per}, всего {topic.extra_task_count})'
             )
 
         self.stdout.write(self.style.SUCCESS(f'✓ Создано {total_created} доп. заданий'))
