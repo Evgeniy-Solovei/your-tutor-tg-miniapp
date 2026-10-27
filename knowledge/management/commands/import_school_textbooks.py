@@ -16,11 +16,11 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-import fitz
 from django.core.files.base import ContentFile
 from django.core.management.base import BaseCommand
 from django.db import transaction
 
+from knowledge.g1_toc import G1_TOC
 from knowledge.models import (
     ContentVersion,
     ExamTrack,
@@ -40,30 +40,6 @@ G1_PDF_OFFSET = 2
 G1_PDF = BASE / '01_klass/textbooks/Rus_yaz_1kl_Antipova_bel-shkola_2024.pdf'
 G1_SOURCE_PREFIX = 'Учебник «Русский язык» 1 класс, стр.'
 G1_AUTHOR = 'М.Б. Антипова, Е.С. Грабчикова, 2024, bel-shkola'
-
-# печатная стр. старта раздела
-G1_TOC: list[tuple[int, str]] = [
-    (4, 'Наша родина — Беларусь. Мы изучаем русский язык'),
-    (10, 'Знакомство'),
-    (13, 'Осень школьная пришла'),
-    (16, 'Давайте дружить!'),
-    (18, 'Моя семья'),
-    (24, 'Учимся вежливости'),
-    (31, 'Праздник чудный — Новый год!'),
-    (36, 'Что такое хорошо и что такое плохо?'),
-    (40, 'Солнце, воздух и вода — наши лучшие друзья'),
-    (47, 'Добро не умрёт, а зло пропадёт'),
-    (50, 'Мамин день'),
-    (52, 'Без труда не выловишь и рыбку из пруда'),
-    (55, 'Кем быть?'),
-    (58, 'В слова играем, друг друга понимаем'),
-    (62, 'Сказка — в жизни подсказка'),
-    (64, 'Наши домашние любимцы'),
-    (67, 'Земное чудо — лес'),
-    (70, 'С любовью к природе'),
-    (74, 'Учимся видеть прекрасное'),
-    (83, 'День за днём'),
-]
 
 TEXTBOOKS = {
     2: [
@@ -215,6 +191,8 @@ def clean_page_text(text: str) -> str:
 
 
 def extract_exercises(pdf_path: Path, max_num: int, numbering: str = 'int') -> dict[str, str]:
+    import fitz  # PyMuPDF — только при реальном импорте PDF
+
     doc = fitz.open(pdf_path)
     parts = []
     for page in doc:
@@ -437,6 +415,8 @@ class Command(BaseCommand):
                 self.stderr.write(f'Нет учебника для класса {g}')
 
     def import_grade1(self, track, version, dry: bool):
+        import fitz  # PyMuPDF — только при реальном импорте PDF
+
         if not G1_PDF.exists():
             self.stderr.write(f'Нет файла {G1_PDF}')
             return

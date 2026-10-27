@@ -11,7 +11,7 @@ import re
 from django.core.management.base import BaseCommand
 from django.db import transaction
 
-from knowledge.management.commands.import_school_textbooks import G1_TOC
+from knowledge.g1_toc import G1_TOC
 from knowledge.models import Task, TaskOption, TaskSolution
 
 PAGE_SOURCE_MARK = ', стр.'
