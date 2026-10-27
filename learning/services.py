@@ -8,7 +8,12 @@ from django.utils import timezone
 
 from core.services import aget_app_settings
 from knowledge.models import ExamVariant, Task, TaskSolution, Topic, VariantTask
+from django.db.models import Case, IntegerField, Max, When
+
 from knowledge.textbook_tasks import (
+    SCHOOL_CURATED_INCLUDE_Q,
+    SCHOOL_FULLTEXT_Q,
+    SCHOOL_PAGE_SCAN_Q,
     SCHOOL_TEXTBOOK_EXCLUDE_Q,
     filter_school_fulltext_tasks,
     filter_school_page_scan_tasks,
@@ -21,17 +26,25 @@ logger = logging.getLogger(__name__)
 
 
 async def _prefer_textbook_tasks(qs):
-    """Сначала кураторские задания темы, не сырой PDF-дамп с чужими упр."""
+    """Сначала кураторские задания темы — один aggregate вместо 3× EXISTS."""
     qs = qs.exclude(SCHOOL_TEXTBOOK_EXCLUDE_Q)
-    curated = filter_school_textbook_tasks(qs)
-    if await curated.aexists():
-        return curated
-    pages = filter_school_page_scan_tasks(qs)
-    if await pages.aexists():
-        return pages
-    full = filter_school_fulltext_tasks(qs)
-    if await full.aexists():
-        return full
+    flags = await qs.aaggregate(
+        has_curated=Max(
+            Case(When(SCHOOL_CURATED_INCLUDE_Q, then=1), default=0, output_field=IntegerField())
+        ),
+        has_pages=Max(
+            Case(When(SCHOOL_PAGE_SCAN_Q, then=1), default=0, output_field=IntegerField())
+        ),
+        has_full=Max(
+            Case(When(SCHOOL_FULLTEXT_Q, then=1), default=0, output_field=IntegerField())
+        ),
+    )
+    if flags.get('has_curated'):
+        return filter_school_textbook_tasks(qs)
+    if flags.get('has_pages'):
+        return filter_school_page_scan_tasks(qs)
+    if flags.get('has_full'):
+        return filter_school_fulltext_tasks(qs)
     return qs
 
 
@@ -39,16 +52,17 @@ async def _sample_tasks(queryset, count: int) -> list[Task]:
     """Выбирает небольшой случайный срез без дорогого PostgreSQL ORDER BY random()."""
     if count <= 0:
         return []
-    total = await queryset.order_by().acount()
-    if total <= count:
-        return [task async for task in queryset.order_by('id')]
-    start = random.randint(0, total - 1)
-    first = [task async for task in queryset.order_by('id')[start : start + count]]
-    if len(first) < count:
-        first.extend(
-            [task async for task in queryset.order_by('id')[: count - len(first)]]
-        )
-    return first
+    # Берём чуть больше id одним запросом — без полного COUNT(*) по огромным темам.
+    ids = [i async for i in queryset.order_by('id').values_list('id', flat=True)[: max(count * 8, 40)]]
+    if not ids:
+        return []
+    if len(ids) <= count:
+        pick = ids
+    else:
+        start = random.randint(0, len(ids) - count)
+        pick = ids[start : start + count]
+    by_id = {t.id: t async for t in Task.objects.filter(id__in=pick)}
+    return [by_id[i] for i in pick if i in by_id]
 
 
 async def get_or_create_daily_session(student: Student) -> DailySession:

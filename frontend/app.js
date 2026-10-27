@@ -3392,10 +3392,14 @@ async function main() {
     state.error = err.message || 'Ошибка запуска приложения';
     render();
   } finally {
-    const splash = document.getElementById('app-splash');
-    if (splash) {
-      splash.classList.add('hidden');
-      setTimeout(() => splash.remove(), 400);
+    if (typeof window.__TUTOR_HIDE_SPLASH__ === 'function') {
+      window.__TUTOR_HIDE_SPLASH__();
+    } else {
+      const splash = document.getElementById('app-splash');
+      if (splash) {
+        splash.classList.add('hidden');
+        setTimeout(() => splash.remove(), 400);
+      }
     }
   }
 }

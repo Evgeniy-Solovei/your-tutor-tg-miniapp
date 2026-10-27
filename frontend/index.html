@@ -34,7 +34,7 @@
       href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700;800&family=Unbounded:wght@600;700;800&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="./styles.css?v=20261023-web-site" />
+    <link rel="stylesheet" href="./styles.css?v=20261027-perf" />
 
     <!-- ═══════════════════════════════════════════════════════════════
          Глобальный перехватчик JS-ошибок → логи контейнера через бэкенд.
@@ -124,14 +124,20 @@
       <div class="splash-loading-text">Загрузка...</div>
     </div>
     <script>
-      // Железная страховка: экран загрузки с шестерёнками снимется автоматически максимум через 1 секунду
-      setTimeout(function() {
+      // Сплэш держим до готовности приложения (иначе чёрный экран, пока API думает).
+      // Страховка: максимум 12 с.
+      window.__TUTOR_HIDE_SPLASH__ = function () {
         var splash = document.getElementById('app-splash');
-        if (splash) {
-          splash.classList.add('hidden');
-          setTimeout(function() { if (splash && splash.parentNode) splash.parentNode.removeChild(splash); }, 300);
-        }
-      }, 1200);
+        if (!splash || splash.dataset.done) return;
+        splash.dataset.done = '1';
+        splash.classList.add('hidden');
+        setTimeout(function () {
+          if (splash && splash.parentNode) splash.parentNode.removeChild(splash);
+        }, 280);
+      };
+      setTimeout(function () {
+        if (typeof window.__TUTOR_HIDE_SPLASH__ === 'function') window.__TUTOR_HIDE_SPLASH__();
+      }, 12000);
     </script>
     <div id="atmosphere" class="atmosphere" aria-hidden="true"></div>
     <div class="app-shell">
@@ -159,6 +165,6 @@
         <button type="button" class="tab" data-route="profile">Профиль & Семья</button>
       </nav>
     </div>
-    <script type="module" src="./app.js?v=20261023-web-site"></script>
+    <script type="module" src="./app.js?v=20261027-perf"></script>
   </body>
 </html>

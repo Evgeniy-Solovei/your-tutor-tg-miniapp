@@ -142,7 +142,7 @@ async def _curriculum_base_payload(grade: int) -> dict:
     """Структура класса без прогресса ученика — кэшируется (счётчики почти статичны)."""
     from django.core.cache import cache
 
-    cache_key = f'curriculum_base_v4_g{grade}'
+    cache_key = f'curriculum_base_v5_g{grade}'
     try:
         cached = await cache.aget(cache_key)
         if cached:
@@ -150,10 +150,11 @@ async def _curriculum_base_payload(grade: int) -> dict:
     except Exception:
         cached = None
 
-    topics_qs = (
-        Topic.objects.filter(is_active=True)
-        .select_related('section', 'summary')
-        .defer('summary__content')
+    from django.db.models import Exists, OuterRef
+    from knowledge.models import TopicSummary
+
+    topics_qs = Topic.objects.filter(is_active=True).select_related('section').annotate(
+        has_summary_flag=Exists(TopicSummary.objects.filter(topic_id=OuterRef('pk')))
     )
     if grade == 11:
         topics_qs = topics_qs.filter(
@@ -172,7 +173,7 @@ async def _curriculum_base_payload(grade: int) -> dict:
             task_qs = filter_school_textbook_tasks(task_qs)
         async for row in task_qs.values('topic_id').annotate(cnt=Count('id')):
             task_counts[row['topic_id']] = row['cnt']
-        # Счётчики доп. заданий — через grade_level (индекс topic+is_active), без огромного IN.
+        # Счётчики доп. — один GROUP BY по классу (без JOIN summary).
         extra_filter = TopicExtraTask.objects.filter(is_active=True)
         if grade == 11:
             extra_filter = extra_filter.filter(topic_id__in=topic_ids)
@@ -191,22 +192,16 @@ async def _curriculum_base_payload(grade: int) -> dict:
                 'order': t.section.order,
                 'topics': [],
             }
-        has_sum = hasattr(t, 'summary') and t.summary is not None
-        key_points = ''
-        summary_title = ''
-        if has_sum:
-            summary_title = t.summary.title or ''
-            raw_kp = t.summary.key_points or ''
-            key_points = raw_kp[:160] + ('…' if len(raw_kp) > 160 else '')
+        # Конспект в список тем не тащим — только флаг (иначе холодный ответ раздувается).
         sections_map[sec_id]['topics'].append({
             'id': t.id,
             'name': t.name,
             'exam_weight': t.exam_weight,
             'task_count': task_counts.get(t.id, 0),
             'extra_task_count': extra_counts.get(t.id, 0),
-            'has_summary': has_sum,
-            'summary_title': summary_title,
-            'summary_key_points': key_points,
+            'has_summary': bool(getattr(t, 'has_summary_flag', False)),
+            'summary_title': '',
+            'summary_key_points': '',
         })
 
     sorted_sections = sorted(sections_map.values(), key=lambda s: (s['order'], s['name']))
@@ -324,7 +319,7 @@ async def _curriculum_base_payload(grade: int) -> dict:
         **extra_stats,
     }
     try:
-        await cache.aset(cache_key, payload, 600)
+        await cache.aset(cache_key, payload, 1800)
     except Exception:
         pass
     return payload
