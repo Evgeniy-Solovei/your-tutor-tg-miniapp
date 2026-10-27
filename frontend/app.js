@@ -794,17 +794,25 @@ async function openExtraTopic(topicId) {
   }
 }
 
-async function submitExtraTaskAnswer() {
-  if (!state.activeExtraTopic) return;
+async function submitExtraTaskAnswer({ autoAdvance = true } = {}) {
+  if (!state.activeExtraTopic || state.extraSubmitting || state.extraTaskFeedback) return;
   const task = state.activeExtraTopic.tasks?.[state.extraTaskIndex];
   if (!task) return;
-  const answer = (state.extraTaskSelected || document.getElementById('extra-task-text')?.value || state.extraTaskText || '').trim();
+  const answer = (
+    state.extraTaskSelected ||
+    document.getElementById('extra-task-text')?.value ||
+    state.extraTaskText ||
+    ''
+  ).trim();
   if (!answer) {
     toast('Выбери или введи ответ');
     return;
   }
-  state.loading = true;
-  render();
+  // Не делаем state.loading + полный render — из‑за этого моргает экран и перегружается картинка.
+  state.extraSubmitting = true;
+  document.querySelectorAll('[data-action="submit-extra-task"], .extra-opt-btn').forEach((el) => {
+    el.disabled = true;
+  });
   try {
     const res = await api.submitExtraTask(task.id, answer, tgId());
     state.extraTaskFeedback = res;
@@ -814,14 +822,15 @@ async function submitExtraTaskAnswer() {
     if (res.free_tasks_left !== undefined && res.free_tasks_left !== null && state.activeExtraTopic) {
       state.activeExtraTopic.free_tasks_left = res.free_tasks_left;
     }
-    if (res.free_tasks_left !== undefined && res.free_tasks_left !== null && !res.is_pro) {
-      if (res.free_tasks_left === 0) {
-        toast(res.is_correct ? `Верно! +${res.xp_earned} XP · Лимит бесплатных заданий исчерпан` : 'Неверно · Лимит бесплатных заданий исчерпан');
-      } else {
-        toast(res.is_correct ? `Верно! +${res.xp_earned} XP (осталось ${res.free_tasks_left} беспл.)` : `Есть ошибка (осталось ${res.free_tasks_left} беспл.)`);
-      }
-    } else {
-      toast(res.is_correct ? `Верно! +${res.xp_earned} XP` : 'Есть ошибка');
+    const xpBit = res.xp_earned ? ` +${res.xp_earned} XP` : '';
+    toast(res.is_correct ? `Верно!${xpBit}` : 'Неверно');
+    render();
+    if (autoAdvance) {
+      if (state._extraAdvanceTimer) clearTimeout(state._extraAdvanceTimer);
+      const delay = res.is_correct ? 650 : 1100;
+      state._extraAdvanceTimer = setTimeout(() => {
+        nextExtraTaskOrFinish();
+      }, delay);
     }
   } catch (err) {
     if (err.status === 403 || err.message?.includes('лимит') || err.message?.includes('подписк')) {
@@ -830,19 +839,35 @@ async function submitExtraTaskAnswer() {
     } else {
       toast(err.message || 'Ошибка отправки ответа');
     }
-  } finally {
-    state.loading = false;
     render();
+  } finally {
+    state.extraSubmitting = false;
   }
 }
 
 function nextExtraTask() {
   if (!state.activeExtraTopic) return;
+  if (state._extraAdvanceTimer) {
+    clearTimeout(state._extraAdvanceTimer);
+    state._extraAdvanceTimer = null;
+  }
   state.extraTaskIndex += 1;
   state.extraTaskSelected = null;
   state.extraTaskText = '';
   state.extraTaskFeedback = null;
   render();
+}
+
+function nextExtraTaskOrFinish() {
+  const top = state.activeExtraTopic;
+  if (!top) return;
+  const idx = state.extraTaskIndex || 0;
+  const total = top.tasks?.length || 0;
+  if (idx + 1 >= total) {
+    finishExtraTopic();
+  } else {
+    nextExtraTask();
+  }
 }
 
 async function finishExtraTopic() {
@@ -1070,12 +1095,12 @@ function renderActiveExtraTopic() {
                 ${fb.is_correct ? '✓ Правильно! +' + fb.xp_earned + ' XP' : '✗ Неверно!'}
               </strong>
               ${!fb.is_correct && fb.correct_answer ? `<div style="margin-top:6px; font-size:0.9rem;">Правильный ответ: <strong>${esc(fb.correct_answer)}</strong></div>` : ''}
-              ${fb.explanation ? `<div style="margin-top:8px; font-size:0.88rem; line-height:1.4; color:var(--fg); opacity:0.9;"><strong>💡 Правило / Пояснение:</strong> ${esc(fb.explanation)}</div>` : ''}
-            </div>
-            <button type="button" class="btn block primary" style="margin-top:10px;" data-action="next-extra-task">
-              ${idx + 1 < total ? 'Следующее задание →' : 'Завершить тему'}
-            </button>`
-          : `<button type="button" class="btn block primary" data-action="submit-extra-task">Проверить ответ</button>`
+              ${fb.explanation ? `<div style="margin-top:8px; font-size:0.88rem; line-height:1.4; color:var(--fg); opacity:0.9;">${esc(fb.explanation)}</div>` : ''}
+              <p class="muted" style="margin:10px 0 0; font-size:0.8rem">Сейчас следующее задание…</p>
+            </div>`
+          : task.options && task.options.length
+            ? `<p class="muted" style="margin:0; font-size:0.85rem; text-align:center">Нажми вариант — проверка сразу</p>`
+            : `<button type="button" class="btn block primary" data-action="submit-extra-task" ${state.extraSubmitting ? 'disabled' : ''}>Проверить ответ</button>`
       }
     </section>
   `;
@@ -2780,20 +2805,18 @@ function bindUi() {
       return;
     }
     if (action === 'select-extra-opt') {
+      if (state.extraTaskFeedback || state.extraSubmitting) return;
       state.extraTaskSelected = t.dataset.opt;
-      render();
+      // Выбор варианта = сразу проверка, без второй кнопки
+      await submitExtraTaskAnswer({ autoAdvance: true });
       return;
     }
     if (action === 'submit-extra-task') {
-      await submitExtraTaskAnswer();
+      await submitExtraTaskAnswer({ autoAdvance: true });
       return;
     }
     if (action === 'next-extra-task') {
-      if (state.extraTaskIndex + 1 < (state.activeExtraTopic?.tasks?.length || 0)) {
-        nextExtraTask();
-      } else {
-        await finishExtraTopic();
-      }
+      nextExtraTaskOrFinish();
       return;
     }
     if (action === 'finish-extra-topic') {
