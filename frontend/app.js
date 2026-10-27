@@ -112,6 +112,57 @@ function isProUser() {
   return Boolean(state.me?.is_pro || state.stats?.is_pro);
 }
 
+/** 1–4 класс: основной контент — доп. карточки с картинками, не текстовый Task-дамп. */
+function isPictureGrade(grade = null) {
+  const g = Number(grade ?? state.me?.grade ?? state.selectedGradeCurriculum?.grade ?? 0);
+  return g >= 1 && g <= 4;
+}
+
+/** Темы программы в порядке секций (для практики «тема за темой»). */
+function curriculumTopicsInOrder(cur = state.selectedGradeCurriculum) {
+  const list = [];
+  for (const sec of cur?.sections || []) {
+    for (const top of sec.topics || []) list.push(top);
+  }
+  return list;
+}
+
+/** Следующая тема с доп. карточками после currentTopicId (null = первая). */
+function nextPictureTopic(currentTopicId = null) {
+  const topics = curriculumTopicsInOrder().filter((t) => (t.extra_task_count || 0) > 0);
+  if (!topics.length) return null;
+  if (!currentTopicId) return topics[0];
+  const idx = topics.findIndex((t) => Number(t.id) === Number(currentTopicId));
+  if (idx < 0) return topics[0];
+  return topics[idx + 1] || null;
+}
+
+async function startPictureTopicPractice(topicId, topicName = '') {
+  state.extraTasksReturnRoute = 'courses';
+  state.practiceFlow = {
+    step: 2,
+    topicId: Number(topicId),
+    topicName: topicName || '',
+    extraCount: 0,
+  };
+  setRoute('extra-tasks');
+  await openExtraTopic(Number(topicId));
+}
+
+async function ensureCurriculumForPractice() {
+  const myGrade = Number(state.me?.grade) || 1;
+  if (
+    state.selectedGradeCurriculum &&
+    Number(state.selectedGradeCurriculum.grade) === myGrade
+  ) {
+    return state.selectedGradeCurriculum;
+  }
+  const id = tgId();
+  if (!id) return null;
+  state.selectedGradeCurriculum = await api.getGradeCurriculum(myGrade, id);
+  return state.selectedGradeCurriculum;
+}
+
 function renderLearningPath(activeStep, opts = {}) {
   const hasExtra = opts.hasExtra !== false;
   const pro = isProUser();
@@ -675,11 +726,17 @@ function renderHome() {
 
     <section class="card" style="margin-top:12px">
       <h2>На сегодня</h2>
-      <p class="muted" style="font-size:0.88rem">Быстрая подборка на ${studentGrade} класс — можно после темы из учебника.</p>
+      <p class="muted" style="font-size:0.88rem">${
+        isPictureGrade(studentGrade)
+          ? 'Практика по темам по порядку — карточки с картинками.'
+          : `Быстрая подборка на ${studentGrade} класс — можно после темы из учебника.`
+      }</p>
       ${
-        daily?.can_practice === false
+        daily?.can_practice === false && !isPictureGrade(studentGrade)
           ? `<p class="muted">${esc(daily.reason || 'Лимит на сегодня')}</p>`
-          : `<p class="muted">${daily ? `${daily.tasks_completed} из ${daily.tasks_total}` : '—'} заданий</p>
+          : isPictureGrade(studentGrade)
+            ? `<button class="btn block primary" data-action="go-practice">${vibe ? 'Погнали по темам' : 'Учиться по порядку тем'}</button>`
+            : `<p class="muted">${daily ? `${daily.tasks_completed} из ${daily.tasks_total}` : '—'} заданий</p>
              <div class="progress"><i style="width:${progress}%"></i></div>
              <button class="btn block secondary" data-action="go-practice">${vibe ? 'Погнали' : 'Решать подборку'}</button>`
       }
@@ -789,10 +846,28 @@ function nextExtraTask() {
 }
 
 async function finishExtraTopic() {
+  const doneId = state.activeExtraTopic?.topic_id || state.practiceFlow?.topicId || null;
+  const doneName = state.activeExtraTopic?.topic_name || state.practiceFlow?.topicName || '';
   state.activeExtraTopic = null;
   state.extraTaskFeedback = null;
   state.extraTaskSelected = null;
   state.extraTaskText = '';
+
+  // 1–4 класс: сразу следующая тема с картинками
+  if (isPictureGrade() && doneId) {
+    try {
+      await ensureCurriculumForPractice();
+      const nxt = nextPictureTopic(doneId);
+      if (nxt) {
+        toast(`Тема «${doneName || 'готово'}» пройдена → дальше: ${nxt.name}`);
+        await startPictureTopicPractice(nxt.id, nxt.name);
+        return;
+      }
+    } catch (_) {
+      /* fallback ниже */
+    }
+  }
+
   state.practiceFlow = null;
   toast('🎉 Отличная работа! Все задания темы пройдены!');
   if (state.extraTasksReturnRoute) {
@@ -1068,26 +1143,50 @@ function renderGradeCurriculum() {
                 </div>
               ` : ''}
               <div style="display:flex; flex-direction:column; gap:8px;">
-                ${tasks > 0 ? `
+                ${
+                  isPictureGrade(cur.grade) && extras > 0
+                    ? `
                   <button type="button" class="btn block primary small"
-                    data-action="start-topic-practice"
-                    data-topic="${top.id}"
-                    data-grade="${cur.grade}"
-                    data-topic-name="${escAttr(top.name)}"
-                    data-extra-count="${extras}">
-                    📖 Учебник · ${tasks} заданий
-                  </button>
-                  <p class="muted" style="font-size:0.75rem; margin:-2px 0 0">Упражнения из школьного учебника по этой теме</p>
-                ` : ''}
-                ${extras > 0 ? `
-                  <button type="button" class="btn block secondary small"
                     data-action="open-extra-topic"
                     data-topic-id="${top.id}"
                     data-topic-name="${escAttr(top.name)}">
-                    🧩 Доп. задания · ${extras}
+                    🖼 Учиться по теме · ${extras} карточек
                   </button>
-                  <p class="muted" style="font-size:0.75rem; margin:-2px 0 0">Карточки для закрепления: орфография, выбор ответа, факты РБ</p>
-                ` : ''}
+                  <p class="muted" style="font-size:0.75rem; margin:-2px 0 0">Карточки с картинками по этой теме (не общая «практика» без картинок)</p>
+                  ${tasks > 0 ? `
+                    <button type="button" class="btn block secondary small"
+                      data-action="start-topic-practice"
+                      data-topic="${top.id}"
+                      data-grade="${cur.grade}"
+                      data-topic-name="${escAttr(top.name)}"
+                      data-extra-count="${extras}">
+                      📖 Только текст учебника · ${tasks}
+                    </button>
+                  ` : ''}
+                `
+                    : `
+                  ${tasks > 0 ? `
+                    <button type="button" class="btn block primary small"
+                      data-action="start-topic-practice"
+                      data-topic="${top.id}"
+                      data-grade="${cur.grade}"
+                      data-topic-name="${escAttr(top.name)}"
+                      data-extra-count="${extras}">
+                      📖 Учебник · ${tasks} заданий
+                    </button>
+                    <p class="muted" style="font-size:0.75rem; margin:-2px 0 0">Упражнения из школьного учебника по этой теме</p>
+                  ` : ''}
+                  ${extras > 0 ? `
+                    <button type="button" class="btn block secondary small"
+                      data-action="open-extra-topic"
+                      data-topic-id="${top.id}"
+                      data-topic-name="${escAttr(top.name)}">
+                      🧩 Доп. задания · ${extras}
+                    </button>
+                    <p class="muted" style="font-size:0.75rem; margin:-2px 0 0">Карточки для закрепления темы</p>
+                  ` : ''}
+                `
+                }
                 ${tasks === 0 && extras === 0 ? `
                   <p class="muted" style="font-size:0.85rem; margin:0">По этой теме пока нет заданий.</p>
                 ` : ''}
@@ -1145,15 +1244,33 @@ function renderGradeCurriculum() {
     const textbookCnt = cur.school_textbook_tasks_count ?? cur.school_tasks_count ?? cur.total_tasks;
     contentHtml = `
       <section class="card" style="margin-bottom:12px">
-        <p class="muted" style="font-size:0.88rem; margin-bottom:10px">Нажми тему ниже — откроются учебник, доп. задания и разбор с ИИ. Или микс по всему классу:</p>
-        <button type="button" class="btn block secondary" data-action="start-grade-mix-practice" data-grade="${cur.grade}">
-          🎯 Микс по учебнику · ${textbookCnt} заданий
-        </button>
-        ${(cur.total_extra_tasks || 0) > 0 ? `
+        <p class="muted" style="font-size:0.88rem; margin-bottom:10px">${
+          isPictureGrade(cur.grade)
+            ? 'Открой тему по порядку — карточки с картинками. Практика идёт тема за темой.'
+            : 'Нажми тему — учебник, доп. задания и разбор с ИИ.'
+        }</p>
+        ${
+          isPictureGrade(cur.grade) && (cur.total_extra_tasks || 0) > 0
+            ? `
+          <button type="button" class="btn block primary" data-action="start-picture-sequence" data-grade="${cur.grade}">
+            🖼 Учиться по порядку тем · карточки с картинками
+          </button>
+        `
+            : `
+          <button type="button" class="btn block secondary" data-action="start-grade-mix-practice" data-grade="${cur.grade}">
+            🎯 Микс по учебнику · ${textbookCnt} заданий
+          </button>
+        `
+        }
+        ${
+          !isPictureGrade(cur.grade) && (cur.total_extra_tasks || 0) > 0
+            ? `
           <button type="button" class="btn block secondary" style="margin-top:8px" data-action="go-extra-tasks">
             🧩 Все доп. задания класса · ${cur.total_extra_tasks}
           </button>
-        ` : ''}
+        `
+            : ''
+        }
       </section>
       ${sectionsHtml || '<section class="card"><p class="muted">В этом классе темы ещё формируются.</p></section>'}
     `;
@@ -2683,7 +2800,48 @@ function bindUi() {
       await finishExtraTopic();
       return;
     }
-    if (action === 'go-practice') setRoute('practice');
+    if (action === 'go-practice') {
+      if (isPictureGrade()) {
+        state.loading = true;
+        render();
+        try {
+          await ensureCurriculumForPractice();
+          const first = nextPictureTopic(null);
+          if (!first) {
+            toast('Нет карточек с картинками для твоего класса');
+            return;
+          }
+          await startPictureTopicPractice(first.id, first.name);
+        } catch (err) {
+          toast(err.message || 'Не удалось открыть практику');
+        } finally {
+          state.loading = false;
+          render();
+        }
+        return;
+      }
+      setRoute('practice');
+      return;
+    }
+    if (action === 'start-picture-sequence') {
+      state.loading = true;
+      render();
+      try {
+        await ensureCurriculumForPractice();
+        const first = nextPictureTopic(null);
+        if (!first) {
+          toast('Нет тем с карточками');
+          return;
+        }
+        await startPictureTopicPractice(first.id, first.name);
+      } catch (err) {
+        toast(err.message || 'Не удалось начать');
+      } finally {
+        state.loading = false;
+        render();
+      }
+      return;
+    }
     if (action === 'go-family') setRoute('family');
     if (action === 'go-home') setRoute('home');
     if (action === 'go-profile') setRoute('profile');
@@ -2779,6 +2937,13 @@ function bindUi() {
       const topicId = Number(t.dataset.topic);
       const id = tgId();
       if (!id) return;
+      const grade = Number(t.dataset.grade) || Number(state.me?.grade) || 0;
+      const extras = Number(t.dataset.extraCount) || 0;
+      // 1–4: не кидаем в текстовую практику без картинок
+      if (isPictureGrade(grade) && extras > 0) {
+        await startPictureTopicPractice(topicId, t.dataset.topicName || '');
+        return;
+      }
       state.loading = true;
       render();
       try {
@@ -2786,7 +2951,7 @@ function bindUi() {
           step: 1,
           topicId,
           topicName: t.dataset.topicName || '',
-          extraCount: Number(t.dataset.extraCount) || 0,
+          extraCount: extras,
         };
         state.daily = await api.startTopicPractice(id, topicId, 'school');
         if (state.daily?.current_task?.options) {
@@ -2795,7 +2960,6 @@ function bindUi() {
         state.selected = new Set();
         state.answerText = '';
         state.feedback = null;
-        state.selectedGradeCurriculum = null;
         setRoute('practice');
       } catch (err) {
         toast(err.message || 'Не удалось запустить тренировку по теме');
@@ -2814,6 +2978,25 @@ function bindUi() {
         toast(`Можно решать только задания своего класса (${myGrade}).`);
         return;
       }
+      if (isPictureGrade(myGrade || grade)) {
+        state.loading = true;
+        render();
+        try {
+          await ensureCurriculumForPractice();
+          const first = nextPictureTopic(null);
+          if (!first) {
+            toast('Нет карточек с картинками');
+            return;
+          }
+          await startPictureTopicPractice(first.id, first.name);
+        } catch (err) {
+          toast(err.message || 'Не удалось начать');
+        } finally {
+          state.loading = false;
+          render();
+        }
+        return;
+      }
       state.loading = true;
       render();
       try {
@@ -2824,7 +3007,6 @@ function bindUi() {
         state.selected = new Set();
         state.answerText = '';
         state.feedback = null;
-        state.selectedGradeCurriculum = null;
         setRoute('practice');
       } catch (err) {
         toast(err.message || 'Не удалось запустить тренировку');
