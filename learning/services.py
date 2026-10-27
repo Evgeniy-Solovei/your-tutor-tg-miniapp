@@ -8,7 +8,12 @@ from django.utils import timezone
 
 from core.services import aget_app_settings
 from knowledge.models import ExamVariant, Task, TaskSolution, Topic, VariantTask
-from knowledge.textbook_tasks import filter_school_textbook_tasks
+from knowledge.textbook_tasks import (
+    SCHOOL_TEXTBOOK_EXCLUDE_Q,
+    filter_school_fulltext_tasks,
+    filter_school_page_scan_tasks,
+    filter_school_textbook_tasks,
+)
 from learning.models import DailySession, SessionTask, TaskAttempt, TopicMastery
 from students.models import Student
 
@@ -16,10 +21,17 @@ logger = logging.getLogger(__name__)
 
 
 async def _prefer_textbook_tasks(qs):
-    """Если в теме есть учебник — берём только его, без ЦТ/квизов."""
-    tb = filter_school_textbook_tasks(qs)
-    if await tb.aexists():
-        return tb
+    """Сначала кураторские задания темы, не сырой PDF-дамп с чужими упр."""
+    qs = qs.exclude(SCHOOL_TEXTBOOK_EXCLUDE_Q)
+    curated = filter_school_textbook_tasks(qs)
+    if await curated.aexists():
+        return curated
+    pages = filter_school_page_scan_tasks(qs)
+    if await pages.aexists():
+        return pages
+    full = filter_school_fulltext_tasks(qs)
+    if await full.aexists():
+        return full
     return qs
 
 

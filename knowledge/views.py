@@ -142,7 +142,7 @@ async def _curriculum_base_payload(grade: int) -> dict:
     """Структура класса без прогресса ученика — кэшируется (счётчики почти статичны)."""
     from django.core.cache import cache
 
-    cache_key = f'curriculum_base_v3_g{grade}'
+    cache_key = f'curriculum_base_v4_g{grade}'
     try:
         cached = await cache.aget(cache_key)
         if cached:
