@@ -217,14 +217,14 @@ function renderLearningPath(activeStep, opts = {}) {
 }
 
 function syncTabbar() {
-  document.querySelectorAll('.tab').forEach((btn) => {
+  document.querySelectorAll('.tab, .nav-link').forEach((btn) => {
     const active =
       btn.dataset.route === state.route ||
       ((state.route === 'profile' || state.route === 'family') &&
         (btn.dataset.route === 'profile' || btn.dataset.route === 'family')) ||
       (state.route === 'extra-tasks' && btn.dataset.route === 'courses');
     btn.classList.toggle('active', Boolean(active));
-    if (active) {
+    if (active && btn.classList.contains('tab')) {
       try {
         btn.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
       } catch (_) {}
@@ -743,58 +743,68 @@ function renderHome() {
       : 0;
   const studentGrade = state.me?.grade ? Number(state.me.grade) : 1;
 
+  const themeId = getTheme();
+  let greeting = `Привет, ${esc(name)}`;
+  if (themeId === 'vibe') greeting = `Йоу, ${esc(name)} 🔥`;
+  else if (themeId === 'ultra') greeting = `⚡ Салют, ${esc(name)}`;
+
   return `
     <section class="hero">
-      <h1>${vibe ? `Йоу, ${esc(name)}` : `Привет, ${esc(name)}`}</h1>
-      <p>${vibe ? 'Давай разберём пару заданий — и погнали дальше.' : 'Продолжим подготовку.'} · ${studentGrade} класс</p>
+      <h1>${greeting}</h1>
+      <p>${themeId === 'vibe' ? 'Давай разберём пару заданий — и погнали дальше.' : (themeId === 'ultra' ? 'Прокачай свои навыки и забирай максимум XP.' : 'Продолжим подготовку.')} · ${studentGrade} класс</p>
     </section>
     <div class="stats-row">
       <button type="button" class="stat clickable" data-action="go-rating"><strong>⚡ ${xp}</strong><span>опыт XP</span></button>
       <button type="button" class="stat clickable" data-action="open-streak"><strong>🔥 ${streak}</strong><span>дней подряд</span></button>
       <button type="button" class="stat clickable" data-action="open-tariffs"><strong>${esc(tariffShortLabel())}</strong><span>тариф</span></button>
     </div>
-    <section class="card">
-      <h2>Как учиться</h2>
-      <p class="muted" style="margin-bottom:10px">Всегда в одном порядке — без путаницы с ЦТ и «на сегодня».</p>
-      ${renderLearningPath(0, { hasExtra: true })}
-      <button class="btn block primary" style="margin-top:14px" data-action="go-my-curriculum">
-        📚 Шаг 1: открыть программу ${studentGrade} класса
-      </button>
-    </section>
 
-    <section class="card" style="margin-top:12px">
-      <h2>На сегодня</h2>
-      <p class="muted" style="font-size:0.88rem">Быстрая подборка заданий на ${studentGrade} класс — закрепление программы.</p>
+    <div class="home-bento">
+      <section class="card bento-main">
+        <h2>Как учиться</h2>
+        <p class="muted" style="margin-bottom:10px">Всегда в одном порядке — без путаницы с ЦТ и «на сегодня».</p>
+        ${renderLearningPath(0, { hasExtra: true })}
+        <button class="btn block primary" style="margin-top:14px" data-action="go-my-curriculum">
+          📚 Шаг 1: открыть программу ${studentGrade} класса
+        </button>
+      </section>
+
+      <section class="card bento-side">
+        <h2>На сегодня</h2>
+        <p class="muted" style="font-size:0.88rem">Быстрая подборка заданий на ${studentGrade} класс — закрепление программы.</p>
+        ${
+          daily?.can_practice === false
+            ? `<p class="muted">${esc(daily.reason || 'Лимит на сегодня')}</p>`
+            : `<p class="muted">${daily ? `${daily.tasks_completed} из ${daily.tasks_total}` : '—'} заданий</p>
+               <div class="progress"><i style="width:${progress}%"></i></div>
+               <button class="btn block ${daily && daily.tasks_completed < daily.tasks_total ? 'primary' : 'secondary'}" data-action="go-practice">${vibe ? 'Погнали решать' : 'Решать подборку'}</button>`
+        }
+      </section>
+
       ${
-        daily?.can_practice === false
-          ? `<p class="muted">${esc(daily.reason || 'Лимит на сегодня')}</p>`
-          : `<p class="muted">${daily ? `${daily.tasks_completed} из ${daily.tasks_total}` : '—'} заданий</p>
-             <div class="progress"><i style="width:${progress}%"></i></div>
-             <button class="btn block ${daily && daily.tasks_completed < daily.tasks_total ? 'primary' : 'secondary'}" data-action="go-practice">${vibe ? 'Погнали решать' : 'Решать подборку'}</button>`
+        studentGrade === 11
+          ? `<section class="card bento-full" style="border-left: 4px solid var(--accent)">
+               <h2>🎓 Симулятор ЦТ/ЦЭ</h2>
+               <p class="muted">Полноразмерный экзаменационный билет из 40 вопросов с таймером на 180 минут и бланком ответов РИКЗ.</p>
+               <button class="btn block secondary" data-action="start-exam">Запустить симулятор (40 вопросов)</button>
+             </section>`
+          : ''
       }
-    </section>
 
-    ${
-      studentGrade === 11
-        ? `<section class="card" style="margin-top:12px">
-             <h2>🎓 Симулятор ЦТ/ЦЭ</h2>
-             <p class="muted">Полноразмерный экзаменационный билет из 40 вопросов с таймером на 180 минут и бланком ответов РИКЗ.</p>
-             <button class="btn block secondary" data-action="start-exam">Запустить симулятор (40 вопросов)</button>
-           </section>`
-        : ''
-    }
-
-    ${
-      studentGrade === 9
-        ? `<section class="card" style="margin-top:12px">
-             <h2>Изложения</h2>
-             <p class="muted">Официальный сборник НИО — тексты для выпускного экзамена 9 класса.</p>
-             <button class="btn block" data-action="izlo-random">3 случайных текста</button>
-             <button class="btn block secondary" style="margin-top:8px" data-action="izlo-catalog">Каталог текстов</button>
-           </section>`
-        : ''
-    }
-    <button type="button" class="btn secondary block" style="margin-top:12px" data-action="go-profile">Профиль и настройки</button>
+      ${
+        studentGrade === 9
+          ? `<section class="card bento-full">
+               <h2>Изложения</h2>
+               <p class="muted">Официальный сборник НИО — тексты для выпускного экзамена 9 класса.</p>
+               <div style="display:flex;gap:10px;margin-top:10px">
+                 <button class="btn block" style="flex:1" data-action="izlo-random">3 случайных текста</button>
+                 <button class="btn block secondary" style="flex:1" data-action="izlo-catalog">Каталог текстов</button>
+               </div>
+             </section>`
+          : ''
+      }
+    </div>
+    <button type="button" class="btn secondary block" style="margin-top:14px" data-action="go-profile">⚙️ Профиль и настройки</button>
   `;
 }
 
@@ -2160,9 +2170,15 @@ function renderProfileAndFamily() {
       <h1>⚙️ Профиль и семья</h1>
       <p>Родительский контроль, класс обучения и личные настройки</p>
     </section>
-    ${parentCard}
-    ${notifCard}
-    ${regFormHtml}
+    <div class="profile-bento">
+      <div class="profile-col-left">
+        ${regFormHtml}
+      </div>
+      <div class="profile-col-right">
+        ${parentCard}
+        ${notifCard}
+      </div>
+    </div>
   `;
 }
 
@@ -2495,8 +2511,9 @@ function render() {
   const root = view();
   if (!root) return;
 
-  const theme = THEMES[getTheme()];
-  document.getElementById('theme-toggle-label').textContent = theme.nextLabel;
+  const theme = THEMES[getTheme()] || THEMES.vibe;
+  const themeLabelEl = document.getElementById('theme-toggle-label');
+  if (themeLabelEl) themeLabelEl.textContent = theme.label;
   const myGrade = Number(state.me?.grade) || 0;
   if (myGrade > 0 && myGrade <= 9) {
     document.getElementById('brand-sub').textContent = `${myGrade} класс · Школьная программа`;
@@ -2649,10 +2666,10 @@ function bindUi() {
     const next = toggleTheme();
     startAtmosphere(next);
     render();
-    toast(next === 'vibe' ? 'Тема: Вайб' : 'Тема: Спокойная');
+    toast(THEMES[next]?.toast || `Тема: ${next}`);
   });
 
-  document.querySelectorAll('.tab').forEach((btn) => {
+  document.querySelectorAll('.tab, .nav-link').forEach((btn) => {
     btn.addEventListener('click', () => setRoute(btn.dataset.route));
   });
 

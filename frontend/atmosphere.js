@@ -1,15 +1,23 @@
-/** Фоны: спокойный градиент / мемный стикер-слой для «вайба». */
+/** Фоны: градиенты и стили атмосферы для тем: vibe, ultra, calm. */
 
 const CALM = [
-  { gradient: 'linear-gradient(165deg, #e8efe9 0%, #f3f6f4 42%, #e4ebe8 100%)' },
-  { gradient: 'linear-gradient(145deg, #eef2f0 0%, #f6f8f7 55%, #e7eeea 100%)' },
+  {
+    gradient:
+      'radial-gradient(1000px 500px at 50% -5%, rgba(16, 185, 129, 0.14), transparent 55%), radial-gradient(800px 400px at 100% 40%, rgba(56, 189, 248, 0.08), transparent 50%), linear-gradient(165deg, #090f1a 0%, #0f172a 45%, #080d17 100%)',
+  },
 ];
 
 const VIBE = [
   {
-    // не картинки мемов с интернета — стикер-вайб через CSS в .atmosphere
     gradient:
-      'radial-gradient(ellipse at 20% 0%, rgba(255,77,141,0.35), transparent 45%), radial-gradient(ellipse at 90% 20%, rgba(200,255,61,0.28), transparent 40%), linear-gradient(160deg, #0b0b12 0%, #171225 55%, #0e1520 100%)',
+      'radial-gradient(ellipse at 20% 0%, rgba(255,77,141,0.32), transparent 45%), radial-gradient(ellipse at 90% 20%, rgba(200,255,61,0.26), transparent 40%), linear-gradient(160deg, #0a0a10 0%, #151224 55%, #0b0c14 100%)',
+  },
+];
+
+const ULTRA = [
+  {
+    gradient:
+      'radial-gradient(1200px 700px at 15% 10%, rgba(139,92,246,0.35), transparent 50%), radial-gradient(1000px 600px at 85% 20%, rgba(6,182,212,0.25), transparent 45%), radial-gradient(800px 500px at 50% 90%, rgba(244,63,94,0.18), transparent 45%), linear-gradient(180deg, #06070b 0%, #0c0e17 50%, #08090e 100%)',
   },
 ];
 
@@ -17,7 +25,9 @@ let timer = null;
 let index = 0;
 
 function slidesFor(theme) {
-  return theme === 'vibe' ? VIBE : CALM;
+  if (theme === 'ultra') return ULTRA;
+  if (theme === 'calm') return CALM;
+  return VIBE;
 }
 
 export function startAtmosphere(theme) {

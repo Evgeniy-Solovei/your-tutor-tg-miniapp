@@ -183,16 +183,28 @@
     <div id="atmosphere" class="atmosphere" aria-hidden="true"></div>
     <div class="app-shell">
       <header class="topbar">
-        <div class="brand">
-          <span class="brand-mark">Т</span>
+        <div class="brand" data-action="go-home">
+          <span class="brand-mark">⚡</span>
           <div>
             <p class="brand-name">Твой Репетитор</p>
-            <p class="brand-sub" id="brand-sub">ЦТ · ЦЭ</p>
+            <p class="brand-sub" id="brand-sub">ЦТ · ЦЭ · Школа</p>
           </div>
         </div>
-        <button type="button" class="theme-toggle" id="theme-toggle" aria-label="Сменить тему">
-          <span id="theme-toggle-label">Вайб</span>
-        </button>
+
+        <nav class="desktop-nav" aria-label="Основное меню">
+          <button type="button" class="nav-link active" data-route="home">Главная</button>
+          <button type="button" class="nav-link" data-route="courses">Учёба</button>
+          <button type="button" class="nav-link" data-route="practice">Практика</button>
+          <button type="button" class="nav-link" data-route="stats">Статистика</button>
+          <button type="button" class="nav-link" data-route="rating">Рейтинг</button>
+          <button type="button" class="nav-link" data-route="profile">Профиль & Семья</button>
+        </nav>
+
+        <div class="topbar-actions">
+          <button type="button" class="theme-toggle" id="theme-toggle" aria-label="Сменить тему">
+            <span id="theme-toggle-label">⚡ Вайб</span>
+          </button>
+        </div>
       </header>
 
       <main id="view" class="view"></main>

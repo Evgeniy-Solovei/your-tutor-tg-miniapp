@@ -1,23 +1,36 @@
 const THEME_KEY = 'tutor_theme';
 
 export const THEMES = {
-  calm: {
-    id: 'calm',
-    label: 'Спокойная',
-    nextLabel: 'Вайб',
-    sub: 'ЦТ · ЦЭ',
-  },
   vibe: {
     id: 'vibe',
-    label: 'Вайб',
-    nextLabel: 'Спокойная',
+    label: '⚡ Вайб',
+    nextTheme: 'ultra',
+    nextLabel: '💎 Ультра',
     sub: 'поехали решать',
+    toast: 'Тема: Молодежный Вайб ⚡',
+  },
+  ultra: {
+    id: 'ultra',
+    label: '💎 Ультра',
+    nextTheme: 'calm',
+    nextLabel: '🌿 Дзен',
+    sub: 'Bento Glass & Cyber',
+    toast: 'Тема: Ультра Модный Bento 💎',
+  },
+  calm: {
+    id: 'calm',
+    label: '🌿 Дзен',
+    nextTheme: 'vibe',
+    nextLabel: '⚡ Вайб',
+    sub: 'чистый фокус',
+    toast: 'Тема: Минимал Дзен 🌿',
   },
 };
 
 function normalize(theme) {
-  if (theme === 'vibe' || theme === 'night' || theme === 'arcade') return 'vibe';
-  return 'calm';
+  if (theme === 'ultra') return 'ultra';
+  if (theme === 'calm') return 'calm';
+  return 'vibe';
 }
 
 export function getTheme() {
@@ -32,7 +45,9 @@ export function setTheme(theme) {
 }
 
 export function toggleTheme() {
-  return setTheme(getTheme() === 'calm' ? 'vibe' : 'calm');
+  const current = getTheme();
+  const next = THEMES[current]?.nextTheme || 'vibe';
+  return setTheme(next);
 }
 
 export function initTheme() {
