@@ -179,17 +179,32 @@ class Command(BaseCommand):
                 part = spec['part']
                 pdf_rel = spec['file']
                 pdf_path = Path(settings.BASE_DIR) / pdf_rel
-                if not pdf_path.exists():
-                    self.stderr.write(f'Файл {pdf_path} не найден, пропускаем')
-                    continue
+                doc = None
+                if pdf_path.exists() and fitz is not None:
+                    try:
+                        doc = fitz.open(pdf_path)
+                    except Exception as e:
+                        self.stderr.write(f'Не удалось открыть PDF {pdf_path}: {e}')
 
-                doc = fitz.open(pdf_path)
                 offset = spec['pdf_offset']
 
                 for printed_page, target_topic_name in spec['pages']:
-                    pdf_idx = printed_page + offset - 1
-                    if pdf_idx >= len(doc) or pdf_idx < 0:
-                        continue
+                    img_filename = f'grade{grade}_part{part}_p{printed_page:03d}.png'
+                    img_rel = f'tasks/2026/09/{img_filename}'
+                    img_full = os.path.join(media_root, img_rel)
+
+                    if not os.path.exists(img_full):
+                        if doc is not None:
+                            pdf_idx = printed_page + offset - 1
+                            if pdf_idx >= len(doc) or pdf_idx < 0:
+                                continue
+                            page = doc[pdf_idx]
+                            pix = page.get_pixmap(matrix=fitz.Matrix(1.5, 1.5), alpha=False)
+                            os.makedirs(os.path.dirname(img_full), exist_ok=True)
+                            pix.save(img_full)
+                        else:
+                            self.stderr.write(f'Скан {img_rel} не найден на диске и нет PDF, пропускаем')
+                            continue
 
                     # Находим подходящую тему
                     topic = topics_by_name.get(target_topic_name.strip().lower())
@@ -222,15 +237,6 @@ class Command(BaseCommand):
                             source=source,
                             is_active=True,
                         )
-
-                    # Рендерим страницу в PNG
-                    page = doc[pdf_idx]
-                    pix = page.get_pixmap(matrix=fitz.Matrix(1.5, 1.5), alpha=False)
-                    img_filename = f'grade{grade}_part{part}_p{printed_page:03d}.png'
-                    img_rel = f'tasks/2026/09/{img_filename}'
-                    img_full = os.path.join(media_root, img_rel)
-                    os.makedirs(os.path.dirname(img_full), exist_ok=True)
-                    pix.save(img_full)
 
                     task.image = img_rel
                     task.topic = topic
