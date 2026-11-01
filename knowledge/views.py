@@ -142,7 +142,7 @@ async def _curriculum_base_payload(grade: int) -> dict:
     """Структура класса без прогресса ученика — кэшируется (счётчики почти статичны)."""
     from django.core.cache import cache
 
-    cache_key = f'curriculum_base_v7_g{grade}'
+    cache_key = f'curriculum_base_v9_g{grade}'
     try:
         cached = await cache.aget(cache_key)
         if cached:
@@ -170,7 +170,7 @@ async def _curriculum_base_payload(grade: int) -> dict:
         task_qs = Task.objects.filter(is_active=True, topic_id__in=topic_ids)
         if grade <= 10:
             task_qs = filter_school_textbook_tasks(task_qs)
-        async for row in task_qs.values('topic_id').annotate(cnt=Count('id')):
+        async for row in task_qs.order_by().values('topic_id').annotate(cnt=Count('id')):
             task_counts[row['topic_id']] = row['cnt']
 
     sections_map = {}
@@ -213,7 +213,7 @@ async def _curriculum_base_payload(grade: int) -> dict:
         extra_stats = {
             'has_izlozheniya': True,
             'izlozheniya_count': izlo_cnt,
-            'school_tasks_count': max(0, total_tasks - izlo_cnt),
+            'school_tasks_count': total_tasks,
         }
     elif grade == 11:
         try:
@@ -503,7 +503,9 @@ class GradeExtraTasksSummaryView(APIView):
                 student = await Student.objects.filter(tg_id=int(tg_id_param)).afirst()
 
         topics_qs = (
-            Topic.objects.filter(is_active=True, grade_level=grade, extra_task_count__gt=0)
+            Topic.objects.filter(is_active=True, grade_level=grade)
+            .filter(Q(extra_task_count__gt=0) | Q(extra_tasks__is_active=True))
+            .distinct()
             .select_related('section')
             .order_by('section__order', 'order', 'id')
         )
@@ -533,8 +535,12 @@ class GradeExtraTasksSummaryView(APIView):
         topics_data = []
         total_tasks = 0
         total_solved = 0
+        from asgiref.sync import sync_to_async
+
         async for topic in topics_qs:
             cnt = int(topic.extra_task_count or 0)
+            if not cnt:
+                cnt = await sync_to_async(topic.extra_tasks.filter(is_active=True).count)()
             total_tasks += cnt
             solved = solved_counts.get(topic.id, 0)
             total_solved += solved

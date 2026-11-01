@@ -26,6 +26,11 @@ def build_task(q, reading, opts, correct, expl, diff, card_w, card_r, textbook_q
     if textbook_qs and q in textbook_qs:
         final_q = f'Внимание: {q}'
 
+    # Sanitize card_w to prevent spoiler
+    safe_card_w = card_w
+    if str(card_w).strip().upper() == str(correct).strip().upper() or str(card_w).strip().upper() == f'БУКВА {str(correct).strip().upper()}':
+        safe_card_w = 'ЗАГАДКА [ ? ]'
+
     return {
         'question': final_q,
         'reading_text': reading,
@@ -33,7 +38,7 @@ def build_task(q, reading, opts, correct, expl, diff, card_w, card_r, textbook_q
         'correct_answer': correct,
         'explanation': expl,
         'difficulty': diff,
-        'card_word': card_w,
+        'card_word': safe_card_w,
         'card_rule': card_r,
     }
 

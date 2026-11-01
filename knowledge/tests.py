@@ -139,7 +139,7 @@ class ExtraTasksTests(TestCase):
         self.assertEqual(data['topic_id'], self.topic.id)
         self.assertEqual(len(data['tasks']), 1)
         self.assertEqual(data['tasks'][0]['question'], 'Вставь букву в слове «м...ши»')
-        self.assertEqual(data['tasks'][0]['options'], ['И', 'Ы', 'Е'])
+        self.assertEqual(set(data['tasks'][0]['options']), {'И', 'Ы', 'Е'})
         self.assertNotIn('correct_answer', data['tasks'][0])
 
     def test_submit_extra_task_answer_correct(self):

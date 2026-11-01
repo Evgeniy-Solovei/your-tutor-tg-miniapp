@@ -9,12 +9,11 @@ from __future__ import annotations
 
 from django.db.models import Q
 
-# Кураторские школьные задания (MCQ / программа), не OCR-страницы и не сырой PDF.
+# Кураторские школьные задания (MCQ / программа), включая страницы учебника с иллюстрациями (не сырой PDF).
 SCHOOL_CURATED_INCLUDE_Q = (
     (
         Q(source__startswith='Учебник')
         & ~Q(source__contains='полный текст')
-        & ~Q(source__contains=', стр.')
     )
     | Q(source__startswith='Школьная программа')
     | Q(source__startswith='Учебник РБ')

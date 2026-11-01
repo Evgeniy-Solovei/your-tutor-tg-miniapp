@@ -60,63 +60,40 @@ class Command(BaseCommand):
         topics = list(topics)
         self.stdout.write(f'Тем к обработке: {len(topics)}')
 
+        from knowledge.management.commands.cartoon_card_art import render_kid_cartoon_card
+
         if grade == 1:
             from knowledge.management.commands.generators_grade1 import generate_tasks_for_topic
-            from knowledge.management.commands.generate_grade1_extra_tasks import (
-                PALETTES,
-                render_card_image,
-            )
             gen_fn = generate_tasks_for_topic
             use_images = not options['no_images']
         elif grade == 2:
             from knowledge.management.commands.generators_grade2 import generate_tasks_for_topic
-            from knowledge.management.commands.generate_grade1_extra_tasks import (
-                PALETTES,
-                render_card_image,
-            )
             gen_fn = generate_tasks_for_topic
             use_images = not options['no_images']
         elif grade == 3:
             from knowledge.management.commands.generators_grade3 import generate_tasks_for_topic
-            from knowledge.management.commands.generate_grade1_extra_tasks import (
-                PALETTES,
-                render_card_image,
-            )
             gen_fn = generate_tasks_for_topic
             use_images = not options['no_images']
         elif grade == 4:
             from knowledge.management.commands.generators_grade4 import generate_tasks_for_topic
-            from knowledge.management.commands.generate_grade1_extra_tasks import (
-                PALETTES,
-                render_card_image,
-            )
             gen_fn = generate_tasks_for_topic
             use_images = not options['no_images']
-        elif grade in (5, 6, 7, 8):
+        elif grade == 5:
+            from knowledge.management.commands.generators_grades_5_8 import generate_tasks_for_topic
+            gen_fn = generate_tasks_for_topic
+            use_images = not options['no_images']
+        elif grade in (6, 7, 8):
             from knowledge.management.commands.generators_grades_5_8 import generate_tasks_for_topic
             gen_fn = generate_tasks_for_topic
             use_images = False
-            PALETTES = []
-            render_card_image = None
         elif grade in (9, 10, 11):
             from knowledge.management.commands.generators_grades_9_11 import generate_tasks_for_topic
             gen_fn = generate_tasks_for_topic
             use_images = False
-            PALETTES = []
-            render_card_image = None
         else:
             from knowledge.management.commands.generators_grade2 import generate_tasks_for_topic
-            try:
-                from knowledge.management.commands.generate_grade1_extra_tasks import (
-                    PALETTES,
-                    render_card_image,
-                )
-                use_images = not options['no_images'] and grade <= 4
-            except Exception:
-                PALETTES = []
-                render_card_image = None
-                use_images = False
             gen_fn = generate_tasks_for_topic
+            use_images = not options['no_images'] and grade <= 5
 
         total_created = 0
         media_root = settings.MEDIA_ROOT
@@ -180,13 +157,13 @@ class Command(BaseCommand):
                     img_rel_dir = f'extra_tasks/grade{grade}/topic_{topic.id}'
                     img_filename = f'task_{i}.png'
                     img_full = os.path.join(media_root, img_rel_dir, img_filename)
-                    render_card_image(
+                    render_kid_cartoon_card(
                         file_path=img_full,
                         topic_name=topic.name,
-                        focus_word=item.get('card_word', topic.name)[:40],
-                        rule_text=item.get('card_rule', f'Правило {grade} класса')[:60],
-                        mascot_name=mascots[(topic.id + i) % len(mascots)],
-                        palette_idx=(topic.id + i) % max(1, len(PALETTES)),
+                        question_text=item['question'],
+                        correct_answer=correct,
+                        style_idx=topic.id + i,
+                        grade=grade,
                     )
                     img_rel = f'{img_rel_dir}/{img_filename}'
                     batch.append(TopicExtraTask(

@@ -739,19 +739,13 @@ function renderHome() {
 
     <section class="card" style="margin-top:12px">
       <h2>На сегодня</h2>
-      <p class="muted" style="font-size:0.88rem">${
-        isPictureGrade(studentGrade)
-          ? 'Практика по темам по порядку — карточки с картинками.'
-          : `Быстрая подборка на ${studentGrade} класс — можно после темы из учебника.`
-      }</p>
+      <p class="muted" style="font-size:0.88rem">Быстрая подборка заданий на ${studentGrade} класс — закрепление программы.</p>
       ${
-        daily?.can_practice === false && !isPictureGrade(studentGrade)
+        daily?.can_practice === false
           ? `<p class="muted">${esc(daily.reason || 'Лимит на сегодня')}</p>`
-          : isPictureGrade(studentGrade)
-            ? `<button class="btn block primary" data-action="go-practice">${vibe ? 'Погнали по темам' : 'Учиться по порядку тем'}</button>`
-            : `<p class="muted">${daily ? `${daily.tasks_completed} из ${daily.tasks_total}` : '—'} заданий</p>
+          : `<p class="muted">${daily ? `${daily.tasks_completed} из ${daily.tasks_total}` : '—'} заданий</p>
              <div class="progress"><i style="width:${progress}%"></i></div>
-             <button class="btn block secondary" data-action="go-practice">${vibe ? 'Погнали' : 'Решать подборку'}</button>`
+             <button class="btn block ${daily && daily.tasks_completed < daily.tasks_total ? 'primary' : 'secondary'}" data-action="go-practice">${vibe ? 'Погнали решать' : 'Решать подборку'}</button>`
       }
     </section>
 
@@ -1197,50 +1191,26 @@ function renderGradeCurriculum() {
                 </div>
               ` : ''}
               <div style="display:flex; flex-direction:column; gap:8px;">
-                ${
-                  isPictureGrade(cur.grade) && extras > 0
-                    ? `
+                ${tasks > 0 ? `
                   <button type="button" class="btn block primary small"
+                    data-action="start-topic-practice"
+                    data-topic="${top.id}"
+                    data-grade="${cur.grade}"
+                    data-topic-name="${escAttr(top.name)}"
+                    data-extra-count="${extras}">
+                    📖 Учебник · ${tasks} ${tasks === 1 ? 'задание' : tasks < 5 ? 'задания' : 'заданий'}
+                  </button>
+                  <p class="muted" style="font-size:0.75rem; margin:-2px 0 0">Упражнения и материалы из официального школьного учебника</p>
+                ` : ''}
+                ${extras > 0 ? `
+                  <button type="button" class="btn block ${tasks > 0 ? 'secondary' : 'primary'} small"
                     data-action="open-extra-topic"
                     data-topic-id="${top.id}"
                     data-topic-name="${escAttr(top.name)}">
-                    🖼 Учиться по теме · ${extras} карточек
+                    🎮 Игровой тренажёр · ${extras} карточек
                   </button>
-                  <p class="muted" style="font-size:0.75rem; margin:-2px 0 0">Карточки с картинками по этой теме (не общая «практика» без картинок)</p>
-                  ${tasks > 0 ? `
-                    <button type="button" class="btn block secondary small"
-                      data-action="start-topic-practice"
-                      data-topic="${top.id}"
-                      data-grade="${cur.grade}"
-                      data-topic-name="${escAttr(top.name)}"
-                      data-extra-count="${extras}">
-                      📖 Только текст учебника · ${tasks}
-                    </button>
-                  ` : ''}
-                `
-                    : `
-                  ${tasks > 0 ? `
-                    <button type="button" class="btn block primary small"
-                      data-action="start-topic-practice"
-                      data-topic="${top.id}"
-                      data-grade="${cur.grade}"
-                      data-topic-name="${escAttr(top.name)}"
-                      data-extra-count="${extras}">
-                      📖 Учебник · ${tasks} заданий
-                    </button>
-                    <p class="muted" style="font-size:0.75rem; margin:-2px 0 0">Упражнения из школьного учебника по этой теме</p>
-                  ` : ''}
-                  ${extras > 0 ? `
-                    <button type="button" class="btn block secondary small"
-                      data-action="open-extra-topic"
-                      data-topic-id="${top.id}"
-                      data-topic-name="${escAttr(top.name)}">
-                      🧩 Доп. задания · ${extras}
-                    </button>
-                    <p class="muted" style="font-size:0.75rem; margin:-2px 0 0">Карточки для закрепления темы</p>
-                  ` : ''}
-                `
-                }
+                  <p class="muted" style="font-size:0.75rem; margin:-2px 0 0">Иллюстрированные карточки с любимыми героями мультиков</p>
+                ` : ''}
                 ${tasks === 0 && extras === 0 ? `
                   <p class="muted" style="font-size:0.85rem; margin:0">По этой теме пока нет заданий.</p>
                 ` : ''}
@@ -2852,25 +2822,6 @@ function bindUi() {
       return;
     }
     if (action === 'go-practice') {
-      if (isPictureGrade()) {
-        state.loading = true;
-        render();
-        try {
-          await ensureCurriculumForPractice();
-          const first = nextPictureTopic(null);
-          if (!first) {
-            toast('Нет карточек с картинками для твоего класса');
-            return;
-          }
-          await startPictureTopicPractice(first.id, first.name);
-        } catch (err) {
-          toast(err.message || 'Не удалось открыть практику');
-        } finally {
-          state.loading = false;
-          render();
-        }
-        return;
-      }
       setRoute('practice');
       return;
     }
@@ -2988,13 +2939,7 @@ function bindUi() {
       const topicId = Number(t.dataset.topic);
       const id = tgId();
       if (!id) return;
-      const grade = Number(t.dataset.grade) || Number(state.me?.grade) || 0;
       const extras = Number(t.dataset.extraCount) || 0;
-      // 1–4: не кидаем в текстовую практику без картинок
-      if (isPictureGrade(grade) && extras > 0) {
-        await startPictureTopicPractice(topicId, t.dataset.topicName || '');
-        return;
-      }
       state.loading = true;
       render();
       try {
