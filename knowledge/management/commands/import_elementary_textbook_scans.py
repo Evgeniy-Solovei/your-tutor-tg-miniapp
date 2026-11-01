@@ -278,7 +278,8 @@ class Command(BaseCommand):
 
                     total_created += 1
 
-                doc.close()
+                if doc is not None:
+                    doc.close()
                 self.stdout.write(f'  ✓ Часть {part}: обработано {len(spec["pages"])} страниц')
 
         self.stdout.write(self.style.SUCCESS(
