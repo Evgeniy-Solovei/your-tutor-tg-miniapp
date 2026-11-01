@@ -11,7 +11,7 @@ class AppSettings(models.Model):
         help_text='Если выключено — доступ только у Pro-пользователей.',
     )
     free_daily_tasks_limit = models.PositiveSmallIntegerField(
-        default=15,
+        default=25,
         verbose_name='Лимит заданий в день (бесплатно)',
         help_text='Pro — без лимита. Для теста продукта можно поднять.',
     )

@@ -293,9 +293,11 @@ async function loadScoresPage(page) {
 }
 
 async function loadMe() {
-  state.loading = true;
-  state.error = '';
-  render();
+  if (!state.me) {
+    state.loading = true;
+    state.error = '';
+    render();
+  }
   try {
     if (!getDevTgId() && !getUnsafeUser()?.id) {
       try {
@@ -357,10 +359,11 @@ async function loadMe() {
 }
 
 async function loadFamily() {
-  state.loading = true;
-  state.family = null;
+  if (!state.family) {
+    state.loading = true;
+    render();
+  }
   state.familyError = '';
-  render();
   try {
     state.family = await api.family();
     const kids = state.family.children || [];
@@ -400,8 +403,10 @@ async function loadForRoute() {
     if (state.activeExtraTopic) return;
     const id = tgId();
     const grade = state.extraTasksGrade || Number(state.me?.grade) || 1;
-    state.loading = true;
-    render();
+    if (!state.extraTasksSummary || state.extraTasksSummary.grade !== grade) {
+      state.loading = true;
+      render();
+    }
     try {
       state.extraTasksSummary = await api.getExtraTasksSummary(grade, id);
     } catch (e) {
@@ -437,15 +442,31 @@ async function loadForRoute() {
   if (!state.me.registered) return;
 
   try {
-    if (state.route === 'home' || state.route === 'stats') {
-      state.stats = await api.stats(id);
-      try {
-        state.dashboard = await api.dashboard(id);
-      } catch (err) {
-        console.error('Dashboard load error:', err);
+    if (state.route === 'home') {
+      const [statsRes, dashRes, dailyRes] = await Promise.allSettled([
+        api.stats(id),
+        api.dashboard(id),
+        api.daily(id),
+      ]);
+      if (statsRes.status === 'fulfilled') state.stats = statsRes.value;
+      if (dashRes.status === 'fulfilled') state.dashboard = dashRes.value;
+      if (dailyRes.status === 'fulfilled') {
+        state.daily = dailyRes.value;
+        if (state.daily?.current_task?.options) {
+          state.daily.current_task.options = shuffleArray(state.daily.current_task.options);
+        }
+        state.selected = new Set();
+        state.answerText = '';
+        state.feedback = null;
       }
-    }
-    if (state.route === 'practice' || state.route === 'home') {
+    } else if (state.route === 'stats') {
+      const [statsRes, dashRes] = await Promise.allSettled([
+        api.stats(id),
+        api.dashboard(id),
+      ]);
+      if (statsRes.status === 'fulfilled') state.stats = statsRes.value;
+      if (dashRes.status === 'fulfilled') state.dashboard = dashRes.value;
+    } else if (state.route === 'practice') {
       state.daily = await api.daily(id);
       if (state.daily?.current_task?.options) {
         state.daily.current_task.options = shuffleArray(state.daily.current_task.options);
@@ -465,8 +486,10 @@ async function loadForRoute() {
 }
 
 async function loadCatalog() {
-  state.loading = true;
-  render();
+  if (!state.catalog) {
+    state.loading = true;
+    render();
+  }
   try {
     state.catalog = await api.catalog();
     const items = state.catalog?.items || state.catalog?.subjects || [];
@@ -479,8 +502,10 @@ async function loadCatalog() {
   } catch (e) {
     toast(e.message);
   } finally {
-    state.loading = false;
-    render();
+    if (state.loading) {
+      state.loading = false;
+      render();
+    }
   }
 }
 
@@ -790,7 +815,7 @@ async function openExtraTopic(topicId) {
     state.extraTaskFeedback = null;
   } catch (err) {
     if (err.status === 403 || err.message?.includes('лимит') || err.message?.includes('подписк')) {
-      toast('10 бесплатных заданий выполнено! Оформи PRO');
+      toast('Дневной лимит 25 заданий выполнен! Оформи PRO для безлимита');
       await openPanel('tariffs');
     } else {
       toast(err.message || 'Не удалось загрузить задания');
@@ -852,7 +877,7 @@ async function submitExtraTaskAnswer({ autoAdvance = true } = {}) {
     state._extraAnswerInFlight = false;
     state.extraSubmitting = false;
     if (err.status === 403 || err.message?.includes('лимит') || err.message?.includes('подписк')) {
-      toast('10 заданий выполнено! Оформи PRO для продолжения.');
+      toast('Дневной лимит 25 заданий выполнен! Оформи PRO для безлимита.');
       await openPanel('tariffs');
     } else {
       toast(err.message || 'Ошибка отправки ответа');
@@ -973,14 +998,14 @@ function renderExtraTasks() {
         sum && !sum.is_pro
           ? `<div style="margin-top:12px; padding:12px; border-radius:12px; background:rgba(245,158,11,0.1); border:1px solid rgba(245,158,11,0.25);">
               <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
-                <span style="font-size:0.85rem; font-weight:600; color:#f59e0b;">Бесплатные задания</span>
-                <span style="font-size:0.85rem; font-weight:700;">${sum.total_completed_all || 0} / ${sum.free_limit || 10}</span>
+                <span style="font-size:0.85rem; font-weight:600; color:#f59e0b;">Бесплатные задания на сегодня</span>
+                <span style="font-size:0.85rem; font-weight:700;">${sum.total_completed_all || 0} / ${sum.free_limit || 25}</span>
               </div>
               <div style="height:6px; background:rgba(255,255,255,0.1); border-radius:3px; overflow:hidden; margin-bottom:8px;">
-                <div style="height:100%; width:${Math.min(100, (((sum.total_completed_all || 0) / (sum.free_limit || 10)) * 100))}%; background:#f59e0b; border-radius:3px;"></div>
+                <div style="height:100%; width:${Math.min(100, (((sum.total_completed_all || 0) / (sum.free_limit || 25)) * 100))}%; background:#f59e0b; border-radius:3px;"></div>
               </div>
-              ${(sum.total_completed_all || 0) >= (sum.free_limit || 10) 
-                  ? `<button type="button" class="btn block primary" style="padding:8px;" data-action="open-tariffs">⚡ Оформить подписку PRO</button>` 
+              ${(sum.total_completed_all || 0) >= (sum.free_limit || 25) 
+                  ? `<button type="button" class="btn block primary" style="padding:8px;" data-action="open-tariffs">⚡ Оформить PRO (безлимит)</button>` 
                   : ''}
             </div>`
           : ''

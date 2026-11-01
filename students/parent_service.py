@@ -90,6 +90,16 @@ async def link_parent_by_code(parent: Parent, code: str) -> tuple[ParentChildLin
         student_id=invite.student_id,
     )
     if created:
+        try:
+            from core.telegram_send import send_telegram_message
+            p_label = parent.display_name or 'Родитель'
+            await send_telegram_message(
+                invite.student.tg_id,
+                f"🎉 К твоему профилю подключился(лась) {p_label}!\n"
+                f"Теперь родитель сможет видеть твои достижения и радоваться успехам.",
+            )
+        except Exception:
+            pass
         return link, f'Готово! Привязан(а): {invite.student.display_name}.'
     return link, f'Уже привязан(а): {invite.student.display_name}.'
 

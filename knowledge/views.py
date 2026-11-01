@@ -403,7 +403,7 @@ class TopicExtraTasksView(APIView):
                 from students.models import Student
                 student = await Student.objects.filter(tg_id=int(tg_id_param)).afirst()
 
-        FREE_LIMIT = 10
+        FREE_LIMIT = 25
         SESSION_TASK_LIMIT = 40
         total_completed_all = 0
         is_pro = False
@@ -430,7 +430,7 @@ class TopicExtraTasksView(APIView):
                 'paywall_required': True,
                 'free_limit': FREE_LIMIT,
                 'total_completed_all': total_completed_all,
-                'detail': 'Ты выполнил 10 бесплатных заданий! Все задания по теме доступны по подписке «Твой Репетитор PRO».',
+                'detail': f'Ты выполнил лимит ({FREE_LIMIT} заданий на сегодня)! Завтра откроются ещё {FREE_LIMIT} заданий. Безлимитная практика доступна по подписке «Твой Репетитор PRO».',
                 'topic_id': topic.id,
                 'topic_name': topic.name,
                 'count': 0,
@@ -514,7 +514,7 @@ class GradeExtraTasksSummaryView(APIView):
         mastery_scores = {}
         total_completed_all = 0
         is_pro = False
-        FREE_LIMIT = 10
+        FREE_LIMIT = 25
         if student:
             is_pro = bool(student.is_pro)
             from learning.models import TaskAttempt, TopicMastery
@@ -570,13 +570,19 @@ class GradeExtraTasksSummaryView(APIView):
         })
 
 
-async def _count_unique_extra_attempts(student_id: int, limit: int = 11) -> int:
-    """Сколько уникальных доп. заданий уже трогал ученик (с ранним выходом по limit)."""
+async def _count_unique_extra_attempts(student_id: int, limit: int = 26) -> int:
+    """Сколько доп. заданий решил ученик СЕГОДНЯ (с ранним выходом по limit)."""
+    from django.utils import timezone
     from learning.models import TaskAttempt
 
+    today = timezone.localdate()
     seen = set()
     async for eid in (
-        TaskAttempt.objects.filter(student_id=student_id, extra_task_id__isnull=False)
+        TaskAttempt.objects.filter(
+            student_id=student_id,
+            extra_task_id__isnull=False,
+            created_at__date=today,
+        )
         .values_list('extra_task_id', flat=True)
         .distinct()[:limit]
     ):
@@ -613,7 +619,7 @@ class TopicExtraTaskSubmitView(APIView):
         if not task:
             return Response({'detail': 'Задание не найдено'}, status=404)
 
-        FREE_LIMIT = 10
+        FREE_LIMIT = 25
         is_pro = bool(student.is_pro)
         if not is_pro:
             # Не гоняем полный DISTINCT COUNT по всей истории — хватает первых 11 id.
@@ -621,7 +627,7 @@ class TopicExtraTaskSubmitView(APIView):
             if total_completed >= FREE_LIMIT:
                 return Response({
                     'paywall_required': True,
-                    'detail': 'Ты выполнил 10 бесплатных заданий! Все задания по теме доступны по подписке «Твой Репетитор PRO».',
+                    'detail': f'Ты выполнил лимит ({FREE_LIMIT} заданий на сегодня)! Завтра откроются ещё {FREE_LIMIT} заданий. Безлимит доступен в «Твой Репетитор PRO».',
                 }, status=403)
 
         user_answer = str(request.data.get('answer', '')).strip()

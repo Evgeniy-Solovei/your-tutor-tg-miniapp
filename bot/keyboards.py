@@ -53,14 +53,18 @@ def cancel_keyboard() -> ReplyKeyboardMarkup:
 
 
 def parent_menu_keyboard() -> ReplyKeyboardMarkup:
-    return ReplyKeyboardMarkup(
-        keyboard=[
-            [KeyboardButton(text='📊 Отчёт по ребёнку')],
-            [KeyboardButton(text='🔗 Привязать по коду')],
-            [KeyboardButton(text='⬅️ В обычное меню')],
-        ],
-        resize_keyboard=True,
-    )
+    rows = [
+        [KeyboardButton(text='📊 Отчёт по ребёнку')],
+        [KeyboardButton(text='🔗 Привязать по коду')],
+        [KeyboardButton(text='⬅️ В обычное меню')],
+    ]
+    web_app_url = get_web_app_url()
+    if web_app_url:
+        rows.insert(
+            0,
+            [KeyboardButton(text='📱 Мини-приложение', web_app=WebAppInfo(url=f'{web_app_url}/app/'))],
+        )
+    return ReplyKeyboardMarkup(keyboard=rows, resize_keyboard=True)
 
 
 def children_pick_keyboard(children: list[tuple[int, str]]) -> InlineKeyboardMarkup:
