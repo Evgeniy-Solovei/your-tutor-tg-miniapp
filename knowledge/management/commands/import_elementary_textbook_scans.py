@@ -9,7 +9,10 @@ from __future__ import annotations
 import os
 import re
 from pathlib import Path
-import fitz
+try:
+    import fitz
+except ImportError:
+    fitz = None
 from django.conf import settings
 from django.core.files.base import ContentFile
 from django.core.management.base import BaseCommand
