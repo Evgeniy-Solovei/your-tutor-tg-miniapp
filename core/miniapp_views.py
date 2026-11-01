@@ -72,7 +72,11 @@ def miniapp(request, path: str = ''):
             content_type=content_type or 'application/octet-stream',
         )
 
-    response['Cache-Control'] = 'no-cache, must-revalidate'
+    if clean_path.endswith('.html'):
+        response['Cache-Control'] = 'no-cache, must-revalidate'
+    else:
+        # Статика (JS, CSS, шрифты, картинки): кэшируем в браузере на сутки
+        response['Cache-Control'] = 'public, max-age=86400, stale-while-revalidate=3600'
     if web_site:
         # Презентации / встраивание для инвестора
         response['Content-Security-Policy'] = "frame-ancestors *"
