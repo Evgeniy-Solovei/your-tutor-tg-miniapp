@@ -17,7 +17,12 @@ from PIL import Image, ImageDraw, ImageFont
 
 
 def get_font(size: int, bold: bool = True):
+    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    bundled_bold = os.path.join(base_dir, 'fonts', 'Arial-Bold.ttf')
+    bundled_regular = os.path.join(base_dir, 'fonts', 'Arial.ttf')
+
     candidates = [
+        bundled_bold if bold else bundled_regular,
         '/System/Library/Fonts/Supplemental/Arial Rounded Bold.ttf' if bold else '/System/Library/Fonts/Supplemental/Arial.ttf',
         '/System/Library/Fonts/Supplemental/Arial Bold.ttf' if bold else '/System/Library/Fonts/Supplemental/Arial.ttf',
         '/Library/Fonts/Arial.ttf',
