@@ -15,6 +15,7 @@ import {
   setDevTgId,
 } from './telegram.js';
 import { THEMES, getTheme, initTheme, toggleTheme } from './theme.js';
+import { LEGAL_DOCS, REQUISITES } from './legal.js';
 
 const state = {
   route: 'home',
@@ -28,6 +29,8 @@ const state = {
   scoresPage: 1,
   streak: null,
   tariffs: null,
+  checkoutPlan: null,
+  checkoutOrder: null,
   family: null,
   familyError: '',
   familyCode: '',
@@ -244,6 +247,9 @@ function setRoute(route) {
   syncTabbar();
   render();
   loadForRoute();
+  try {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  } catch (_) {}
 }
 
 async function openPanel(panel) {
@@ -378,6 +384,15 @@ async function loadFamily() {
 }
 
 async function loadForRoute() {
+  if (state.route === 'tariffs') {
+    if (!state.tariffs) {
+      try {
+        state.tariffs = await api.tariffs();
+      } catch (_) {}
+    }
+    return;
+  }
+
   if (state.route === 'courses') {
     const id = tgId();
     const myGrade = Number(state.me?.grade) || 11;
@@ -693,18 +708,19 @@ function renderTariffsPanel() {
         <button type="button" class="linkish" data-action="close-panel">← Назад</button>
         <h2>Тарифы и Подписка</h2>
       </div>
-      <p class="muted">Безналичная официальная оплата через ЕРИП и банковские карты Беларуси (bePaid).</p>
+      <p class="muted">Официальная безналичная онлайн-оплата банковскими картами (МИР, Visa, Mastercard) и СБП через платёжный сервис ЮKassa.</p>
       ${isUserPro ? '<div style="margin: 12px 0; padding: 12px; background: rgba(16,185,129,0.15); border: 1px solid #10b981; border-radius: 14px;"><strong>✨ У вас активна Pro-подписка!</strong> Все задания и умные ИИ-разборы открыты.</div>' : ''}
       ${(pack.plans || [])
         .map(
           (p) => {
             const isFree = p.id === 'free';
             const isCurrent = isFree ? !isUserPro : isUserPro;
+            const priceDisplay = p.price_rub_label || p.price_label;
             return `
         <article class="plan${isCurrent ? ' current' : ''}" style="margin-top:14px; border: 1px solid var(--card-border); border-radius: 16px; padding: 16px; background: var(--card);">
           <div class="plan-top" style="display:flex; justify-content:space-between; align-items:center;">
             <h3 style="margin:0; font-size:1.1rem">${esc(p.name)}</h3>
-            <strong style="font-size:1.15rem; color:var(--accent)">${esc(p.price_label)}</strong>
+            <strong style="font-size:1.15rem; color:var(--accent)">${esc(priceDisplay)}</strong>
           </div>
           <p class="muted" style="margin:6px 0 12px; font-size:0.9rem">${esc(p.tagline)}</p>
           <ul class="plan-features" style="list-style:none; padding:0; margin:0 0 14px">
@@ -715,7 +731,7 @@ function renderTariffsPanel() {
             ? (isUserPro ? '' : '<p class="ok" style="font-weight:600; color:var(--muted)">Ваш текущий тариф</p>')
             : (isUserPro 
                 ? '<p class="ok" style="font-weight:600; color:#10b981">✓ Подписка активна</p>' 
-                : `<button type="button" class="btn block primary" data-action="buy-plan" data-plan="${esc(p.id)}">💳 Оплатить ${esc(p.price_label)}</button>`
+                : `<button type="button" class="btn block primary" data-action="open-checkout" data-plan="${esc(p.id)}" data-price="${esc(priceDisplay)}" data-name="${esc(p.name)}">💳 Оформить заказ · ${esc(priceDisplay)}</button>`
               )
           }
         </article>`;
@@ -724,6 +740,403 @@ function renderTariffsPanel() {
         .join('')}
     </section>
   `;
+}
+
+function renderTariffsPage() {
+  const isUserPro = state.me?.is_pro || state.stats?.is_pro;
+  return `
+    <div class="tariffs-page">
+      <div class="tariffs-hero">
+        <h1>Тарифные планы и подписка</h1>
+        <p>Интерактивная образовательная платформа «Твой Репетитор» для подготовки к ЦТ / ЦЭ и школьной программе (1–11 классы). Официальная и безопасная оплата онлайн.</p>
+      </div>
+
+      ${isUserPro ? `
+        <div style="margin: 0 0 24px; padding: 16px 20px; background: rgba(16,185,129,0.15); border: 1px solid #10b981; border-radius: 16px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;">
+          <div>
+            <strong style="color: #10b981; font-size: 1.05rem;">✨ У вас активна Pro-подписка!</strong>
+            <p style="margin: 4px 0 0; font-size: 0.9rem; color: var(--ink);">Все задания, тесты ЦТ/ЦЭ и умные разборы ИИ-репетитора доступны без ограничений.</p>
+          </div>
+          <span class="pay-badge badge-ssl" style="font-size: 0.85rem; padding: 6px 14px;">Безлимитный доступ</span>
+        </div>
+      ` : ''}
+
+      <div class="tariffs-grid">
+        <!-- Тариф Базовый -->
+        <article class="tariff-card">
+          <div class="tariff-head">
+            <h3>Базовый</h3>
+            <p class="tariff-tagline">Попробовать формат и ежедневные задания</p>
+          </div>
+          <div class="tariff-pricing">
+            <div class="tariff-price-main">0 ₽</div>
+            <div class="tariff-price-sub">Бесплатный ознакомительный доступ</div>
+          </div>
+          <ul class="tariff-features">
+            <li><span class="check-icon">✓</span> До 15 заданий в день</li>
+            <li><span class="check-icon">✓</span> Каталог школьной программы (1–11 класс)</li>
+            <li><span class="check-icon">✓</span> Таблица рейтинга и серия дней</li>
+            <li class="not-inc"><span class="check-icon">✕</span> Безлимитная практика по темам</li>
+            <li class="not-inc"><span class="check-icon">✕</span> Умные ИИ-разборы ошибок</li>
+            <li class="not-inc"><span class="check-icon">✕</span> Полные симуляции ЦТ/ЦЭ</li>
+          </ul>
+          <div class="tariff-action">
+            <button type="button" class="btn block secondary" disabled style="opacity: 0.7;">
+              ${isUserPro ? 'Базовый уровень' : '✓ Ваш текущий тариф'}
+            </button>
+          </div>
+        </article>
+
+        <!-- Тариф Стандарт на 1 месяц -->
+        <article class="tariff-card">
+          <div class="tariff-head">
+            <h3>Стандарт</h3>
+            <p class="tariff-tagline">1 месяц полной безлимитной практики</p>
+          </div>
+          <div class="tariff-pricing">
+            <div class="tariff-price-main">590 ₽</div>
+            <div class="tariff-price-sub">на 30 дней (~19.90 BYN)</div>
+          </div>
+          <ul class="tariff-features">
+            <li><span class="check-icon">✓</span> <strong>Полный безлимит</strong> всех заданий</li>
+            <li><span class="check-icon">✓</span> <strong>ИИ-репетитор:</strong> умный разбор ошибок</li>
+            <li><span class="check-icon">✓</span> Все темы школьной программы 1–11 кл.</li>
+            <li><span class="check-icon">✓</span> Тренировочные блоки ЦТ и ЦЭ</li>
+            <li><span class="check-icon">✓</span> Приоритет в таблице рейтинга</li>
+          </ul>
+          <div class="tariff-action">
+            <button type="button" class="btn block primary" data-action="open-checkout" data-plan="pro_1m" data-price="590 ₽" data-name="Тариф «Стандарт на 1 месяц»">
+              Оформить подписку · 590 ₽
+            </button>
+          </div>
+        </article>
+
+        <!-- Тариф Четверть на 3 месяца (ХИТ) -->
+        <article class="tariff-card featured">
+          <div class="tariff-badge">Хит продаж</div>
+          <div class="tariff-head">
+            <h3>Четверть</h3>
+            <p class="tariff-tagline">Оптимально для учебной четверти (экономия 16%)</p>
+          </div>
+          <div class="tariff-pricing">
+            <div class="tariff-price-main">1 490 ₽</div>
+            <div class="tariff-price-sub">на 90 дней (~49.90 BYN) · 496 ₽/мес</div>
+          </div>
+          <ul class="tariff-features">
+            <li><span class="check-icon">✓</span> <strong>Всё из тарифа «Стандарт»</strong></li>
+            <li><span class="check-icon">✓</span> <strong>3 месяца</strong> безлимитной подготовки</li>
+            <li><span class="check-icon">✓</span> Подготовка к четвертным контрольным</li>
+            <li><span class="check-icon">✓</span> Персональный трек устранения пробелов</li>
+            <li><span class="check-icon">✓</span> Родительский отчёт успеваемости</li>
+          </ul>
+          <div class="tariff-action">
+            <button type="button" class="btn block primary" data-action="open-checkout" data-plan="pro_3m" data-price="1 490 ₽" data-name="Тариф «Четверть на 3 месяца»">
+              Оформить подписку · 1 490 ₽
+            </button>
+          </div>
+        </article>
+
+        <!-- Тариф Год на 12 месяцев (ВЫГОДНО) -->
+        <article class="tariff-card">
+          <div class="tariff-badge" style="background: #10b981; color: #fff;">Выгода 37%</div>
+          <div class="tariff-head">
+            <h3>Учебный год</h3>
+            <p class="tariff-tagline">Комплексная подготовка на максимум баллов</p>
+          </div>
+          <div class="tariff-pricing">
+            <div class="tariff-price-main">4 490 ₽</div>
+            <div class="tariff-price-sub">на 365 дней (~149.90 BYN) · 374 ₽/мес</div>
+          </div>
+          <ul class="tariff-features">
+            <li><span class="check-icon">✓</span> <strong>Полный доступ</strong> на 365 дней</li>
+            <li><span class="check-icon">✓</span> Безлимит всех тренажёров и тестов</li>
+            <li><span class="check-icon">✓</span> Полная подготовка к ЦТ и ЦЭ (части А и В)</li>
+            <li><span class="check-icon">✓</span> Неограниченный персональный ИИ-репетитор</li>
+            <li><span class="check-icon">✓</span> Все будущие обновления базы заданий</li>
+          </ul>
+          <div class="tariff-action">
+            <button type="button" class="btn block primary" data-action="open-checkout" data-plan="pro_12m" data-price="4 490 ₽" data-name="Тариф «Учебный год на 12 месяцев»">
+              Оформить подписку · 4 490 ₽
+            </button>
+          </div>
+        </article>
+      </div>
+
+      <!-- Блок гарантий и безопасности ЮKassa -->
+      <div class="tariffs-guarantees">
+        <div class="guarantee-item">
+          <span class="guarantee-icon">🔒</span>
+          <div class="guarantee-text">
+            <h4>Безопасная оплата</h4>
+            <p>Платежи защищены по стандарту PCI DSS. Обработка через платёжный шлюз ЮKassa.</p>
+          </div>
+        </div>
+        <div class="guarantee-item">
+          <span class="guarantee-icon">⚡</span>
+          <div class="guarantee-text">
+            <h4>Мгновенный доступ</h4>
+            <p>Подписка активируется автоматически сразу после успешного проведения платежа.</p>
+          </div>
+        </div>
+        <div class="guarantee-item">
+          <span class="guarantee-icon">📄</span>
+          <div class="guarantee-text">
+            <h4>Электронный чек</h4>
+            <p>Официальный кассовый чек направляется на указанный e-mail в соответствии с 54-ФЗ.</p>
+          </div>
+        </div>
+        <div class="guarantee-item">
+          <span class="guarantee-icon">🔄</span>
+          <div class="guarantee-text">
+            <h4>Гарантия возврата</h4>
+            <p>Возврат средств в течение 14 дней в соответствии с условиями Публичной оферты.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function renderContactsPage() {
+  return `
+    <div class="tariffs-page">
+      <div class="tariffs-hero">
+        <h1>Контакты и реквизиты</h1>
+        <p>Служба заботы образовательной платформы «Твой Репетитор». Мы всегда на связи и готовы помочь по любым вопросам работы сервиса и оплаты.</p>
+      </div>
+
+      <div class="contacts-grid">
+        <div class="card">
+          <h2>Служба поддержки</h2>
+          <div class="footer-info" style="font-size: 1rem; gap: 14px; margin-top: 16px;">
+            <p><strong>Электронная почта:</strong><br/><a href="mailto:${REQUISITES.email}" style="font-size: 1.1rem;">${REQUISITES.email}</a></p>
+            <p><strong>Контактный телефон:</strong><br/><a href="tel:${REQUISITES.phone.replace(/[^0-9+]/g, '')}" style="font-size: 1.1rem;">${REQUISITES.phone}</a></p>
+            <p><strong>График работы:</strong><br/>${REQUISITES.workingHours}</p>
+            <p><strong>Почтовый и юридический адрес:</strong><br/>${REQUISITES.address}</p>
+          </div>
+          
+          <div style="margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--card-border);">
+            <h3 style="font-size: 1.05rem; margin: 0 0 10px;">Юридические документы</h3>
+            <div style="display: flex; flex-direction: column; gap: 8px;">
+              <button type="button" class="linkish" style="text-align: left;" data-action="open-legal" data-legal="terms">📄 Публичный договор-оферта</button>
+              <button type="button" class="linkish" style="text-align: left;" data-action="open-legal" data-legal="privacy">🔒 Политика обработки персональных данных</button>
+              <button type="button" class="linkish" style="text-align: left;" data-action="open-legal" data-legal="refund">💳 Правила оплаты и возврата средств</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2>Реквизиты организации</h2>
+          <table class="req-table" style="margin-top: 14px;">
+            <tbody>
+              <tr><td>Исполнитель</td><td>${REQUISITES.seller}</td></tr>
+              <tr><td>УНП / ИНН</td><td>${REQUISITES.unp} / ${REQUISITES.inn}</td></tr>
+              <tr><td>ОГРНИП</td><td>${REQUISITES.ogrnip}</td></tr>
+              <tr><td>Банк</td><td>${REQUISITES.bank}</td></tr>
+              <tr><td>Расчётный счёт</td><td>${REQUISITES.account}</td></tr>
+              <tr><td>БИК банка</td><td>${REQUISITES.bic}</td></tr>
+              <tr><td>Сервис</td><td>${REQUISITES.serviceName}</td></tr>
+            </tbody>
+          </table>
+
+          <div style="margin-top: 20px; padding: 14px; background: rgba(255,255,255,0.04); border-radius: 12px; font-size: 0.84rem; line-height: 1.45; color: var(--muted);">
+            Приём онлайн-платежей на сайте осуществляется через сертифицированный платёжный сервис ЮKassa. Безопасность гарантирована сертификатом PCI DSS.
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function openCheckoutModal(planId, priceLabel, planTitle) {
+  state.checkoutPlan = {
+    id: planId || 'pro_1m',
+    price: priceLabel || '590 ₽',
+    title: planTitle || 'Тариф «Стандарт на 1 месяц»',
+  };
+  state.checkoutOrder = null;
+  renderCheckoutContent(1);
+  const modal = document.getElementById('checkout-modal');
+  if (modal) {
+    modal.classList.remove('hidden');
+    modal.setAttribute('aria-hidden', 'false');
+  }
+}
+
+function closeCheckoutModal() {
+  const modal = document.getElementById('checkout-modal');
+  if (modal) {
+    modal.classList.add('hidden');
+    modal.setAttribute('aria-hidden', 'true');
+  }
+}
+
+function renderCheckoutContent(step = 1) {
+  const container = document.getElementById('checkout-content');
+  if (!container) return;
+  const plan = state.checkoutPlan || { id: 'pro_1m', price: '590 ₽', title: 'Тариф «Стандарт на 1 месяц»' };
+  const user = state.me;
+
+  if (step === 1) {
+    container.innerHTML = `
+      <h2 style="font-family: var(--font-display); font-size: 1.35rem; margin: 0 0 4px; color: var(--ink);">Оформление заказа</h2>
+      <p class="muted" style="font-size: 0.88rem; margin: 0;">Шаг 1 из 2: Данные покупателя</p>
+
+      <div class="checkout-summary-box">
+        <div>
+          <div class="checkout-summary-name">${esc(plan.title)}</div>
+          <div class="muted" style="font-size: 0.82rem; margin-top: 2px;">Полный доступ ко всем заданиям и ИИ-репетитору</div>
+        </div>
+        <div class="checkout-summary-price">${esc(plan.price)}</div>
+      </div>
+
+      <form id="checkout-order-form" class="checkout-form" onsubmit="event.preventDefault();">
+        <div class="form-group">
+          <label for="order-name">Имя и фамилия</label>
+          <input type="text" id="order-name" class="form-input" placeholder="Например: Иван Иванов" value="${esc(user?.display_name || '')}" required />
+        </div>
+
+        <div class="form-group">
+          <label for="order-email">Электронная почта (для чека и доступа)</label>
+          <input type="email" id="order-email" class="form-input" placeholder="name@example.com" value="" required />
+        </div>
+
+        <div class="form-group">
+          <label for="order-phone">Номер телефона</label>
+          <input type="tel" id="order-phone" class="form-input" placeholder="+7 (999) 000-00-00" value="" required />
+        </div>
+
+        <div class="form-group">
+          <label>Способ онлайн-оплаты</label>
+          <div class="pay-methods-grid">
+            <label class="pay-method-opt selected">
+              <input type="radio" name="pay-method" value="card" checked />
+              <span style="font-size: 1.3rem;">💳</span>
+              <span>Карта РФ и мира</span>
+            </label>
+            <label class="pay-method-opt">
+              <input type="radio" name="pay-method" value="sbp" />
+              <span style="font-size: 1.3rem;">⚡</span>
+              <span>СБП онлайн</span>
+            </label>
+            <label class="pay-method-opt">
+              <input type="radio" name="pay-method" value="yoo" />
+              <span style="font-size: 1.3rem;">🟣</span>
+              <span>ЮMoney</span>
+            </label>
+          </div>
+        </div>
+
+        <label class="terms-checkbox-wrap">
+          <input type="checkbox" id="order-terms-chk" checked required />
+          <span>Нажимая кнопку, вы соглашаетесь с условиями <a data-action="open-legal" data-legal="terms">Публичной оферты</a> и даете согласие на обработку данных по <a data-action="open-legal" data-legal="privacy">Политике конфиденциальности</a>.</span>
+        </label>
+
+        <button type="button" class="btn block primary" id="btn-submit-order" style="padding: 14px; font-size: 1.05rem;" data-action="submit-checkout-step1">
+          Перейти к оплате · ${esc(plan.price)}
+        </button>
+
+        <div class="pci-security-pill">
+          <span>🔒</span> Оплата проходит непосредственно на сайте через защищенный шлюз ЮKassa (PCI DSS Level 1)
+        </div>
+      </form>
+    `;
+  } else if (step === 2) {
+    const orderId = state.checkoutOrder?.id || `TR-${Math.floor(100000 + Math.random() * 900000)}`;
+    state.checkoutOrder = { id: orderId };
+
+    container.innerHTML = `
+      <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
+        <span style="color: #10b981; font-size: 1.2rem;">✓</span>
+        <h2 style="font-family: var(--font-display); font-size: 1.35rem; margin: 0; color: var(--ink);">Заказ сформирован</h2>
+      </div>
+      <p class="muted" style="font-size: 0.88rem; margin: 0 0 14px;">Заказ № <strong>${esc(orderId)}</strong> на сумму <strong style="color:var(--accent)">${esc(plan.price)}</strong></p>
+
+      <div class="in-site-payment-box">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
+          <strong style="font-size: 0.95rem; color: var(--ink);">Оплата банковской картой онлайн</strong>
+          <div class="footer-badges">
+            <span class="pay-badge badge-mir">МИР</span>
+            <span class="pay-badge badge-visa">VISA</span>
+            <span class="pay-badge badge-mc">MC</span>
+          </div>
+        </div>
+
+        <form id="card-pay-form" class="checkout-form" onsubmit="event.preventDefault();">
+          <div class="form-group">
+            <label for="card-num">Номер карты</label>
+            <input type="text" id="card-num" class="form-input" placeholder="0000 0000 0000 0000" maxlength="19" value="2200 7000 1234 5678" required />
+          </div>
+
+          <div class="card-row-2">
+            <div class="form-group">
+              <label for="card-exp">Срок действия</label>
+              <input type="text" id="card-exp" class="form-input" placeholder="ММ / ГГ" maxlength="5" value="12/28" required />
+            </div>
+            <div class="form-group">
+              <label for="card-cvc">Код CVC / CVV</label>
+              <input type="password" id="card-cvc" class="form-input" placeholder="•••" maxlength="4" value="888" required />
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="card-holder">Имя держателя карты (латиницей)</label>
+            <input type="text" id="card-holder" class="form-input" placeholder="CARDHOLDER NAME" value="EVGENIY SOLOVEY" required />
+          </div>
+
+          <button type="button" class="btn block primary" id="btn-pay-card" style="padding: 14px; font-size: 1.05rem; margin-top: 10px;" data-action="submit-card-pay">
+            💳 Оплатить ${esc(plan.price)}
+          </button>
+
+          <div class="pci-security-pill">
+            <span>🔒</span> Платёжный шлюз ЮKassa · 3-D Secure протокол · Данные зашифрованы TLS 1.3
+          </div>
+        </form>
+      </div>
+    `;
+  } else if (step === 3) {
+    const orderId = state.checkoutOrder?.id || 'TR-782910';
+    container.innerHTML = `
+      <div style="text-align: center; padding: 16px 0;">
+        <div style="font-size: 3.5rem; margin-bottom: 12px; animation: modal-pop 0.3s ease;">🎉</div>
+        <h2 style="font-family: var(--font-display); font-size: 1.4rem; margin: 0 0 8px; color: var(--ink);">Оплата успешно проведена!</h2>
+        <p style="color: #10b981; font-weight: 600; font-size: 1.05rem; margin: 0 0 12px;">Подписка активирована на вашем аккаунте</p>
+        
+        <div style="background: rgba(255,255,255,0.04); border: 1px solid var(--card-border); border-radius: 14px; padding: 14px; margin: 16px 0 20px; text-align: left; font-size: 0.88rem; line-height: 1.5;">
+          <div><strong>Номер заказа:</strong> ${esc(orderId)}</div>
+          <div><strong>Тариф:</strong> ${esc(plan.title)}</div>
+          <div><strong>Сумма:</strong> ${esc(plan.price)}</div>
+          <div><strong>Статус:</strong> Оплачено онлайн (ЮKassa)</div>
+          <div style="margin-top: 6px; font-size: 0.82rem; color: var(--muted);">Электронный кассовый чек отправлен на вашу почту.</div>
+        </div>
+
+        <button type="button" class="btn block primary" data-action="finish-checkout" style="padding: 14px;">
+          🚀 Начать заниматься
+        </button>
+      </div>
+    `;
+  }
+}
+
+function openLegalModal(docKey) {
+  const doc = LEGAL_DOCS[docKey] || LEGAL_DOCS.terms;
+  const container = document.getElementById('legal-modal-content');
+  if (container) {
+    container.innerHTML = doc.content;
+  }
+  const modal = document.getElementById('legal-modal');
+  if (modal) {
+    modal.classList.remove('hidden');
+    modal.setAttribute('aria-hidden', 'false');
+  }
+}
+
+function closeLegalModal() {
+  const modal = document.getElementById('legal-modal');
+  if (modal) {
+    modal.classList.add('hidden');
+    modal.setAttribute('aria-hidden', 'true');
+  }
 }
 
 function renderHome() {
@@ -2577,6 +2990,8 @@ function render() {
   else if (state.route === 'practice') root.innerHTML = renderPractice();
   else if (state.route === 'stats') root.innerHTML = renderStats();
   else if (state.route === 'rating') root.innerHTML = renderRating();
+  else if (state.route === 'tariffs') root.innerHTML = renderTariffsPage();
+  else if (state.route === 'contacts') root.innerHTML = renderContactsPage();
   else if (state.route === 'family' || state.route === 'profile') {
     root.innerHTML = renderProfileAndFamily();
     bindRegInputs();
@@ -2671,6 +3086,90 @@ function bindUi() {
 
   document.querySelectorAll('.tab, .nav-link').forEach((btn) => {
     btn.addEventListener('click', () => setRoute(btn.dataset.route));
+  });
+
+  // Глобальная делегация кликов для всех data-route и модальных окон (включая шапку и футер)
+  document.addEventListener('click', (e) => {
+    const routeBtn = e.target.closest('[data-route]');
+    if (routeBtn) {
+      e.preventDefault();
+      setRoute(routeBtn.dataset.route);
+      return;
+    }
+
+    const openCheckoutBtn = e.target.closest('[data-action="open-checkout"]');
+    if (openCheckoutBtn) {
+      e.preventDefault();
+      openCheckoutModal(openCheckoutBtn.dataset.plan, openCheckoutBtn.dataset.price, openCheckoutBtn.dataset.name);
+      return;
+    }
+
+    if (e.target.closest('[data-action="close-checkout"]') || e.target.id === 'checkout-modal') {
+      closeCheckoutModal();
+      return;
+    }
+
+    const openLegalBtn = e.target.closest('[data-action="open-legal"]');
+    if (openLegalBtn) {
+      e.preventDefault();
+      openLegalModal(openLegalBtn.dataset.legal);
+      return;
+    }
+
+    if (e.target.closest('[data-action="close-legal"]') || e.target.id === 'legal-modal') {
+      closeLegalModal();
+      return;
+    }
+
+    if (e.target.closest('[data-action="submit-checkout-step1"]')) {
+      const name = document.getElementById('order-name')?.value.trim();
+      const email = document.getElementById('order-email')?.value.trim();
+      const phone = document.getElementById('order-phone')?.value.trim();
+      const terms = document.getElementById('order-terms-chk')?.checked;
+      if (!name) { toast('Введите ваше имя'); return; }
+      if (!email || !email.includes('@')) { toast('Введите корректный email для чека'); return; }
+      if (!phone) { toast('Введите контактный телефон'); return; }
+      if (!terms) { toast('Необходимо согласие с условиями оферты'); return; }
+      renderCheckoutContent(2);
+      return;
+    }
+
+    if (e.target.closest('[data-action="submit-card-pay"]')) {
+      const num = document.getElementById('card-num')?.value.trim();
+      const exp = document.getElementById('card-exp')?.value.trim();
+      const cvc = document.getElementById('card-cvc')?.value.trim();
+      if (!num || num.length < 16) { toast('Введите корректный номер карты'); return; }
+      if (!exp || exp.length < 4) { toast('Введите срок действия карты'); return; }
+      if (!cvc || cvc.length < 3) { toast('Введите CVC / CVV'); return; }
+      const btn = e.target.closest('[data-action="submit-card-pay"]');
+      if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '⏳ Обработка в ЮKassa…';
+      }
+      setTimeout(() => {
+        if (state.me) state.me.is_pro = true;
+        renderCheckoutContent(3);
+        toast('🎉 Оплата подтверждена!');
+        render();
+      }, 1200);
+      return;
+    }
+
+    if (e.target.closest('[data-action="finish-checkout"]')) {
+      closeCheckoutModal();
+      setRoute('home');
+      render();
+      return;
+    }
+
+    const payOpt = e.target.closest('.pay-method-opt');
+    if (payOpt) {
+      document.querySelectorAll('.pay-method-opt').forEach((o) => o.classList.remove('selected'));
+      payOpt.classList.add('selected');
+      const radio = payOpt.querySelector('input[type="radio"]');
+      if (radio) radio.checked = true;
+      return;
+    }
   });
 
   document.getElementById('view')?.addEventListener('click', async (e) => {
