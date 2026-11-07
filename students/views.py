@@ -679,12 +679,11 @@ class TariffsView(APIView):
         from core.tariffs import TARIFFS, current_plan_id
 
         user = getattr(request, 'telegram_user', None)
-        if not isinstance(user, TelegramWebAppUser):
-            return Response({'detail': 'Нужна авторизация Telegram'}, status=401)
-
-        student = await Student.objects.filter(
-            tg_id=user.id, registration_completed=True
-        ).afirst()
+        student = None
+        if isinstance(user, TelegramWebAppUser):
+            student = await Student.objects.filter(
+                tg_id=user.id, registration_completed=True
+            ).afirst()
         current = current_plan_id(student) if student else 'free'
 
         plans = []
@@ -695,10 +694,11 @@ class TariffsView(APIView):
 
         return Response(
             {
-                'currency': 'BYN',
+                'currency': 'RUB',
+                'currency_secondary': 'BYN',
                 'current_plan_id': current,
                 'plans': plans,
-                'note': 'Оплата через bePaid / ЕРИП и банковские карты Беларуси.',
+                'note': 'Официальная онлайн-оплата банковскими картами (МИР, Visa, Mastercard) и СБП через платёжный сервис ЮKassa.',
             }
         )
 
