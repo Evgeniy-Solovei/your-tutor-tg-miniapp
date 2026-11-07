@@ -49,8 +49,27 @@ def miniapp(request, path: str = ''):
         clean_path = 'index.html'
 
     if not target.is_file():
-        target = root / 'index.html'
-        clean_path = 'index.html'
+        alias_map = {
+            'terms': 'terms.html',
+            'oferta': 'terms.html',
+            'dogovor': 'terms.html',
+            'privacy': 'privacy.html',
+            'policy': 'privacy.html',
+            'refund': 'refund.html',
+            'payment': 'refund.html',
+            'contacts': 'contacts.html',
+            'rekvizity': 'contacts.html',
+            'tariffs': 'tariffs.html',
+            'pricing': 'tariffs.html',
+        }
+        candidate = alias_map.get(clean_path.lower()) or f'{clean_path}.html'
+        candidate_path = root / candidate
+        if candidate_path.is_file():
+            target = candidate_path
+            clean_path = candidate
+        else:
+            target = root / 'index.html'
+            clean_path = 'index.html'
 
     content_type, _ = mimetypes.guess_type(str(target))
     if clean_path.endswith('.js'):

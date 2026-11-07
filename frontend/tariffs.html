@@ -1,0 +1,234 @@
+<!doctype html>
+<html lang="ru" data-theme="vibe">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Тарифы и стоимость услуг — Твой Репетитор</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700;800&family=Unbounded:wght@600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./styles.css?v=20261107-yookassa" />
+  </head>
+  <body>
+    <div class="app-shell" style="min-height: 100vh; display: flex; flex-direction: column;">
+      <header class="topbar">
+        <a href="./" class="brand" style="text-decoration: none;">
+          <span class="brand-mark">⚡</span>
+          <div>
+            <p class="brand-name">Твой Репетитор</p>
+            <p class="brand-sub">ЦТ · ЦЭ · Школа</p>
+          </div>
+        </a>
+
+        <nav class="desktop-nav" aria-label="Основное меню">
+          <a href="./" class="nav-link" style="text-decoration:none;">Главная</a>
+          <a href="./tariffs" class="nav-link nav-highlight active" style="text-decoration:none;">Тарифы</a>
+          <a href="./terms" class="nav-link" style="text-decoration:none;">Оферта</a>
+          <a href="./privacy" class="nav-link" style="text-decoration:none;">Конфиденциальность</a>
+          <a href="./refund" class="nav-link" style="text-decoration:none;">Оплата и возврат</a>
+          <a href="./contacts" class="nav-link" style="text-decoration:none;">Контакты</a>
+        </nav>
+      </header>
+
+      <main style="max-width: 1200px; margin: 32px auto; padding: 0 16px; flex: 1; width: 100%; box-sizing: border-box;">
+        <div style="margin-bottom: 20px;">
+          <a href="./" style="color: var(--accent); text-decoration: none; font-size: 0.92rem;">← Вернуться на главную платформу</a>
+        </div>
+
+        <div class="tariffs-page">
+          <div class="tariffs-hero">
+            <h1>Тарифные планы и подписка</h1>
+            <p>
+              Интерактивная образовательная онлайн-платформа «Твой Репетитор» для комплексной подготовки к ЦТ / ЦЭ и школьной программе (1–11 классы). Официальная и безопасная оплата онлайн.
+            </p>
+          </div>
+
+          <div class="tariffs-grid">
+            <!-- Тариф Базовый -->
+            <article class="tariff-card">
+              <div class="tariff-head">
+                <h3>Базовый</h3>
+                <p class="tariff-tagline">Попробовать формат и ежедневные задания</p>
+              </div>
+              <div class="tariff-pricing">
+                <div class="tariff-price-main">0 ₽</div>
+                <div class="tariff-price-sub">Бесплатный ознакомительный доступ</div>
+              </div>
+              <ul class="tariff-features">
+                <li><span class="check-icon">✓</span> До 15 заданий в день</li>
+                <li><span class="check-icon">✓</span> Каталог школьной программы (1–11 класс)</li>
+                <li><span class="check-icon">✓</span> Таблица рейтинга и серия дней</li>
+                <li class="not-inc"><span class="check-icon">✕</span> Безлимитная практика по всем темам</li>
+                <li class="not-inc"><span class="check-icon">✕</span> Умные ИИ-разборы ошибок</li>
+                <li class="not-inc"><span class="check-icon">✕</span> Полные симуляции тестирования ЦТ/ЦЭ</li>
+              </ul>
+              <div class="tariff-action">
+                <a href="./" class="btn block secondary" style="text-decoration: none; text-align: center;">✓ Открыть базовый доступ</a>
+              </div>
+            </article>
+
+            <!-- Тариф Стандарт на 1 месяц -->
+            <article class="tariff-card">
+              <div class="tariff-head">
+                <h3>Стандарт</h3>
+                <p class="tariff-tagline">1 месяц полной безлимитной практики</p>
+              </div>
+              <div class="tariff-pricing">
+                <div class="tariff-price-main">590 ₽</div>
+                <div class="tariff-price-sub">на 30 дней (~19.90 BYN)</div>
+              </div>
+              <ul class="tariff-features">
+                <li><span class="check-icon">✓</span> <strong>Полный безлимит</strong> всех заданий</li>
+                <li><span class="check-icon">✓</span> <strong>ИИ-репетитор:</strong> умный разбор ошибок</li>
+                <li><span class="check-icon">✓</span> Все темы школьной программы 1–11 кл.</li>
+                <li><span class="check-icon">✓</span> Тренировочные блоки ЦТ и ЦЭ</li>
+                <li><span class="check-icon">✓</span> Приоритет в таблице рейтинга</li>
+              </ul>
+              <div class="tariff-action">
+                <a href="./?route=tariffs" class="btn block primary" style="text-decoration: none; text-align: center;">Оформить подписку · 590 ₽</a>
+              </div>
+            </article>
+
+            <!-- Тариф Четверть на 3 месяца (ХИТ) -->
+            <article class="tariff-card featured">
+              <div class="tariff-badge">Хит продаж</div>
+              <div class="tariff-head">
+                <h3>Четверть</h3>
+                <p class="tariff-tagline">Оптимально для учебной четверти (экономия 16%)</p>
+              </div>
+              <div class="tariff-pricing">
+                <div class="tariff-price-main">1 490 ₽</div>
+                <div class="tariff-price-sub">на 90 дней (~49.90 BYN) · 496 ₽/мес</div>
+              </div>
+              <ul class="tariff-features">
+                <li><span class="check-icon">✓</span> <strong>Всё из тарифа «Стандарт»</strong></li>
+                <li><span class="check-icon">✓</span> <strong>3 месяца</strong> безлимитной подготовки</li>
+                <li><span class="check-icon">✓</span> Подготовка к четвертным контрольным</li>
+                <li><span class="check-icon">✓</span> Персональный трек устранения пробелов</li>
+                <li><span class="check-icon">✓</span> Родительский отчёт успеваемости</li>
+              </ul>
+              <div class="tariff-action">
+                <a href="./?route=tariffs" class="btn block primary" style="text-decoration: none; text-align: center;">Оформить подписку · 1 490 ₽</a>
+              </div>
+            </article>
+
+            <!-- Тариф Год на 12 месяцев (ВЫГОДНО) -->
+            <article class="tariff-card">
+              <div class="tariff-badge" style="background: #10b981; color: #fff;">Выгода 37%</div>
+              <div class="tariff-head">
+                <h3>Учебный год</h3>
+                <p class="tariff-tagline">Комплексная подготовка на максимум баллов</p>
+              </div>
+              <div class="tariff-pricing">
+                <div class="tariff-price-main">4 490 ₽</div>
+                <div class="tariff-price-sub">на 365 дней (~149.90 BYN) · 374 ₽/мес</div>
+              </div>
+              <ul class="tariff-features">
+                <li><span class="check-icon">✓</span> <strong>Полный доступ</strong> на 365 дней</li>
+                <li><span class="check-icon">✓</span> Безлимит всех тренажёров и тестов</li>
+                <li><span class="check-icon">✓</span> Полная подготовка к ЦТ и ЦЭ (части А и В)</li>
+                <li><span class="check-icon">✓</span> Неограниченный персональный ИИ-репетитор</li>
+                <li><span class="check-icon">✓</span> Все будущие обновления базы заданий</li>
+              </ul>
+              <div class="tariff-action">
+                <a href="./?route=tariffs" class="btn block primary" style="text-decoration: none; text-align: center;">Оформить подписку · 4 490 ₽</a>
+              </div>
+            </article>
+          </div>
+
+          <!-- Блок гарантий и безопасности ЮKassa -->
+          <div class="tariffs-guarantees">
+            <div class="guarantee-item">
+              <span class="guarantee-icon">🔒</span>
+              <div class="guarantee-text">
+                <h4>Безопасная оплата</h4>
+                <p>Платежи защищены по стандарту PCI DSS Level 1. Обработка через платёжный шлюз ЮKassa.</p>
+              </div>
+            </div>
+            <div class="guarantee-item">
+              <span class="guarantee-icon">⚡</span>
+              <div class="guarantee-text">
+                <h4>Мгновенный доступ</h4>
+                <p>Подписка активируется автоматически сразу после успешного проведения платежа.</p>
+              </div>
+            </div>
+            <div class="guarantee-item">
+              <span class="guarantee-icon">📄</span>
+              <div class="guarantee-text">
+                <h4>Электронный чек</h4>
+                <p>Официальный кассовый чек направляется на указанный e-mail в соответствии с 54-ФЗ.</p>
+              </div>
+            </div>
+            <div class="guarantee-item">
+              <span class="guarantee-icon">🔄</span>
+              <div class="guarantee-text">
+                <h4>Гарантия возврата</h4>
+                <p>Возврат средств в течение 14 дней в соответствии с условиями Публичной оферты.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </main>
+
+      <footer class="app-footer">
+        <div class="footer-container">
+          <div class="footer-col footer-brand">
+            <div class="footer-logo">
+              <span class="footer-brand-mark">⚡</span>
+              <span class="footer-brand-name">Твой Репетитор</span>
+            </div>
+            <p class="footer-desc">Интерактивная образовательная онлайн-платформа подготовки к ЦТ, ЦЭ и школьной программе (1–11 классы).</p>
+            <div class="footer-copy">© 2026 «Твой Репетитор». Все права защищены.</div>
+          </div>
+
+          <div class="footer-col">
+            <h4 class="footer-title">Разделы</h4>
+            <ul class="footer-links">
+              <li><a href="./" class="footer-link-btn" style="text-decoration:none;">Главная</a></li>
+              <li><a href="./tariffs" class="footer-link-btn" style="text-decoration:none; color:var(--accent);">Тарифные планы</a></li>
+              <li><a href="./contacts" class="footer-link-btn" style="text-decoration:none;">Контакты</a></li>
+            </ul>
+          </div>
+
+          <div class="footer-col">
+            <h4 class="footer-title">Документы</h4>
+            <ul class="footer-links">
+              <li><a href="./terms" class="footer-link-btn" style="text-decoration:none;">Публичная оферта</a></li>
+              <li><a href="./privacy" class="footer-link-btn" style="text-decoration:none;">Политика конфиденциальности</a></li>
+              <li><a href="./refund" class="footer-link-btn" style="text-decoration:none;">Условия оплаты и возврата</a></li>
+            </ul>
+          </div>
+
+          <div class="footer-col footer-contacts">
+            <h4 class="footer-title">Контакты и реквизиты</h4>
+            <div class="footer-info">
+              <p><strong>Исполнитель:</strong> ИП Соловей Е. В.</p>
+              <p><strong>УНП / ИНН:</strong> 193748291</p>
+              <p><strong>ОГРНИП:</strong> 324774600123456</p>
+              <p><strong>Email:</strong> <a href="mailto:support@your-tutor.live-dev.by">support@your-tutor.live-dev.by</a></p>
+              <p><strong>Телефон:</strong> <a href="tel:+375297778427">+375 (29) 777-84-27</a></p>
+              <p><strong>Адрес:</strong> 220030, г. Минск, ул. Ленина, д. 14, оф. 204</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="footer-bottom">
+          <div class="footer-security-note">
+            Безопасная оплата банковскими картами через защищенный платёжный шлюз ЮKassa. Стандарт безопасности PCI DSS Level 1, TLS 1.3, 3-D Secure.
+          </div>
+          <div class="footer-badges">
+            <span class="pay-badge badge-mir">МИР</span>
+            <span class="pay-badge badge-visa">VISA</span>
+            <span class="pay-badge badge-mc">Mastercard</span>
+            <span class="pay-badge badge-sbp">СБП</span>
+            <span class="pay-badge badge-yoo">ЮKassa</span>
+            <span class="pay-badge badge-ssl">🔒 SSL 256-bit</span>
+          </div>
+        </div>
+      </footer>
+    </div>
+  </body>
+</html>

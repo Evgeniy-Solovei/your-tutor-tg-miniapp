@@ -17,8 +17,23 @@ import {
 import { THEMES, getTheme, initTheme, toggleTheme } from './theme.js';
 import { LEGAL_DOCS, REQUISITES } from './legal.js';
 
+const initialRoute = (() => {
+  try {
+    const params = new URLSearchParams(window.location.search);
+    const q = params.get('route');
+    if (q && ['home', 'courses', 'practice', 'stats', 'rating', 'profile', 'tariffs', 'contacts'].includes(q)) {
+      return q;
+    }
+    const hash = window.location.hash.replace('#', '').trim();
+    if (hash && ['home', 'courses', 'practice', 'stats', 'rating', 'profile', 'tariffs', 'contacts'].includes(hash)) {
+      return hash;
+    }
+  } catch (_) {}
+  return 'home';
+})();
+
 const state = {
-  route: 'home',
+  route: initialRoute,
   me: null,
   daily: null,
   stats: null,
