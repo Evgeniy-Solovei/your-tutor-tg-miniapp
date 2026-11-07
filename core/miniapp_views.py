@@ -4,7 +4,7 @@ import mimetypes
 from django.conf import settings
 from django.http import FileResponse, HttpResponse
 from django.views.decorators.clickjacking import xframe_options_exempt
-from django.views.decorators.http import require_GET
+from django.views.decorators.http import require_http_methods
 
 
 FRONTEND_DIR = Path(settings.BASE_DIR) / 'frontend'
@@ -30,7 +30,7 @@ def _inject_web_channel(html: str) -> str:
     return html
 
 
-@require_GET
+@require_http_methods(["GET", "HEAD"])
 @xframe_options_exempt
 def miniapp(request, path: str = ''):
     """
