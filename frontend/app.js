@@ -2939,106 +2939,122 @@ function render() {
   const root = view();
   if (!root) return;
 
-  const theme = THEMES[getTheme()] || THEMES.vibe;
-  const themeLabelEl = document.getElementById('theme-toggle-label');
-  if (themeLabelEl) themeLabelEl.textContent = theme.label;
-  const myGrade = Number(state.me?.grade) || 0;
-  if (myGrade > 0 && myGrade <= 9) {
-    document.getElementById('brand-sub').textContent = `${myGrade} класс · Школьная программа`;
-  } else if (myGrade >= 10) {
-    document.getElementById('brand-sub').textContent = 'ЦТ · ЦЭ · Подготовка';
-  } else {
-    document.getElementById('brand-sub').textContent = theme.sub;
-  }
+  try {
+    const theme = THEMES[getTheme()] || THEMES.vibe;
+    const themeLabelEl = document.getElementById('theme-toggle-label');
+    if (themeLabelEl) themeLabelEl.textContent = theme.label;
+    const myGrade = Number(state.me?.grade) || 0;
+    const brandSubEl = document.getElementById('brand-sub');
+    if (brandSubEl) {
+      if (myGrade > 0 && myGrade <= 9) {
+        brandSubEl.textContent = `${myGrade} класс · Школьная программа`;
+      } else if (myGrade >= 10) {
+        brandSubEl.textContent = 'ЦТ · ЦЭ · Подготовка';
+      } else {
+        brandSubEl.textContent = theme.sub;
+      }
+    }
 
-  if (state.loading && !state.me) {
-    root.innerHTML = `<div class="card empty">${
-      isWebChannel() ? 'Загрузка…' : 'Подключаем Telegram…'
-    }</div>`;
-    return;
-  }
+    if (state.loading && !state.me) {
+      root.innerHTML = `<div class="card empty">${
+        isWebChannel() ? 'Загрузка…' : 'Подключаем Telegram…'
+      }</div>`;
+      return;
+    }
 
-  if (state.error && !state.me) {
-    const users = state.devUsers || [];
-    const web = isWebChannel();
+    if (state.error && !state.me) {
+      const users = state.devUsers || [];
+      const web = isWebChannel();
+      root.innerHTML = `
+        <section class="card">
+          <h2>${web ? 'Демо-вход' : 'Локальный вход'}</h2>
+          <p class="muted">${esc(
+            web
+              ? 'Веб-версия «Твой Репетитор» — тот же продукт, что в Telegram. Выбери ученика, чтобы посмотреть функционал.'
+              : state.error,
+          )}</p>
+          ${
+            users.length
+              ? `<p class="muted">Выбери ученика:</p>
+                 ${users
+                   .map(
+                     (u) =>
+                       `<button class="btn block secondary" style="margin-top:8px" data-action="dev-login" data-tg="${u.tg_id}">${esc(u.display_name)}${
+                         u.grade ? ` · ${u.grade} кл.` : ''
+                       }</button>`,
+                   )
+                   .join('')}`
+              : web
+                ? `<p class="muted">Нет зарегистрированных учеников в БД — сначала создай демо-аккаунт или укажи WEB_DEMO_TG_ID.</p>`
+                : `<p class="muted">Включи TELEGRAM_AUTH_BYPASS=True и открой <code>/app/?dev_tg_id=...</code></p>`
+          }
+        </section>`;
+      return;
+    }
+
+    if (
+      state.me &&
+      state.me.registered === false &&
+      state.route !== 'family' &&
+      state.route !== 'courses'
+    ) {
+      root.innerHTML = renderRegistration();
+      bindRegInputs();
+      return;
+    }
+
+    if (state.route === 'home') root.innerHTML = renderHome();
+    else if (state.route === 'courses') root.innerHTML = renderCourses();
+    else if (state.route === 'extra-tasks') root.innerHTML = renderExtraTasks();
+    else if (state.route === 'practice') root.innerHTML = renderPractice();
+    else if (state.route === 'stats') root.innerHTML = renderStats();
+    else if (state.route === 'rating') root.innerHTML = renderRating();
+    else if (state.route === 'tariffs') root.innerHTML = renderTariffsPage();
+    else if (state.route === 'contacts') root.innerHTML = renderContactsPage();
+    else if (state.route === 'family' || state.route === 'profile') {
+      root.innerHTML = renderProfileAndFamily();
+      bindRegInputs();
+    } else {
+      root.innerHTML = renderHome();
+    }
+
+    // bind free answer if present
+    const free = document.getElementById('free-answer');
+    if (free) {
+      free.addEventListener('input', (e) => {
+        state.answerText = e.target.value;
+      });
+    }
+    const codeInput = document.getElementById('family-code');
+    if (codeInput) {
+      codeInput.addEventListener('input', (e) => {
+        state.familyCode = e.target.value.toUpperCase();
+      });
+    }
+    const fromEl = document.getElementById('report-from');
+    const toEl = document.getElementById('report-to');
+    if (fromEl) {
+      fromEl.addEventListener('change', (e) => {
+        state.reportFrom = e.target.value;
+      });
+    }
+    if (toEl) {
+      toEl.addEventListener('change', (e) => {
+        state.reportTo = e.target.value;
+      });
+    }
+
+    syncTabbar();
+  } catch (renderErr) {
+    console.error('Critical render error:', renderErr);
     root.innerHTML = `
-      <section class="card">
-        <h2>${web ? 'Демо-вход' : 'Локальный вход'}</h2>
-        <p class="muted">${esc(
-          web
-            ? 'Веб-версия «Твой Репетитор» — тот же продукт, что в Telegram. Выбери ученика, чтобы посмотреть функционал.'
-            : state.error,
-        )}</p>
-        ${
-          users.length
-            ? `<p class="muted">Выбери ученика:</p>
-               ${users
-                 .map(
-                   (u) =>
-                     `<button class="btn block secondary" style="margin-top:8px" data-action="dev-login" data-tg="${u.tg_id}">${esc(u.display_name)}${
-                       u.grade ? ` · ${u.grade} кл.` : ''
-                     }</button>`,
-                 )
-                 .join('')}`
-            : web
-              ? `<p class="muted">Нет зарегистрированных учеников в БД — сначала создай демо-аккаунт или укажи WEB_DEMO_TG_ID.</p>`
-              : `<p class="muted">Включи TELEGRAM_AUTH_BYPASS=True и открой <code>/app/?dev_tg_id=...</code></p>`
-        }
-      </section>`;
-    return;
+      <section class="card" style="margin:20px 12px;padding:24px;text-align:center">
+        <h2>⚡ Ошибка отображения</h2>
+        <p class="muted" style="margin:12px 0 16px">${esc(renderErr?.message || 'Не удалось отрисовать экран')}</p>
+        <button type="button" class="btn primary" onclick="location.reload()">🔄 Перезапустить</button>
+      </section>
+    `;
   }
-
-  if (
-    state.me &&
-    state.me.registered === false &&
-    state.route !== 'family' &&
-    state.route !== 'courses'
-  ) {
-    root.innerHTML = renderRegistration();
-    bindRegInputs();
-    return;
-  }
-
-  if (state.route === 'home') root.innerHTML = renderHome();
-  else if (state.route === 'courses') root.innerHTML = renderCourses();
-  else if (state.route === 'extra-tasks') root.innerHTML = renderExtraTasks();
-  else if (state.route === 'practice') root.innerHTML = renderPractice();
-  else if (state.route === 'stats') root.innerHTML = renderStats();
-  else if (state.route === 'rating') root.innerHTML = renderRating();
-  else if (state.route === 'tariffs') root.innerHTML = renderTariffsPage();
-  else if (state.route === 'contacts') root.innerHTML = renderContactsPage();
-  else if (state.route === 'family' || state.route === 'profile') {
-    root.innerHTML = renderProfileAndFamily();
-    bindRegInputs();
-  }
-
-  // bind free answer if present
-  const free = document.getElementById('free-answer');
-  if (free) {
-    free.addEventListener('input', (e) => {
-      state.answerText = e.target.value;
-    });
-  }
-  const codeInput = document.getElementById('family-code');
-  if (codeInput) {
-    codeInput.addEventListener('input', (e) => {
-      state.familyCode = e.target.value.toUpperCase();
-    });
-  }
-  const fromEl = document.getElementById('report-from');
-  const toEl = document.getElementById('report-to');
-  if (fromEl) {
-    fromEl.addEventListener('change', (e) => {
-      state.reportFrom = e.target.value;
-    });
-  }
-  if (toEl) {
-    toEl.addEventListener('change', (e) => {
-      state.reportTo = e.target.value;
-    });
-  }
-
-  syncTabbar();
 }
 
 async function submitAnswer() {

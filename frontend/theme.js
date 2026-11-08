@@ -27,6 +27,22 @@ export const THEMES = {
   },
 };
 
+function safeGet(key) {
+  try {
+    return (typeof window !== 'undefined' && window.localStorage && window.localStorage.getItem(key)) || null;
+  } catch (_) {
+    return null;
+  }
+}
+
+function safeSet(key, val) {
+  try {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      window.localStorage.setItem(key, val);
+    }
+  } catch (_) {}
+}
+
 function normalize(theme) {
   if (theme === 'ultra') return 'ultra';
   if (theme === 'calm') return 'calm';
@@ -34,13 +50,17 @@ function normalize(theme) {
 }
 
 export function getTheme() {
-  return normalize(localStorage.getItem(THEME_KEY));
+  return normalize(safeGet(THEME_KEY));
 }
 
 export function setTheme(theme) {
   const next = normalize(theme);
-  document.documentElement.setAttribute('data-theme', next);
-  localStorage.setItem(THEME_KEY, next);
+  try {
+    if (typeof document !== 'undefined' && document.documentElement) {
+      document.documentElement.setAttribute('data-theme', next);
+    }
+  } catch (_) {}
+  safeSet(THEME_KEY, next);
   return next;
 }
 

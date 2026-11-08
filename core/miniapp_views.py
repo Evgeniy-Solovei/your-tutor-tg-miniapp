@@ -49,6 +49,14 @@ def miniapp(request, path: str = ''):
         clean_path = 'index.html'
 
     if not target.is_file():
+        file_name = Path(clean_path).name
+        if file_name.endswith(('.css', '.js', '.png', '.jpg', '.jpeg', '.svg', '.woff', '.woff2', '.ico', '.map')):
+            static_candidate = root / file_name
+            if static_candidate.is_file():
+                target = static_candidate
+                clean_path = file_name
+
+    if not target.is_file():
         alias_map = {
             'terms': 'terms.html',
             'oferta': 'terms.html',

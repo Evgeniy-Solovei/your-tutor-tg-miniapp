@@ -45,20 +45,28 @@ export function getInitData() {
 const DEV_KEY = 'tutor_dev_tg_id';
 
 export function getDevTgId() {
-  const params = new URLSearchParams(window.location.search);
-  const fromQuery = params.get('dev_tg_id');
-  if (fromQuery) {
-    sessionStorage.setItem(DEV_KEY, fromQuery);
-    return fromQuery;
+  try {
+    const params = new URLSearchParams(window.location.search);
+    const fromQuery = params.get('dev_tg_id');
+    if (fromQuery) {
+      try { sessionStorage.setItem(DEV_KEY, fromQuery); } catch (_) {}
+      return fromQuery;
+    }
+    return (typeof window !== 'undefined' && window.sessionStorage && sessionStorage.getItem(DEV_KEY)) || '';
+  } catch (_) {
+    return '';
   }
-  return sessionStorage.getItem(DEV_KEY) || '';
 }
 
 export function setDevTgId(id) {
-  sessionStorage.setItem(DEV_KEY, String(id));
-  const url = new URL(window.location.href);
-  url.searchParams.set('dev_tg_id', String(id));
-  window.history.replaceState({}, '', url.toString());
+  try {
+    sessionStorage.setItem(DEV_KEY, String(id));
+  } catch (_) {}
+  try {
+    const url = new URL(window.location.href);
+    url.searchParams.set('dev_tg_id', String(id));
+    window.history.replaceState({}, '', url.toString());
+  } catch (_) {}
 }
 
 export function getUnsafeUser() {
