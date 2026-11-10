@@ -926,8 +926,8 @@ function renderContactsPage() {
           <div class="footer-info" style="font-size: 1rem; gap: 14px; margin-top: 16px;">
             <p><strong>Электронная почта:</strong><br/><a href="mailto:${REQUISITES.email}" style="font-size: 1.1rem;">${REQUISITES.email}</a></p>
             <p><strong>Контактный телефон:</strong><br/><a href="tel:${REQUISITES.phone.replace(/[^0-9+]/g, '')}" style="font-size: 1.1rem;">${REQUISITES.phone}</a></p>
+            <p><strong>Telegram для связи:</strong><br/><a href="https://t.me/tutor_by_bot" target="_blank" style="font-size: 1.1rem;">${REQUISITES.supportBot}</a></p>
             <p><strong>График работы:</strong><br/>${REQUISITES.workingHours}</p>
-            <p><strong>Почтовый и юридический адрес:</strong><br/>${REQUISITES.address}</p>
           </div>
           
           <div style="margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--card-border);">
@@ -941,16 +941,16 @@ function renderContactsPage() {
         </div>
 
         <div class="card">
-          <h2>Реквизиты организации</h2>
+          <h2>Реквизиты самозанятого</h2>
           <table class="req-table" style="margin-top: 14px;">
             <tbody>
-              <tr><td>Исполнитель</td><td>${REQUISITES.seller}</td></tr>
-              <tr><td>УНП / ИНН</td><td>${REQUISITES.unp} / ${REQUISITES.inn}</td></tr>
-              <tr><td>ОГРНИП</td><td>${REQUISITES.ogrnip}</td></tr>
-              <tr><td>Банк</td><td>${REQUISITES.bank}</td></tr>
-              <tr><td>Расчётный счёт</td><td>${REQUISITES.account}</td></tr>
-              <tr><td>БИК банка</td><td>${REQUISITES.bic}</td></tr>
-              <tr><td>Сервис</td><td>${REQUISITES.serviceName}</td></tr>
+              <tr><td>ФИО исполнителя</td><td><strong>${REQUISITES.seller}</strong></td></tr>
+              <tr><td>Правовой статус</td><td>${REQUISITES.status}</td></tr>
+              <tr><td>ИНН плательщика НПД</td><td><strong style="font-family: monospace; letter-spacing: 0.05em; font-size: 1.05rem;">${REQUISITES.inn}</strong></td></tr>
+              <tr><td>Email для обращений</td><td><a href="mailto:${REQUISITES.email}">${REQUISITES.email}</a></td></tr>
+              <tr><td>Telegram поддержка</td><td>${REQUISITES.supportBot}</td></tr>
+              <tr><td>Официальный сайт</td><td>${REQUISITES.siteUrl}</td></tr>
+              <tr><td>Наименование сервиса</td><td>${REQUISITES.serviceName}</td></tr>
             </tbody>
           </table>
 
