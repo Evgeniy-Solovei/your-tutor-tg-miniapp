@@ -1330,68 +1330,234 @@ function renderHome() {
       : 0;
   const studentGrade = state.me?.grade ? Number(state.me.grade) : 1;
 
-  const themeId = getTheme();
-  let greeting = `Привет, ${esc(name)}`;
-  if (themeId === 'vibe') greeting = `Йоу, ${esc(name)} 🔥`;
-  else if (themeId === 'ultra') greeting = `⚡ Салют, ${esc(name)}`;
+  const isPro = isProUser();
+  const accuracy = state.dashboard?.accuracy ?? state.stats?.accuracy_pct ?? state.me?.accuracy_pct;
+  const tasksCompleted = daily ? (daily.tasks_completed || 0) : 0;
+  const tasksTotal = daily ? (daily.tasks_total || 8) : 8;
+  const tasksLeft = Math.max(0, tasksTotal - tasksCompleted);
+
+  // 7-дневный календарь стрика
+  const dayNames = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
+  const nowDay = (new Date().getDay() + 6) % 7; // 0 = Mon, 6 = Sun
+  const weekDaysHtml = dayNames.map((d, idx) => {
+    const isToday = idx === nowDay;
+    const isDone = streak > 0 && idx <= nowDay;
+    return `
+      <div class="streak-day-item${isDone ? ' active' : ''}${isToday ? ' today' : ''}">
+        <span class="streak-day-badge">${isDone ? '🔥' : (isToday ? '🎯' : '○')}</span>
+        <span>${d}</span>
+      </div>
+    `;
+  }).join('');
 
   return `
-    <section class="hero">
-      <h1>${greeting}</h1>
-      <p>${themeId === 'vibe' ? 'Давай разберём пару заданий — и погнали дальше.' : (themeId === 'ultra' ? 'Прокачай свои навыки и забирай максимум XP.' : 'Продолжим подготовку.')} · ${studentGrade} класс</p>
-    </section>
-    <div class="stats-row">
-      <button type="button" class="stat clickable" data-action="go-rating"><strong>⚡ ${xp}</strong><span>опыт XP</span></button>
-      <button type="button" class="stat clickable" data-action="open-streak"><strong>🔥 ${streak}</strong><span>дней подряд</span></button>
-      <button type="button" class="stat clickable" data-action="open-tariffs"><strong>${esc(tariffShortLabel())}</strong><span>тариф</span></button>
-    </div>
+    <div class="desktop-dashboard">
+      <!-- 1. Hero Progress Banner -->
+      <section class="desktop-hero-banner">
+        <div class="desktop-hero-info">
+          <div class="desktop-hero-pill">
+            <span>🇧🇾</span>
+            <span>Беларусь · ${studentGrade} класс · Русский язык · ЦТ / ЦЭ</span>
+          </div>
+          <h1 class="desktop-hero-title">Добро пожаловать, ${esc(name)}! 🎓</h1>
+          <p class="desktop-hero-sub">
+            Твой персональный образовательный портал. Подготовка к урокам, аттестации и экзаменам ЦТ / ЦЭ.
+          </p>
+          <div class="desktop-hero-stats">
+            <button type="button" class="desktop-stat-chip clickable" data-action="go-rating">
+              <span>⚡</span> <span>${xp} XP</span>
+            </button>
+            <button type="button" class="desktop-stat-chip clickable" data-action="open-streak">
+              <span>🔥</span> <span>${streak} дн. подряд</span>
+            </button>
+            <button type="button" class="desktop-stat-chip clickable" data-action="open-accuracy">
+              <span>🎯</span> <span>${accuracy != null ? accuracy + '% точность' : 'Точность —'}</span>
+            </button>
+            <button type="button" class="desktop-stat-chip clickable" data-action="open-tariffs">
+              <span>💎</span> <span>${esc(tariffShortLabel())}</span>
+            </button>
+          </div>
+        </div>
 
-    <div class="home-bento">
-      <section class="card bento-main">
-        <h2>Как учиться</h2>
-        <p class="muted" style="margin-bottom:10px">Всегда в одном порядке — без путаницы с ЦТ и «на сегодня».</p>
-        ${renderLearningPath(0, { hasExtra: true })}
-        <button class="btn block primary" style="margin-top:14px" data-action="go-my-curriculum">
-          📚 Шаг 1: открыть программу ${studentGrade} класса
-        </button>
+        <div class="desktop-target-card">
+          <div class="desktop-target-header">
+            <span>🎯 Цель на сегодня</span>
+            <span style="color:var(--accent)">${tasksCompleted} из ${tasksTotal} заданий</span>
+          </div>
+          <div class="desktop-progress-track">
+            <div class="desktop-progress-fill" style="width:${progress}%"></div>
+          </div>
+          ${
+            daily?.can_practice === false
+              ? `<p class="muted small" style="margin:0">${esc(daily.reason || 'Лимит на сегодня выполнен')}</p>`
+              : (tasksLeft > 0
+                ? `<button type="button" class="btn primary block" data-action="go-practice" style="padding:11px 18px">🚀 Решать задания (${tasksLeft} ост.)</button>`
+                : `<button type="button" class="btn secondary block" data-action="reload-daily" style="padding:11px 18px">🎉 Цель дня закрыта! Новая подборка</button>`)
+          }
+        </div>
       </section>
 
-      <section class="card bento-side">
-        <h2>На сегодня</h2>
-        <p class="muted" style="font-size:0.88rem">Быстрая подборка заданий на ${studentGrade} класс — закрепление программы.</p>
-        ${
-          daily?.can_practice === false
-            ? `<p class="muted">${esc(daily.reason || 'Лимит на сегодня')}</p>`
-            : `<p class="muted">${daily ? `${daily.tasks_completed} из ${daily.tasks_total}` : '—'} заданий</p>
-               <div class="progress"><i style="width:${progress}%"></i></div>
-               <button class="btn block ${daily && daily.tasks_completed < daily.tasks_total ? 'primary' : 'secondary'}" data-action="go-practice">${vibe ? 'Погнали решать' : 'Решать подборку'}</button>`
-        }
-      </section>
+      <!-- 2. Main Columns: Learning Pathway (Left) + Widgets (Right) -->
+      <div class="desktop-home-columns">
+        <!-- Левая колонка: Программа, Тренажёры, Экзамены -->
+        <div class="desktop-main-col">
+          <!-- Блок: Учебный маршрут -->
+          <section class="card" style="padding:24px 28px">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px">
+              <h2 style="font-size:1.2rem; margin:0">📚 Программа обучения · ${studentGrade} класс</h2>
+              <span class="chip active">Школа & ЦТ</span>
+            </div>
+            <p class="muted" style="margin-bottom:14px; font-size:0.92rem">
+              Официальный тематический курс Министерства образования РБ. Всегда в понятном порядке:
+            </p>
+            ${renderLearningPath(0, { hasExtra: true })}
+            <button type="button" class="btn block primary" style="margin-top:16px; padding:13px" data-action="go-my-curriculum">
+              📚 Открыть программу ${studentGrade} класса
+            </button>
+          </section>
 
-      ${
-        studentGrade === 11
-          ? `<section class="card bento-full" style="border-left: 4px solid var(--accent)">
-               <h2>🎓 Симулятор ЦТ/ЦЭ</h2>
-               <p class="muted">Полноразмерный экзаменационный билет из 40 вопросов с таймером на 180 минут и бланком ответов РИКЗ.</p>
-               <button class="btn block secondary" data-action="start-exam">Запустить симулятор (40 вопросов)</button>
-             </section>`
-          : ''
-      }
+          <!-- Блок: Экзаменационный центр и симуляторы -->
+          <section class="card" style="padding:24px 28px">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px">
+              <h2 style="font-size:1.2rem; margin:0">⚡ Практика и экзаменационный центр</h2>
+            </div>
+            
+            <div class="action-cards-grid">
+              ${
+                studentGrade === 10 || studentGrade === 11
+                  ? `
+                  <div class="action-card">
+                    <div>
+                      <h3>🎓 Симулятор ЦТ / ЦЭ (РИКЗ)</h3>
+                      <p>40 вопросов, таймер 180 минут, перевод первичных баллов в 100-балльную тестовую шкалу РИКЗ.</p>
+                    </div>
+                    <button type="button" class="btn block primary" data-action="start-exam">⏱ Запустить симулятор</button>
+                  </div>
+                  <div class="action-card">
+                    <div>
+                      <h3>🎟 Варианты ЦТ / ЦЭ</h3>
+                      <p>Каталог официальных тренировочных тестов прошлых лет с бланками ответов и разбором.</p>
+                    </div>
+                    <button type="button" class="btn block secondary" data-action="open-exam-variants">Открыть варианты</button>
+                  </div>
+                  `
+                  : (studentGrade >= 1 && studentGrade <= 4
+                    ? `
+                    <div class="action-card">
+                      <div>
+                        <h3>🎨 Карточки с картинками</h3>
+                        <p>Интерактивные иллюстрированные задания по слогам, звукам и правилам правописания.</p>
+                      </div>
+                      <button type="button" class="btn block primary" data-action="go-extra-tasks">🎨 Открыть карточки</button>
+                    </div>
+                    <div class="action-card">
+                      <div>
+                        <h3>📖 Школьный учебник</h3>
+                        <p>Задания из школьного учебника ${studentGrade} класса с проверкой.</p>
+                      </div>
+                      <button type="button" class="btn block secondary" data-action="go-my-curriculum">Открыть учебник</button>
+                    </div>
+                    `
+                    : `
+                    <div class="action-card">
+                      <div>
+                        <h3>⚡ Интерактивный тренажёр</h3>
+                        <p>Тренировка орфографии, пунктуации и морфологии по темам ${studentGrade} класса.</p>
+                      </div>
+                      <button type="button" class="btn block primary" data-action="go-practice">⚡ Начать тренировку</button>
+                    </div>
+                    ${
+                      studentGrade === 9
+                        ? `
+                        <div class="action-card">
+                          <div>
+                            <h3>📖 Изложения (сборник НИО)</h3>
+                            <p>Официальные тексты Министерства образования для выпускного экзамена за 9 класс.</p>
+                          </div>
+                          <button type="button" class="btn block secondary" data-action="izlo-catalog">Каталог текстов</button>
+                        </div>
+                        `
+                        : `
+                        <div class="action-card">
+                          <div>
+                            <h3>📚 Программа по темам</h3>
+                            <p>Полный список разделов и тем школьного курса с теорией.</p>
+                          </div>
+                          <button type="button" class="btn block secondary" data-action="go-my-curriculum">Открыть программу</button>
+                        </div>
+                        `
+                    }
+                    `)
+              }
+            </div>
+          </section>
+        </div>
 
-      ${
-        studentGrade === 9
-          ? `<section class="card bento-full">
-               <h2>Изложения</h2>
-               <p class="muted">Официальный сборник НИО — тексты для выпускного экзамена 9 класса.</p>
-               <div style="display:flex;gap:10px;margin-top:10px">
-                 <button class="btn block" style="flex:1" data-action="izlo-random">3 случайных текста</button>
-                 <button class="btn block secondary" style="flex:1" data-action="izlo-catalog">Каталог текстов</button>
-               </div>
-             </section>`
-          : ''
-      }
+        <!-- Правая колонка: Десктопные виджеты -->
+        <div class="desktop-side-col">
+          <!-- Виджет 1: Ударный режим / Календарь стрика -->
+          <section class="card" style="padding:20px 22px">
+            <div style="display:flex; justify-content:space-between; align-items:center">
+              <strong style="font-size:1rem; color:var(--ink)">🔥 Ударный режим</strong>
+              <span class="chip active">${streak} дн. подряд</span>
+            </div>
+            <p class="muted small" style="margin:6px 0 10px">
+              Занимайся каждый день по 10 минут, чтобы сохранять серию и закреплять материал.
+            </p>
+            <div class="streak-week-tracker">
+              ${weekDaysHtml}
+            </div>
+            <button type="button" class="btn block secondary sm" data-action="open-streak" style="margin-top:10px">
+              Подробнее о стрике
+            </button>
+          </section>
+
+          <!-- Виджет 2: Зал славы / Рейтинг -->
+          <section class="card" style="padding:20px 22px">
+            <div style="display:flex; justify-content:space-between; align-items:center">
+              <strong style="font-size:1rem; color:var(--ink)">🏆 Зал славы</strong>
+              <span style="font-size:0.82rem; color:var(--accent); font-weight:700">Лига ${studentGrade} кл.</span>
+            </div>
+            <p class="muted small" style="margin:6px 0 12px">
+              Твой результат: <strong>${xp} XP</strong>. Соревнуйся с учениками своей школы и всей Беларуси!
+            </p>
+            <button type="button" class="btn block secondary sm" data-action="go-rating">
+              🏆 Открыть полный рейтинг →
+            </button>
+          </section>
+
+          <!-- Виджет 3: Кабинет семьи и родители -->
+          <section class="card" style="padding:20px 22px">
+            <div style="display:flex; justify-content:space-between; align-items:center">
+              <strong style="font-size:1rem; color:var(--ink)">👨‍👩‍👧 Кабинет семьи</strong>
+              <span style="font-size:0.8rem; color:#10b981; font-weight:700">Telegram</span>
+            </div>
+            <p class="muted small" style="margin:6px 0 12px">
+              Подключи родителей — бот будет автоматически отправлять им еженедельный отчёт об успехах, оценках и времени занятий.
+            </p>
+            <button type="button" class="btn block secondary sm" data-action="go-family">
+              👨‍👩‍👧 Настроить доступ родителей
+            </button>
+          </section>
+
+          <!-- Виджет 4: Статус подписки -->
+          <section class="card" style="padding:20px 22px; border: 1px solid rgba(200, 255, 61, 0.25)">
+            <div style="display:flex; justify-content:space-between; align-items:center">
+              <strong style="font-size:1rem; color:var(--ink)">💎 Подписка Pro</strong>
+              <span class="chip ${isPro ? 'active' : ''}">${isPro ? 'Активна' : 'Базовый'}</span>
+            </div>
+            <ul class="list" style="margin:10px 0; font-size:0.83rem">
+              <li><span>Безлимитный тренажёр</span> <span>✓</span></li>
+              <li><span>Пошаговый разбор с ИИ</span> <span>✓</span></li>
+              <li><span>Официальные бланки РИКЗ</span> <span>✓</span></li>
+            </ul>
+            <button type="button" class="btn block ${isPro ? 'secondary' : 'primary'} sm" data-action="open-tariffs">
+              ${isPro ? 'Управление подпиской' : '⚡ Подключить Pro'}
+            </button>
+          </section>
+        </div>
+      </div>
     </div>
-    <button type="button" class="btn secondary block" style="margin-top:14px" data-action="go-profile">⚙️ Профиль и настройки</button>
   `;
 }
 

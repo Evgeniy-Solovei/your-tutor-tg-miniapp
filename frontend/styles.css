@@ -244,44 +244,59 @@ body {
   transition: max-width 0.3s ease, padding 0.3s ease;
 }
 
-/* На экранах десктопов (ПК, ноутбуки, планшеты > 900px): полноценный портал с сайдбаром */
+/* На экранах десктопов (ПК, ноутбуки, мониторы >= 900px): полноценный EdTech портал на весь экран */
 @media (min-width: 900px) {
-  .app-shell {
-    display: grid !important;
-    grid-template-columns: 260px minmax(0, 1fr) !important;
-    max-width: 1480px !important;
-    margin: 0 auto;
-    padding: 24px 32px 48px;
-    gap: 32px;
-    width: 100%;
-    box-sizing: border-box;
-    align-items: start;
+  html, body {
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
   }
 
-  .desktop-sidebar {
+  .app-shell {
     display: flex !important;
-    flex-direction: column;
-    position: sticky;
-    top: 24px;
-    height: calc(100dvh - 48px);
-    background: var(--card);
-    border: 1px solid var(--card-border);
-    border-radius: var(--radius);
-    padding: 20px 14px;
-    box-shadow: var(--shadow);
-    backdrop-filter: blur(24px) saturate(180%);
-    -webkit-backdrop-filter: blur(24px) saturate(180%);
-    box-sizing: border-box;
-    z-index: 10;
+    flex-direction: row !important;
+    width: 100vw !important;
+    max-width: 100vw !important;
+    height: 100vh !important;
+    max-height: 100vh !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    gap: 0 !important;
+    overflow: hidden !important;
+    border-radius: 0 !important;
+    background: var(--bg0) !important;
+  }
+
+  /* Полноразмерный сайдбар слева во всю высоту окна */
+  .desktop-sidebar {
+    width: 270px !important;
+    min-width: 270px !important;
+    max-width: 270px !important;
+    height: 100vh !important;
+    border-radius: 0 !important;
+    border: 0 !important;
+    border-right: 1px solid var(--card-border) !important;
+    position: relative !important;
+    top: 0 !important;
+    box-sizing: border-box !important;
+    padding: 24px 16px 20px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    background: var(--bg1) !important;
+    z-index: 20 !important;
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
   }
 
   .sidebar-brand {
     display: flex;
     align-items: center;
     gap: 12px;
-    padding: 4px 8px 18px;
+    padding: 0 8px 20px;
     border-bottom: 1px solid var(--card-border);
-    margin-bottom: 14px;
+    margin-bottom: 16px;
     cursor: pointer;
   }
 
@@ -292,7 +307,7 @@ body {
   }
 
   .sidebar-brand-text .brand-name {
-    font-size: 1.05rem;
+    font-size: 1.1rem;
     font-weight: 800;
     line-height: 1.2;
     margin: 0;
@@ -307,7 +322,7 @@ body {
   .sidebar-nav {
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 5px;
     flex: 1;
     overflow-y: auto;
   }
@@ -317,7 +332,7 @@ body {
     font-weight: 800;
     letter-spacing: 0.08em;
     color: var(--muted);
-    padding: 12px 10px 4px;
+    padding: 14px 10px 4px;
   }
 
   .sidebar-btn {
@@ -330,8 +345,8 @@ body {
     font-weight: 600;
     display: flex;
     align-items: center;
-    gap: 10px;
-    padding: 10px 12px;
+    gap: 12px;
+    padding: 11px 14px;
     border-radius: 12px;
     cursor: pointer;
     transition: transform 0.15s ease, background 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
@@ -391,7 +406,7 @@ body {
     display: flex;
     align-items: center;
     gap: 10px;
-    padding: 8px 10px;
+    padding: 10px 12px;
     border-radius: 12px;
     background: rgba(255, 255, 255, 0.04);
     cursor: pointer;
@@ -403,15 +418,15 @@ body {
   }
 
   .sidebar-avatar {
-    width: 34px;
-    height: 34px;
+    width: 36px;
+    height: 36px;
     border-radius: 50%;
     background: var(--accent);
     color: var(--accent-ink);
     display: grid;
     place-items: center;
     font-weight: 800;
-    font-size: 0.9rem;
+    font-size: 0.95rem;
     flex-shrink: 0;
   }
 
@@ -423,7 +438,7 @@ body {
 
   .sidebar-user-name {
     font-weight: 700;
-    font-size: 0.85rem;
+    font-size: 0.88rem;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -434,20 +449,57 @@ body {
     color: var(--muted);
   }
 
+  /* Основная рабочая область справа */
   .main-content-wrapper {
-    display: flex;
-    flex-direction: column;
-    gap: 20px;
-    min-width: 0;
-    width: 100%;
+    flex: 1 !important;
+    height: 100vh !important;
+    display: flex !important;
+    flex-direction: column !important;
+    min-width: 0 !important;
+    overflow: hidden !important;
+    background: var(--bg0) !important;
+    gap: 0 !important;
+  }
+
+  /* Полноразмерный верхний хедер */
+  .topbar {
+    width: 100% !important;
+    height: 64px !important;
+    min-height: 64px !important;
+    border-radius: 0 !important;
+    border: 0 !important;
+    border-bottom: 1px solid var(--card-border) !important;
+    padding: 0 36px !important;
+    box-sizing: border-box !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    background: var(--bg1) !important;
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    z-index: 10 !important;
   }
 
   .main-content-wrapper .topbar .brand {
-    display: none;
+    display: none !important;
   }
 
   .tabbar {
     display: none !important;
+  }
+
+  /* Скроллируемая область контента */
+  .view {
+    flex: 1 !important;
+    height: calc(100vh - 64px) !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    padding: 32px 40px 60px !important;
+    box-sizing: border-box !important;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 24px !important;
   }
 }
 
@@ -807,6 +859,257 @@ body.channel-web {
     opacity: 1;
     transform: translateY(0);
   }
+}
+
+/* ── Полноформатная десктоп-панель (Главный дашборд) ── */
+.desktop-dashboard {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  width: 100%;
+}
+
+.desktop-hero-banner {
+  background: var(--card);
+  border: 1px solid var(--card-border);
+  border-radius: 20px;
+  padding: 28px 32px;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 24px;
+  box-shadow: var(--shadow);
+  position: relative;
+  overflow: hidden;
+}
+
+@media (min-width: 960px) {
+  .desktop-hero-banner {
+    grid-template-columns: 1.35fr 1fr;
+    align-items: center;
+  }
+}
+
+.desktop-hero-banner::after {
+  content: '';
+  position: absolute;
+  top: -60px;
+  right: -60px;
+  width: 240px;
+  height: 240px;
+  border-radius: 50%;
+  background: radial-gradient(circle, var(--accent-glow) 0%, transparent 70%);
+  pointer-events: none;
+  opacity: 0.6;
+}
+
+.desktop-hero-info {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.desktop-hero-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--card-border);
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--muted);
+  width: fit-content;
+}
+
+.desktop-hero-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.85rem;
+  font-weight: 800;
+  color: var(--ink);
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+}
+
+.desktop-hero-sub {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.95rem;
+  line-height: 1.45;
+}
+
+.desktop-hero-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+.desktop-stat-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: 12px;
+  background: var(--option-bg);
+  border: 1px solid var(--card-border);
+  font-size: 0.84rem;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.desktop-target-card {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--card-border);
+  border-radius: 16px;
+  padding: 20px 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.desktop-target-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.desktop-progress-track {
+  width: 100%;
+  height: 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+}
+
+.desktop-progress-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--accent);
+  box-shadow: 0 0 12px var(--accent-glow);
+  transition: width 0.4s ease;
+}
+
+/* 2-колоночный десктопный грид */
+.desktop-home-columns {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 24px;
+}
+
+@media (min-width: 960px) {
+  .desktop-home-columns {
+    grid-template-columns: 1.45fr 1fr;
+    align-items: start;
+  }
+}
+
+.desktop-main-col {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.desktop-side-col {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* 7-дневный календарь стрика */
+.streak-week-tracker {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 6px;
+  margin: 10px 0;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--card-border);
+}
+
+.streak-day-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.76rem;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.streak-day-badge {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--card-border);
+  font-size: 0.9rem;
+  transition: all 0.2s ease;
+}
+
+.streak-day-item.active .streak-day-badge {
+  background: #fb923c;
+  color: #fff;
+  border-color: #fb923c;
+  box-shadow: 0 0 14px rgba(251, 146, 60, 0.5);
+}
+
+.streak-day-item.today .streak-day-badge {
+  border-color: var(--accent);
+  box-shadow: 0 0 10px var(--accent-glow);
+}
+
+/* Карточки быстрых действий на десктопе */
+.action-cards-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 14px;
+}
+
+@media (min-width: 600px) {
+  .action-cards-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.action-card {
+  padding: 18px 20px;
+  border-radius: 16px;
+  background: var(--option-bg);
+  border: 1px solid var(--card-border);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 12px;
+  transition: all 0.2s ease;
+}
+
+.action-card:hover {
+  border-color: var(--accent);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+}
+
+.action-card h3 {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: var(--ink);
+}
+
+.action-card p {
+  margin: 0;
+  font-size: 0.84rem;
+  color: var(--muted);
+  line-height: 1.4;
 }
 
 /* ── Bento Grid & Cards ── */
