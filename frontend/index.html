@@ -189,7 +189,7 @@
           </button>
 
           <div class="sidebar-group-title">ЭКЗАМЕНЫ & РЕЗУЛЬТАТЫ</div>
-          <button type="button" class="sidebar-btn" data-route="courses" data-action="open-exam-variants">
+          <button type="button" class="sidebar-btn" data-action="open-exam-variants">
             <span class="sidebar-icon">🎟</span>
             <span class="sidebar-text">Варианты ЦТ / ЦЭ</span>
             <span class="sidebar-badge">РИКЗ</span>
@@ -224,6 +224,7 @@
       <!-- Основная рабочая область -->
       <div class="main-content-wrapper">
         <header class="topbar">
+          <!-- Mobile Brand: виден на узких экранах, скрыт на десктопе с сайдбаром -->
           <div class="brand" data-action="go-home">
             <span class="brand-mark">⚡</span>
             <div>
@@ -232,14 +233,32 @@
             </div>
           </div>
 
-          <nav class="desktop-nav" aria-label="Основное меню">
-            <button type="button" class="nav-link active" data-route="home">Главная</button>
-            <button type="button" class="nav-link" data-route="courses">Учёба</button>
-            <button type="button" class="nav-link" data-route="practice">Практика</button>
-            <button type="button" class="nav-link" data-route="stats">Статистика</button>
-            <button type="button" class="nav-link" data-route="rating">Рейтинг</button>
-            <button type="button" class="nav-link" data-route="profile">Профиль & Семья</button>
-          </nav>
+          <!-- Desktop Section Breadcrumb / Header: виден на десктопе вместо дублирующего меню -->
+          <div class="topbar-section" id="topbar-section">
+            <span class="topbar-section-icon" id="topbar-section-icon">🏠</span>
+            <div class="topbar-section-text">
+              <h1 class="topbar-section-title" id="topbar-section-title">Главная панель</h1>
+              <span class="topbar-section-sub" id="topbar-section-sub">Обзор обучения и цели на сегодня</span>
+            </div>
+          </div>
+
+          <!-- Live Gamification Indicators: кликабельны, показывают стрик, XP и точность -->
+          <div class="topbar-badges" id="topbar-badges">
+            <button type="button" class="topbar-pill topbar-pill-streak" data-action="open-streak" title="Ударный режим (дней подряд)">
+              <span class="pill-fire">🔥</span>
+              <span class="pill-val" id="topbar-streak-val">0</span>
+              <span class="pill-lbl">дн.</span>
+            </button>
+            <button type="button" class="topbar-pill topbar-pill-xp" data-action="open-scores" title="Очки опыта (XP)">
+              <span class="pill-bolt">⚡</span>
+              <span class="pill-val" id="topbar-xp-val">0</span>
+              <span class="pill-lbl">XP</span>
+            </button>
+            <button type="button" class="topbar-pill topbar-pill-acc" data-action="open-accuracy" title="Точность ответов">
+              <span class="pill-target">🎯</span>
+              <span class="pill-val" id="topbar-acc-val">—</span>
+            </button>
+          </div>
 
           <div class="topbar-actions">
             <button type="button" class="theme-toggle" id="theme-toggle" aria-label="Сменить тему">
@@ -269,6 +288,6 @@
         if (_tg) { _tg.ready(); _tg.expand(); }
       } catch (e) {}
     </script>
-    <script type="module" src="./app.js?v=20261122-turbo"></script>
+    <script type="module" src="./app.js?v=20261122-pro"></script>
   </body>
 </html>

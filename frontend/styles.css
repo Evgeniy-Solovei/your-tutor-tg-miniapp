@@ -334,15 +334,25 @@ body {
     padding: 10px 12px;
     border-radius: 12px;
     cursor: pointer;
-    transition: all 0.18s ease;
+    transition: transform 0.15s ease, background 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
     text-align: left;
     width: 100%;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+    user-select: none;
   }
 
-  .sidebar-btn:hover {
-    color: var(--ink);
-    background: rgba(255, 255, 255, 0.07);
-    transform: translateX(3px);
+  @media (hover: hover) and (pointer: fine) {
+    .sidebar-btn:hover {
+      color: var(--ink);
+      background: rgba(255, 255, 255, 0.07);
+      transform: translateX(3px);
+    }
+  }
+
+  .sidebar-btn:active {
+    transform: scale(0.96) !important;
+    transition: transform 0.06s ease !important;
   }
 
   .sidebar-btn.active {
@@ -537,50 +547,119 @@ body.channel-web {
   font-weight: 500;
 }
 
-/* ── Десктоп-навигация внутри шапки ── */
-.desktop-nav {
+/* ── Шапка: Десктоп-хлебные крошки / Заголовок текущего экрана ── */
+.topbar-section {
+  display: none;
+}
+
+@media (min-width: 900px) {
+  .topbar-section {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
+  }
+}
+
+.topbar-section-icon {
+  font-size: 1.4rem;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.topbar-section-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.topbar-section-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.12rem;
+  font-weight: 800;
+  color: var(--ink);
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.topbar-section-sub {
+  font-size: 0.74rem;
+  color: var(--muted);
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ── Live Gamification Indicators (Streak, XP, Accuracy) ── */
+.topbar-badges {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
+  margin-left: auto;
 }
 
-.nav-link {
+.topbar-pill {
   appearance: none;
-  background: transparent;
-  border: 0;
-  color: var(--muted);
-  font-family: var(--font);
-  font-size: 0.9rem;
-  font-weight: 600;
-  padding: 8px 16px;
+  border: 1px solid var(--card-border);
+  background: var(--option-bg);
+  color: var(--ink);
   border-radius: 999px;
+  padding: 6px 14px;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   cursor: pointer;
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
   white-space: nowrap;
+  user-select: none;
 }
 
-.nav-link:hover {
-  color: var(--ink);
-  background: rgba(255, 255, 255, 0.08);
-  transform: translateY(-1px);
+.topbar-pill .pill-val {
+  font-weight: 800;
+  font-family: var(--font-display);
 }
 
-.nav-link.active {
-  color: var(--accent-ink);
-  background: var(--accent);
-  box-shadow: 0 0 18px var(--accent-glow);
+.topbar-pill .pill-lbl {
+  font-size: 0.72rem;
+  color: var(--muted);
+  font-weight: 600;
 }
 
-[data-theme='ultra'] .nav-link.active {
-  background: linear-gradient(135deg, #8b5cf6, #06b6d4);
-  color: #fff;
-  box-shadow: 0 0 20px rgba(139, 92, 246, 0.4);
+.topbar-pill-streak {
+  border-color: rgba(251, 146, 60, 0.3);
+  background: rgba(251, 146, 60, 0.08);
 }
 
-[data-theme='vibe'] .nav-link.active {
-  background: var(--accent);
-  color: #121212;
-  box-shadow: 0 0 20px rgba(200, 255, 61, 0.4);
+.topbar-pill-xp {
+  border-color: rgba(168, 85, 247, 0.3);
+  background: rgba(168, 85, 247, 0.08);
+}
+
+.topbar-pill-acc {
+  border-color: rgba(34, 197, 94, 0.3);
+  background: rgba(34, 197, 94, 0.08);
+}
+
+@media (max-width: 480px) {
+  .topbar-pill-acc {
+    display: none !important;
+  }
+  .topbar-pill .pill-lbl {
+    display: none;
+  }
+  .topbar-pill {
+    padding: 5px 10px;
+    font-size: 0.76rem;
+  }
 }
 
 .topbar-actions {
@@ -606,13 +685,23 @@ body.channel-web {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  transition: all 0.22s ease;
+  transition: all 0.15s ease;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  user-select: none;
 }
 
-.theme-toggle:hover {
-  border-color: var(--accent);
-  box-shadow: 0 0 20px var(--accent-glow);
-  transform: translateY(-2px);
+@media (hover: hover) and (pointer: fine) {
+  .theme-toggle:hover {
+    border-color: var(--accent);
+    box-shadow: 0 0 20px var(--accent-glow);
+    transform: translateY(-2px);
+  }
+}
+
+.theme-toggle:active {
+  transform: scale(0.95) !important;
+  transition: transform 0.06s ease !important;
 }
 
 /* ── Мобильный док / таббар ── */
@@ -647,16 +736,26 @@ body.channel-web {
   padding: 8px 12px;
   border-radius: 999px;
   cursor: pointer;
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: transform 0.15s cubic-bezier(0.16, 1, 0.3, 1), background 0.15s ease, color 0.15s ease;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 2px;
   white-space: nowrap;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  user-select: none;
 }
 
-.tab:hover {
-  color: var(--ink);
+@media (hover: hover) and (pointer: fine) {
+  .tab:hover {
+    color: var(--ink);
+  }
+}
+
+.tab:active {
+  transform: scale(0.92) !important;
+  transition: transform 0.06s ease !important;
 }
 
 .tab.active {
@@ -677,17 +776,17 @@ body.channel-web {
   box-shadow: 0 0 16px rgba(200, 255, 61, 0.35);
 }
 
-@media (max-width: 860px) {
-  .desktop-nav {
+@media (max-width: 899px) {
+  .topbar-section {
     display: none !important;
   }
 }
 
-@media (min-width: 861px) {
+@media (min-width: 900px) {
   .tabbar {
     display: none !important;
   }
-  .desktop-nav {
+  .topbar-section {
     display: flex !important;
   }
 }
@@ -1010,19 +1109,30 @@ button.stat {
   cursor: pointer;
   background: var(--accent);
   color: var(--accent-ink);
-  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1),
-              box-shadow 0.2s ease,
-              background 0.2s ease,
-              opacity 0.2s ease;
+  transition: transform 0.15s cubic-bezier(0.16, 1, 0.3, 1),
+              box-shadow 0.15s ease,
+              background 0.15s ease,
+              opacity 0.15s ease;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  user-select: none;
 }
 
-.btn:hover:not(:disabled) {
-  transform: translateY(-2px);
-  box-shadow: 0 0 25px var(--accent-glow);
+@media (hover: hover) and (pointer: fine) {
+  .btn:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 0 25px var(--accent-glow);
+  }
+  .btn.secondary:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: var(--accent);
+    box-shadow: 0 0 16px var(--accent-glow);
+  }
 }
 
 .btn:active:not(:disabled) {
-  transform: translateY(0);
+  transform: scale(0.96) !important;
+  transition: transform 0.06s ease !important;
 }
 
 [data-theme='vibe'] .btn {
@@ -1042,12 +1152,6 @@ button.stat {
   color: var(--ink);
   border: 1px solid var(--card-border);
   box-shadow: none;
-}
-
-.btn.secondary:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.08);
-  border-color: var(--accent);
-  box-shadow: 0 0 16px var(--accent-glow);
 }
 
 .btn.block {
@@ -1088,12 +1192,22 @@ button.stat {
   font-size: 0.88rem;
   font-weight: 700;
   cursor: pointer;
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: all 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  user-select: none;
 }
 
-.chip:hover {
-  transform: translateY(-1px);
-  border-color: var(--accent);
+@media (hover: hover) and (pointer: fine) {
+  .chip:hover {
+    transform: translateY(-1px);
+    border-color: var(--accent);
+  }
+}
+
+.chip:active {
+  transform: scale(0.96) !important;
+  transition: transform 0.06s ease !important;
 }
 
 .chip.active {
@@ -1129,15 +1243,25 @@ button.stat {
   font-size: 0.96rem;
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: all 0.15s cubic-bezier(0.16, 1, 0.3, 1);
   display: block;
   box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  user-select: none;
 }
 
-.option:hover {
-  background: rgba(255, 255, 255, 0.08);
-  border-color: rgba(255, 255, 255, 0.25);
-  transform: translateY(-1px);
+@media (hover: hover) and (pointer: fine) {
+  .option:hover {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.25);
+    transform: translateY(-1px);
+  }
+}
+
+.option:active {
+  transform: scale(0.98) !important;
+  transition: transform 0.06s ease !important;
 }
 
 .option.selected {

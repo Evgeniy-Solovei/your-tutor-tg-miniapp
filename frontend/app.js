@@ -234,23 +234,91 @@ function renderLearningPath(activeStep, opts = {}) {
     </div>`;
 }
 
+const SECTION_META = {
+  home: { title: 'Главная панель', icon: '🏠', sub: 'Обзор обучения и цели на сегодня' },
+  courses: { title: 'Программа обучения', icon: '📚', sub: 'Школьный курс 1–11 классов' },
+  'extra-tasks': { title: 'Карточки заданий', icon: '🎨', sub: 'Интерактивные иллюстрированные задания' },
+  practice: { title: 'Тренажёр заданий', icon: '⚡', sub: 'Практика с мгновенной проверкой' },
+  stats: { title: 'Моя статистика', icon: '📊', sub: 'Прогресс, точность и баллы' },
+  rating: { title: 'Зал славы', icon: '🏆', sub: 'Рейтинг учеников Беларуси' },
+  profile: { title: 'Личный кабинет', icon: '👨‍👩‍👧', sub: 'Профиль ученика и семья' },
+  family: { title: 'Кабинет семьи', icon: '👨‍👩‍👧', sub: 'Родительский контроль и отчёты' },
+  tariffs: { title: 'Тарифы и подписка', icon: '💎', sub: 'Безлимитная практика и разборы' },
+  contacts: { title: 'Информация и оферта', icon: '📋', sub: 'Реквизиты и правовые документы' },
+  exam: { title: 'Симулятор ЦТ / ЦЭ', icon: '⏱', sub: 'Бланк ответов по шкале РИКЗ' },
+};
+
+function updateTopbarBadges() {
+  const streakValEl = document.getElementById('topbar-streak-val');
+  if (streakValEl) {
+    const s = state.stats?.streak_days ?? state.me?.streak_days ?? 0;
+    streakValEl.textContent = s;
+  }
+  const xpValEl = document.getElementById('topbar-xp-val');
+  if (xpValEl) {
+    const xp = state.stats?.total_score ?? state.me?.total_score ?? 0;
+    xpValEl.textContent = xp;
+  }
+  const accValEl = document.getElementById('topbar-acc-val');
+  if (accValEl) {
+    const acc = state.stats?.accuracy_pct ?? state.me?.accuracy_pct;
+    accValEl.textContent = acc != null ? `${acc}%` : '—';
+  }
+
+  // Section header on desktop
+  const isExamVariants =
+    state.route === 'courses' && state.inCoursesCatalog && state.gradeTab === 'exam';
+  const meta = isExamVariants
+    ? { title: 'Варианты ЦТ / ЦЭ', icon: '🎟', sub: 'Официальные экзаменационные варианты РИКЗ' }
+    : (SECTION_META[state.route] || SECTION_META.home);
+
+  const iconEl = document.getElementById('topbar-section-icon');
+  const titleEl = document.getElementById('topbar-section-title');
+  const subEl = document.getElementById('topbar-section-sub');
+  if (iconEl) iconEl.textContent = meta.icon;
+  if (titleEl) titleEl.textContent = meta.title;
+  if (subEl) subEl.textContent = meta.sub;
+}
+
 function syncTabbar() {
-  document.querySelectorAll('.tab, .nav-link').forEach((btn) => {
+  const isExamVariants =
+    state.route === 'courses' && state.inCoursesCatalog && state.gradeTab === 'exam';
+
+  document.querySelectorAll('.sidebar-btn').forEach((btn) => {
+    if (btn.dataset.action === 'open-exam-variants') {
+      btn.classList.toggle('active', isExamVariants);
+    } else if (btn.dataset.route === 'courses') {
+      btn.classList.toggle('active', state.route === 'courses' && !isExamVariants);
+    } else if (btn.dataset.route) {
+      const active =
+        btn.dataset.route === state.route ||
+        ((state.route === 'profile' || state.route === 'family') &&
+          (btn.dataset.route === 'profile' || btn.dataset.route === 'family'));
+      btn.classList.toggle('active', Boolean(active));
+    }
+  });
+
+  document.querySelectorAll('.tab').forEach((btn) => {
     const active =
       btn.dataset.route === state.route ||
       ((state.route === 'profile' || state.route === 'family') &&
         (btn.dataset.route === 'profile' || btn.dataset.route === 'family')) ||
       (state.route === 'extra-tasks' && btn.dataset.route === 'courses');
     btn.classList.toggle('active', Boolean(active));
-    if (active && btn.classList.contains('tab')) {
+    if (active) {
       try {
         btn.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
       } catch (_) {}
     }
   });
+
+  updateTopbarBadges();
 }
 
-function setRoute(route) {
+let _routeLoadSeq = 0;
+
+function setRoute(route, force = false) {
+  if (!force && state.route === route && !state.panel) return;
   state.route = route;
   state.panel = null;
   if (route !== 'extra-tasks') {
@@ -475,6 +543,7 @@ async function loadFamily() {
 }
 
 async function loadForRoute() {
+  const currentSeq = ++_routeLoadSeq;
   if (state.route === 'tariffs') {
     if (!state.tariffs) {
       try {
@@ -492,12 +561,17 @@ async function loadForRoute() {
         state.loading = true;
         render();
         try {
-          state.selectedGradeCurriculum = await api.getGradeCurriculum(myGrade, id);
+          const cur = await api.getGradeCurriculum(myGrade, id);
+          if (currentSeq === _routeLoadSeq) {
+            state.selectedGradeCurriculum = cur;
+          }
         } catch (e) {
           toast(e.message || 'Не удалось загрузить программу твоего класса');
         } finally {
-          state.loading = false;
-          render();
+          if (currentSeq === _routeLoadSeq) {
+            state.loading = false;
+            render();
+          }
         }
       }
     }
@@ -514,12 +588,17 @@ async function loadForRoute() {
       render();
     }
     try {
-      state.extraTasksSummary = await api.getExtraTasksSummary(grade, id);
+      const summary = await api.getExtraTasksSummary(grade, id);
+      if (currentSeq === _routeLoadSeq) {
+        state.extraTasksSummary = summary;
+      }
     } catch (e) {
       toast(e.message || 'Ошибка загрузки заданий');
     } finally {
-      state.loading = false;
-      render();
+      if (currentSeq === _routeLoadSeq) {
+        state.loading = false;
+        render();
+      }
     }
     return;
   }
@@ -541,7 +620,7 @@ async function loadForRoute() {
       });
     }
     await Promise.allSettled([ensureRegForm(), loadFamily()]);
-    render();
+    if (currentSeq === _routeLoadSeq) render();
     return;
   }
 
@@ -554,6 +633,7 @@ async function loadForRoute() {
         api.dashboard(id),
         api.daily(id),
       ]);
+      if (currentSeq !== _routeLoadSeq) return;
       if (statsRes.status === 'fulfilled') state.stats = statsRes.value;
       if (dashRes.status === 'fulfilled') state.dashboard = dashRes.value;
       if (dailyRes.status === 'fulfilled') {
@@ -570,10 +650,13 @@ async function loadForRoute() {
         api.stats(id),
         api.dashboard(id),
       ]);
+      if (currentSeq !== _routeLoadSeq) return;
       if (statsRes.status === 'fulfilled') state.stats = statsRes.value;
       if (dashRes.status === 'fulfilled') state.dashboard = dashRes.value;
     } else if (state.route === 'practice') {
-      state.daily = await api.daily(id);
+      const dailyData = await api.daily(id);
+      if (currentSeq !== _routeLoadSeq) return;
+      state.daily = dailyData;
       if (state.daily?.current_task?.options) {
         state.daily.current_task.options = shuffleArray(state.daily.current_task.options);
       }
@@ -586,9 +669,9 @@ async function loadForRoute() {
       return;
     }
   } catch (e) {
-    state.error = e.message;
+    if (currentSeq === _routeLoadSeq) state.error = e.message;
   }
-  render();
+  if (currentSeq === _routeLoadSeq) render();
 }
 
 async function loadCatalog() {
@@ -3046,9 +3129,6 @@ function render() {
     if (sidebarAvatarEl && state.me?.display_name) {
       sidebarAvatarEl.textContent = state.me.display_name.charAt(0).toUpperCase();
     }
-    document.querySelectorAll('.sidebar-btn').forEach((btn) => {
-      btn.classList.toggle('active', btn.dataset.route === state.route);
-    });
 
     if (state.loading && !state.me) {
       root.innerHTML = `<div class="card empty">${
@@ -3202,121 +3282,71 @@ async function explain() {
   }
 }
 
-function bindUi() {
-  document.getElementById('theme-toggle')?.addEventListener('click', () => {
-    const next = toggleTheme();
-    startAtmosphere(next);
+function handleOptionSelect(t) {
+  const task = state.daily?.current_task;
+  const optId = String(t.dataset.opt || '');
+  if (!task || !optId) return;
+  if (task.answer_format === 'multiple_choice') {
+    if (state.selected.has(optId)) state.selected.delete(optId);
+    else state.selected.add(optId);
+  } else {
+    state.selected = new Set([optId]);
+  }
+  render();
+}
+
+async function handleAction(action, t, e) {
+  if (action === 'open-checkout') {
+    openCheckoutModal(t.dataset.plan, t.dataset.price, t.dataset.name);
+    return;
+  }
+  if (action === 'close-checkout') {
+    closeCheckoutModal();
+    return;
+  }
+  if (action === 'open-legal') {
+    openLegalModal(t.dataset.legal);
+    return;
+  }
+  if (action === 'close-legal') {
+    closeLegalModal();
+    return;
+  }
+  if (action === 'submit-checkout-step1') {
+    const name = document.getElementById('order-name')?.value.trim();
+    const email = document.getElementById('order-email')?.value.trim();
+    const phone = document.getElementById('order-phone')?.value.trim();
+    const terms = document.getElementById('order-terms-chk')?.checked;
+    if (!name) { toast('Введите ваше имя'); return; }
+    if (!email || !email.includes('@')) { toast('Введите корректный email для чека'); return; }
+    if (!phone) { toast('Введите контактный телефон'); return; }
+    if (!terms) { toast('Необходимо согласие с условиями оферты'); return; }
+    renderCheckoutContent(2);
+    return;
+  }
+  if (action === 'submit-card-pay') {
+    const num = document.getElementById('card-num')?.value.trim();
+    const exp = document.getElementById('card-exp')?.value.trim();
+    const cvc = document.getElementById('card-cvc')?.value.trim();
+    if (!num || num.length < 16) { toast('Введите корректный номер карты'); return; }
+    if (!exp || exp.length < 4) { toast('Введите срок действия карты'); return; }
+    if (!cvc || cvc.length < 3) { toast('Введите CVC / CVV'); return; }
+    t.disabled = true;
+    t.innerHTML = '⏳ Обработка в ЮKassa…';
+    setTimeout(() => {
+      if (state.me) state.me.is_pro = true;
+      renderCheckoutContent(3);
+      toast('🎉 Оплата подтверждена!');
+      render();
+    }, 1200);
+    return;
+  }
+  if (action === 'finish-checkout') {
+    closeCheckoutModal();
+    setRoute('home');
     render();
-    toast(THEMES[next]?.toast || `Тема: ${next}`);
-  });
-
-  document.querySelectorAll('.tab, .nav-link').forEach((btn) => {
-    btn.addEventListener('click', () => setRoute(btn.dataset.route));
-  });
-
-  // Глобальная делегация кликов для всех data-route и модальных окон (включая шапку и футер)
-  document.addEventListener('click', (e) => {
-    const routeBtn = e.target.closest('[data-route]');
-    if (routeBtn) {
-      e.preventDefault();
-      setRoute(routeBtn.dataset.route);
-      return;
-    }
-
-    const openCheckoutBtn = e.target.closest('[data-action="open-checkout"]');
-    if (openCheckoutBtn) {
-      e.preventDefault();
-      openCheckoutModal(openCheckoutBtn.dataset.plan, openCheckoutBtn.dataset.price, openCheckoutBtn.dataset.name);
-      return;
-    }
-
-    if (e.target.closest('[data-action="close-checkout"]') || e.target.id === 'checkout-modal') {
-      closeCheckoutModal();
-      return;
-    }
-
-    const openLegalBtn = e.target.closest('[data-action="open-legal"]');
-    if (openLegalBtn) {
-      e.preventDefault();
-      openLegalModal(openLegalBtn.dataset.legal);
-      return;
-    }
-
-    if (e.target.closest('[data-action="close-legal"]') || e.target.id === 'legal-modal') {
-      closeLegalModal();
-      return;
-    }
-
-    if (e.target.closest('[data-action="submit-checkout-step1"]')) {
-      const name = document.getElementById('order-name')?.value.trim();
-      const email = document.getElementById('order-email')?.value.trim();
-      const phone = document.getElementById('order-phone')?.value.trim();
-      const terms = document.getElementById('order-terms-chk')?.checked;
-      if (!name) { toast('Введите ваше имя'); return; }
-      if (!email || !email.includes('@')) { toast('Введите корректный email для чека'); return; }
-      if (!phone) { toast('Введите контактный телефон'); return; }
-      if (!terms) { toast('Необходимо согласие с условиями оферты'); return; }
-      renderCheckoutContent(2);
-      return;
-    }
-
-    if (e.target.closest('[data-action="submit-card-pay"]')) {
-      const num = document.getElementById('card-num')?.value.trim();
-      const exp = document.getElementById('card-exp')?.value.trim();
-      const cvc = document.getElementById('card-cvc')?.value.trim();
-      if (!num || num.length < 16) { toast('Введите корректный номер карты'); return; }
-      if (!exp || exp.length < 4) { toast('Введите срок действия карты'); return; }
-      if (!cvc || cvc.length < 3) { toast('Введите CVC / CVV'); return; }
-      const btn = e.target.closest('[data-action="submit-card-pay"]');
-      if (btn) {
-        btn.disabled = true;
-        btn.innerHTML = '⏳ Обработка в ЮKassa…';
-      }
-      setTimeout(() => {
-        if (state.me) state.me.is_pro = true;
-        renderCheckoutContent(3);
-        toast('🎉 Оплата подтверждена!');
-        render();
-      }, 1200);
-      return;
-    }
-
-    if (e.target.closest('[data-action="finish-checkout"]')) {
-      closeCheckoutModal();
-      setRoute('home');
-      render();
-      return;
-    }
-
-    const payOpt = e.target.closest('.pay-method-opt');
-    if (payOpt) {
-      document.querySelectorAll('.pay-method-opt').forEach((o) => o.classList.remove('selected'));
-      payOpt.classList.add('selected');
-      const radio = payOpt.querySelector('input[type="radio"]');
-      if (radio) radio.checked = true;
-      return;
-    }
-  });
-
-  document.getElementById('view')?.addEventListener('click', async (e) => {
-    const t = e.target.closest('[data-action], .option');
-    if (!t) return;
-
-    if (t.classList.contains('option')) {
-      const task = state.daily?.current_task;
-      const optId = String(t.dataset.opt || '');
-      if (!task || !optId) return;
-      if (task.answer_format === 'multiple_choice') {
-        if (state.selected.has(optId)) state.selected.delete(optId);
-        else state.selected.add(optId);
-      } else {
-        state.selected = new Set([optId]);
-      }
-      render();
-      return;
-    }
-
-    const action = t.dataset.action;
+    return;
+  }
     if (action === 'dev-login') {
       setDevTgId(t.dataset.tg);
       state.error = '';
@@ -3408,10 +3438,12 @@ function bindUi() {
       return;
     }
     if (action === 'open-exam-variants') {
-      setRoute('courses');
+      state.route = 'courses';
       state.inCoursesCatalog = true;
       state.gradeTab = 'exam';
+      syncTabbar();
       render();
+      await loadCatalog();
       return;
     }
     if (action === 'go-extra-tasks') {
@@ -4187,10 +4219,69 @@ function bindUi() {
         toast(err.message);
       }
     }
+  }
+}
+
+function bindUi() {
+  document.addEventListener('click', async (e) => {
+    // 1. Theme toggle
+    if (e.target.closest('#theme-toggle')) {
+      e.preventDefault();
+      const next = toggleTheme();
+      startAtmosphere(next);
+      render();
+      toast(THEMES[next]?.toast || `Тема: ${next}`);
+      return;
+    }
+
+    // 2. Modals backdrop clicks
+    if (e.target.id === 'checkout-modal') {
+      closeCheckoutModal();
+      return;
+    }
+    if (e.target.id === 'legal-modal') {
+      closeLegalModal();
+      return;
+    }
+
+    // 3. Payment radio option select
+    const payOpt = e.target.closest('.pay-method-opt');
+    if (payOpt) {
+      document.querySelectorAll('.pay-method-opt').forEach((o) => o.classList.remove('selected'));
+      payOpt.classList.add('selected');
+      const radio = payOpt.querySelector('input[type="radio"]');
+      if (radio) radio.checked = true;
+      return;
+    }
+
+    // 4. Action buttons (FIRST PRIORITY - handles actions everywhere: sidebar, topbar, view, modal)
+    const actionEl = e.target.closest('[data-action]');
+    if (actionEl) {
+      e.preventDefault();
+      const action = actionEl.dataset.action;
+      await handleAction(action, actionEl, e);
+      return;
+    }
+
+    // 5. Option buttons in practice tasks
+    const optionEl = e.target.closest('.option');
+    if (optionEl) {
+      e.preventDefault();
+      handleOptionSelect(optionEl);
+      return;
+    }
+
+    // 6. Route navigation (tabs, sidebar buttons, links, cards)
+    const routeEl = e.target.closest('[data-route]');
+    if (routeEl) {
+      e.preventDefault();
+      setRoute(routeEl.dataset.route);
+      return;
+    }
   });
 
-  const viewEl = view();
-  viewEl?.addEventListener('input', (e) => {
+  // Global delegated input listener
+  document.addEventListener('input', (e) => {
     if (e.target && e.target.id === 'extra-task-text') {
       state.extraTaskText = e.target.value;
     }
@@ -4205,7 +4296,8 @@ function bindUi() {
     }
   });
 
-  viewEl?.addEventListener('keydown', async (e) => {
+  // Global delegated keydown listener
+  document.addEventListener('keydown', async (e) => {
     if (e.target && e.target.id === 'extra-task-text' && e.key === 'Enter') {
       e.preventDefault();
       await submitExtraTaskAnswer();
