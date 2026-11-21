@@ -22,6 +22,7 @@ from bot.keyboards import (
     parent_menu_keyboard,
     rating_scope_keyboard,
     topics_keyboard,
+    variants_keyboard,
 )
 from bot.states import DailyPractice, ParentFlow, Registration, TopicPractice
 from core.models import AppSettings
@@ -30,6 +31,7 @@ from knowledge.models import Task, TaskOption, Topic
 from learning.ai_service import explain_mistake
 from learning.leaderboard import get_leaderboard
 from learning.services import (
+    create_exam_simulator_session,
     create_mistakes_session,
     create_topic_practice_session,
     create_train_session,
@@ -224,13 +226,46 @@ async def variants_menu(message: types.Message):
     total = await ExamVariant.objects.filter(is_active=True).acount()
     if total == 0:
         await message.answer(
-            'Режим «полный вариант / билет» почти готов.\n\n'
-            'Нужны официальные сборники РИКЗ — список в `materials/russian/SOURCES.txt`.\n'
-            'Когда положишь PDF в `materials/russian/11_klass/variants/`, импортируем варианты '
-            'и появится: выбрать билет → пройти → статус «пройден/не пройден».'
+            'В базе пока нет активных вариантов ЦТ/ЦЭ.\n'
+            'Ты можешь решать по темам: «📖 По теме» или случайные задания: «🔥 Тренировка».'
         )
         return
-    await message.answer(f'В базе вариантов: {total}. Выбор билета подключим следующим шагом после импорта.')
+
+    kb = variants_keyboard()
+    await message.answer(
+        f'🎟 <b>Варианты ЦТ / ЦЭ</b>\n\n'
+        f'В базе доступно: <b>{total}</b> официальных вариантов.\n\n'
+        f'Выбери формат тренировки:\n'
+        f'• <b>📱 В Mini App</b> — интерактивный экзаменационный симулятор: таймер на 180 минут, бланк ответов РИКЗ и автоматический расчёт тестового балла.\n'
+        f'• <b>⚡️ В боте</b> — случайный вариант из 40 заданий (Часть А + Часть Б).',
+        reply_markup=kb,
+        parse_mode='HTML',
+    )
+
+
+@router.callback_query(F.data == 'start_exam_sim')
+async def start_exam_sim_callback(callback: types.CallbackQuery, state: FSMContext):
+    student = await Student.objects.filter(
+        tg_id=callback.from_user.id, registration_completed=True
+    ).afirst()
+    if not student:
+        await callback.answer('Сначала /start', show_alert=True)
+        return
+
+    can, reason = await student_can_practice(student)
+    if not can:
+        await callback.message.answer(reason)
+        await callback.answer()
+        return
+
+    await student.update_activity_streak()
+    session = await create_exam_simulator_session(student)
+    await callback.message.answer(
+        '🎟 Запущен экзаменационный вариант (40 заданий: Часть А + Часть Б).\n'
+        'Удачи! Отвечай на вопросы по порядку.'
+    )
+    await callback.answer()
+    await _start_session_flow(callback.message, state, session)
 
 
 @router.message(F.text.in_({'📖 По теме', '📖 Практика по теме', 'По теме'}))
@@ -603,13 +638,15 @@ async def show_profile(message: types.Message):
         if settings.free_mode_enabled
         else 'Free-режим выключен админом'
     )
-    city = student.city.name if student.city_id else '—'
-    school = student.school.name if student.school_id else '—'
+    city = student.city.name if student.city_id and student.city else '—'
+    school = student.school.name if student.school_id and student.school else '—'
+    subject = student.subject.name if student.subject_id and student.subject else '—'
+    exam_track = student.exam_track.name if student.exam_track_id and student.exam_track else '—'
     await message.answer(
         f'👤 {student.display_name}\n'
         f'Класс: {student.grade}\n'
-        f'Предмет: {student.subject.name}\n'
-        f'Программа: {student.exam_track.name}\n'
+        f'Предмет: {subject}\n'
+        f'Программа: {exam_track}\n'
         f'Город: {city}\n'
         f'Школа: {school}\n'
         f'Тариф: {pro}\n'

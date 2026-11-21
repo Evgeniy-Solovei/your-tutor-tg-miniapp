@@ -52,6 +52,29 @@ def cancel_keyboard() -> ReplyKeyboardMarkup:
     )
 
 
+def variants_keyboard() -> InlineKeyboardMarkup:
+    web_app_url = get_web_app_url()
+    rows = []
+    if web_app_url:
+        rows.append(
+            [
+                InlineKeyboardButton(
+                    text='📱 Открыть варианты в Mini App',
+                    web_app=WebAppInfo(url=f'{web_app_url}/app/?route=courses'),
+                )
+            ]
+        )
+    rows.append(
+        [
+            InlineKeyboardButton(
+                text='⚡️ Решать вариант в боте (40 заданий)',
+                callback_data='start_exam_sim',
+            )
+        ]
+    )
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
 def parent_menu_keyboard() -> ReplyKeyboardMarkup:
     rows = [
         [KeyboardButton(text='📊 Отчёт по ребёнку')],
