@@ -274,7 +274,7 @@ class BootstrapView(APIView):
         daily_data = None
         if can:
             today = timezone.localdate()
-            daily_session = await get_or_create_daily_session(student, session_date=today)
+            daily_session = await get_or_create_daily_session(student)
             real_completed = await daily_session.session_tasks.filter(is_answered=True).acount()
             if daily_session.tasks_completed != real_completed:
                 daily_session.tasks_completed = real_completed
