@@ -61,28 +61,9 @@
         } catch(e) {}
       })();
     </script>
-    <!-- Внешние CSS не блокируют первый кадр (сплэш уже в inline <style>) -->
-    <link
-      rel="stylesheet"
-      href="./styles.css?v=20261110-smz"
-      media="print"
-      onload="this.media='all'"
-    />
-    <noscript><link rel="stylesheet" href="./styles.css?v=20261110-smz" /></noscript>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      rel="stylesheet"
-      href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700;800&family=Unbounded:wght@600;700;800&display=swap"
-      media="print"
-      onload="this.media='all'"
-    />
-    <noscript>
-      <link
-        rel="stylesheet"
-        href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700;800&family=Unbounded:wght@600;700;800&display=swap"
-      />
-    </noscript>
+    <!-- Локальные шрифты Onest & Unbounded и стили: нулевая задержка, без внешних запросов к Google -->
+    <link rel="stylesheet" href="./fonts.css?v=20261122" />
+    <link rel="stylesheet" href="./styles.css?v=20261122" />
 
     <!-- Глобальный перехватчик JS-ошибок → логи контейнера через бэкенд -->
     <script>
@@ -182,32 +163,93 @@
     </script>
     <div id="atmosphere" class="atmosphere" aria-hidden="true"></div>
     <div class="app-shell">
-      <header class="topbar">
-        <div class="brand" data-action="go-home">
+      <!-- Полноформатный десктоп-сайдбар (активен на ПК и демо-сайте) -->
+      <aside class="desktop-sidebar" aria-label="Панель навигации">
+        <div class="sidebar-brand" data-action="go-home">
           <span class="brand-mark">⚡</span>
-          <div>
-            <p class="brand-name">Твой Репетитор</p>
-            <p class="brand-sub" id="brand-sub">ЦТ · ЦЭ · Школа</p>
+          <div class="sidebar-brand-text">
+            <span class="brand-name">Твой Репетитор</span>
+            <span class="brand-sub">🇧🇾 Беларусь · ЦТ / ЦЭ</span>
           </div>
         </div>
 
-        <nav class="desktop-nav" aria-label="Основное меню">
-          <button type="button" class="nav-link active" data-route="home">Главная</button>
-          <button type="button" class="nav-link" data-route="courses">Учёба</button>
-          <button type="button" class="nav-link" data-route="practice">Практика</button>
-          <button type="button" class="nav-link" data-route="stats">Статистика</button>
-          <button type="button" class="nav-link" data-route="rating">Рейтинг</button>
-          <button type="button" class="nav-link" data-route="profile">Профиль & Семья</button>
+        <nav class="sidebar-nav">
+          <div class="sidebar-group-title">ОБУЧЕНИЕ</div>
+          <button type="button" class="sidebar-btn active" data-route="home">
+            <span class="sidebar-icon">🏠</span>
+            <span class="sidebar-text">Главная</span>
+          </button>
+          <button type="button" class="sidebar-btn" data-route="courses">
+            <span class="sidebar-icon">📚</span>
+            <span class="sidebar-text">Программа 1–11 кл.</span>
+          </button>
+          <button type="button" class="sidebar-btn" data-route="practice">
+            <span class="sidebar-icon">⚡</span>
+            <span class="sidebar-text">Тренажёр заданий</span>
+          </button>
+
+          <div class="sidebar-group-title">ЭКЗАМЕНЫ & РЕЗУЛЬТАТЫ</div>
+          <button type="button" class="sidebar-btn" data-route="courses" data-action="open-exam-variants">
+            <span class="sidebar-icon">🎟</span>
+            <span class="sidebar-text">Варианты ЦТ / ЦЭ</span>
+            <span class="sidebar-badge">РИКЗ</span>
+          </button>
+          <button type="button" class="sidebar-btn" data-route="stats">
+            <span class="sidebar-icon">📊</span>
+            <span class="sidebar-text">Моя статистика</span>
+          </button>
+          <button type="button" class="sidebar-btn" data-route="rating">
+            <span class="sidebar-icon">🏆</span>
+            <span class="sidebar-text">Зал славы (Рейтинг)</span>
+          </button>
+
+          <div class="sidebar-group-title">СЕМЬЯ & ПРОФИЛЬ</div>
+          <button type="button" class="sidebar-btn" data-route="profile">
+            <span class="sidebar-icon">👨‍👩‍👧</span>
+            <span class="sidebar-text">Кабинет & Родители</span>
+          </button>
         </nav>
 
-        <div class="topbar-actions">
-          <button type="button" class="theme-toggle" id="theme-toggle" aria-label="Сменить тему">
-            <span id="theme-toggle-label">⚡ Вайб</span>
-          </button>
+        <div class="sidebar-footer">
+          <div class="sidebar-user" id="sidebar-user-card" data-route="profile">
+            <div class="sidebar-avatar" id="sidebar-user-avatar">👤</div>
+            <div class="sidebar-user-info">
+              <span class="sidebar-user-name" id="sidebar-user-name">Ученик</span>
+              <span class="sidebar-user-grade" id="sidebar-user-grade">11 класс</span>
+            </div>
+          </div>
         </div>
-      </header>
+      </aside>
 
-      <main id="view" class="view"></main>
+      <!-- Основная рабочая область -->
+      <div class="main-content-wrapper">
+        <header class="topbar">
+          <div class="brand" data-action="go-home">
+            <span class="brand-mark">⚡</span>
+            <div>
+              <p class="brand-name">Твой Репетитор</p>
+              <p class="brand-sub" id="brand-sub">ЦТ · ЦЭ · Школа</p>
+            </div>
+          </div>
+
+          <nav class="desktop-nav" aria-label="Основное меню">
+            <button type="button" class="nav-link active" data-route="home">Главная</button>
+            <button type="button" class="nav-link" data-route="courses">Учёба</button>
+            <button type="button" class="nav-link" data-route="practice">Практика</button>
+            <button type="button" class="nav-link" data-route="stats">Статистика</button>
+            <button type="button" class="nav-link" data-route="rating">Рейтинг</button>
+            <button type="button" class="nav-link" data-route="profile">Профиль & Семья</button>
+          </nav>
+
+          <div class="topbar-actions">
+            <button type="button" class="theme-toggle" id="theme-toggle" aria-label="Сменить тему">
+              <span id="theme-toggle-label">⚡ Вайб</span>
+            </button>
+          </div>
+        </header>
+
+        <main id="view" class="view"></main>
+      </div>
 
       <nav class="tabbar">
         <button type="button" class="tab active" data-route="home">Главная</button>
@@ -227,6 +269,6 @@
         if (_tg) { _tg.ready(); _tg.expand(); }
       } catch (e) {}
     </script>
-    <script type="module" src="./app.js?v=20261121-clean"></script>
+    <script type="module" src="./app.js?v=20261122-turbo"></script>
   </body>
 </html>

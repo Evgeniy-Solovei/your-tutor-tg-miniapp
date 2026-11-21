@@ -215,6 +215,17 @@ body {
 }
 
 /* ── Adaptive Shell Layout: Mobile & Expansive Desktop ── */
+.desktop-sidebar {
+  display: none;
+}
+
+.main-content-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+}
+
 .app-shell {
   position: relative;
   z-index: 1;
@@ -233,12 +244,200 @@ body {
   transition: max-width 0.3s ease, padding 0.3s ease;
 }
 
-/* На экранах планшетов и десктопов растягиваем приложение на весь экран */
-@media (min-width: 861px) {
+/* На экранах десктопов (ПК, ноутбуки, планшеты > 900px): полноценный портал с сайдбаром */
+@media (min-width: 900px) {
   .app-shell {
-    max-width: 1320px;
-    padding: 24px 36px 64px;
-    gap: 24px;
+    display: grid !important;
+    grid-template-columns: 260px minmax(0, 1fr) !important;
+    max-width: 1480px !important;
+    margin: 0 auto;
+    padding: 24px 32px 48px;
+    gap: 32px;
+    width: 100%;
+    box-sizing: border-box;
+    align-items: start;
+  }
+
+  .desktop-sidebar {
+    display: flex !important;
+    flex-direction: column;
+    position: sticky;
+    top: 24px;
+    height: calc(100dvh - 48px);
+    background: var(--card);
+    border: 1px solid var(--card-border);
+    border-radius: var(--radius);
+    padding: 20px 14px;
+    box-shadow: var(--shadow);
+    backdrop-filter: blur(24px) saturate(180%);
+    -webkit-backdrop-filter: blur(24px) saturate(180%);
+    box-sizing: border-box;
+    z-index: 10;
+  }
+
+  .sidebar-brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 4px 8px 18px;
+    border-bottom: 1px solid var(--card-border);
+    margin-bottom: 14px;
+    cursor: pointer;
+  }
+
+  .sidebar-brand-text {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .sidebar-brand-text .brand-name {
+    font-size: 1.05rem;
+    font-weight: 800;
+    line-height: 1.2;
+    margin: 0;
+  }
+
+  .sidebar-brand-text .brand-sub {
+    font-size: 0.74rem;
+    color: var(--muted);
+    margin: 0;
+  }
+
+  .sidebar-nav {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    flex: 1;
+    overflow-y: auto;
+  }
+
+  .sidebar-group-title {
+    font-size: 0.68rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+    padding: 12px 10px 4px;
+  }
+
+  .sidebar-btn {
+    appearance: none;
+    background: transparent;
+    border: 0;
+    color: var(--muted);
+    font-family: var(--font);
+    font-size: 0.88rem;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.18s ease;
+    text-align: left;
+    width: 100%;
+  }
+
+  .sidebar-btn:hover {
+    color: var(--ink);
+    background: rgba(255, 255, 255, 0.07);
+    transform: translateX(3px);
+  }
+
+  .sidebar-btn.active {
+    color: var(--accent-ink);
+    background: var(--accent);
+    box-shadow: 0 4px 16px var(--accent-glow);
+  }
+
+  .sidebar-btn.active .sidebar-badge {
+    background: rgba(0, 0, 0, 0.2);
+    color: var(--accent-ink);
+  }
+
+  .sidebar-icon {
+    font-size: 1.15rem;
+    line-height: 1;
+  }
+
+  .sidebar-badge {
+    margin-left: auto;
+    font-size: 0.68rem;
+    font-weight: 800;
+    padding: 2px 6px;
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.12);
+    color: var(--ink);
+  }
+
+  .sidebar-footer {
+    padding-top: 14px;
+    border-top: 1px solid var(--card-border);
+    margin-top: auto;
+  }
+
+  .sidebar-user {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 10px;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.04);
+    cursor: pointer;
+    transition: background 0.18s ease;
+  }
+
+  .sidebar-user:hover {
+    background: rgba(255, 255, 255, 0.09);
+  }
+
+  .sidebar-avatar {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    background: var(--accent);
+    color: var(--accent-ink);
+    display: grid;
+    place-items: center;
+    font-weight: 800;
+    font-size: 0.9rem;
+    flex-shrink: 0;
+  }
+
+  .sidebar-user-info {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+
+  .sidebar-user-name {
+    font-weight: 700;
+    font-size: 0.85rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .sidebar-user-grade {
+    font-size: 0.74rem;
+    color: var(--muted);
+  }
+
+  .main-content-wrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    min-width: 0;
+    width: 100%;
+  }
+
+  .main-content-wrapper .topbar .brand {
+    display: none;
+  }
+
+  .tabbar {
+    display: none !important;
   }
 }
 

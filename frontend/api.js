@@ -45,6 +45,7 @@ async function request(path, options = {}) {
 }
 
 export const api = {
+  bootstrap: () => request('/bootstrap/'),
   me: () => request('/me/'),
   register: (payload) =>
     request('/me/register/', { method: 'POST', body: JSON.stringify(payload) }),

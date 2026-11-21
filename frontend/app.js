@@ -313,6 +313,82 @@ async function loadScoresPage(page) {
   }
 }
 
+async function turboBootstrap() {
+  if (!getDevTgId() && !getUnsafeUser()?.id) {
+    try {
+      const pack = await api.devUsers();
+      state.devUsers = pack.users || [];
+      const preferred =
+        (pack.demo_tg_id &&
+          state.devUsers.find((u) => String(u.tg_id) === String(pack.demo_tg_id))) ||
+        state.devUsers[0];
+      if (preferred) setDevTgId(preferred.tg_id);
+      else if (!isWebChannel()) setDevTgId(777842796);
+    } catch (_) {
+      if (!isWebChannel()) setDevTgId(777842796);
+    }
+  }
+
+  if (!getDevTgId() && !getUnsafeUser()?.id) {
+    state.error = isWebChannel()
+      ? 'Выбери демо-ученика, чтобы открыть приложение'
+      : 'Нет пользователя для входа';
+    try {
+      const pack = await api.devUsers();
+      state.devUsers = pack.users || [];
+    } catch (_) {}
+    render();
+    return;
+  }
+
+  try {
+    const boot = await api.bootstrap();
+    if (boot) {
+      if (boot.me) {
+        state.me = boot.me;
+        if (state.me.registered === false) {
+          const suggested = state.me.telegram?.display_name || '';
+          state.reg = emptyRegForm({ display_name: suggested });
+          ensureRegForm().catch(() => {});
+        }
+      }
+      if (boot.stats) state.stats = boot.stats;
+      if (boot.dashboard) state.dashboard = boot.dashboard;
+      if (boot.daily) {
+        state.daily = boot.daily;
+        if (state.daily?.current_task?.options) {
+          state.daily.current_task.options = shuffleArray(state.daily.current_task.options);
+        }
+      }
+      try {
+        localStorage.setItem(
+          'tutor_bootstrap_cache',
+          JSON.stringify({
+            me: boot.me,
+            stats: boot.stats,
+            dashboard: boot.dashboard,
+            daily: boot.daily,
+            ts: Date.now(),
+          })
+        );
+      } catch (_) {}
+    }
+  } catch (err) {
+    console.warn('Bootstrap API fallback:', err);
+    if (!state.me) {
+      await loadMe();
+      await loadForRoute();
+    }
+  }
+
+  if (state.route && state.route !== 'home') {
+    await loadForRoute();
+  }
+
+  render();
+}
+
+
 async function loadMe() {
   if (!state.me) {
     state.loading = true;
@@ -2955,6 +3031,25 @@ function render() {
       }
     }
 
+    // Обновляем состояние полноформатного десктоп-сайдбара
+    const sidebarNameEl = document.getElementById('sidebar-user-name');
+    if (sidebarNameEl) {
+      sidebarNameEl.textContent = state.me?.display_name || 'Ученик';
+    }
+    const sidebarGradeEl = document.getElementById('sidebar-user-grade');
+    if (sidebarGradeEl) {
+      const g = state.me?.grade ? `${state.me.grade} класс` : 'Беларусь';
+      const pro = state.me?.is_pro ? ' · Pro ✅' : '';
+      sidebarGradeEl.textContent = `${g}${pro}`;
+    }
+    const sidebarAvatarEl = document.getElementById('sidebar-user-avatar');
+    if (sidebarAvatarEl && state.me?.display_name) {
+      sidebarAvatarEl.textContent = state.me.display_name.charAt(0).toUpperCase();
+    }
+    document.querySelectorAll('.sidebar-btn').forEach((btn) => {
+      btn.classList.toggle('active', btn.dataset.route === state.route);
+    });
+
     if (state.loading && !state.me) {
       root.innerHTML = `<div class="card empty">${
         isWebChannel() ? 'Загрузка…' : 'Подключаем Telegram…'
@@ -3310,6 +3405,13 @@ function bindUi() {
         state.loading = false;
         render();
       }
+      return;
+    }
+    if (action === 'open-exam-variants') {
+      setRoute('courses');
+      state.inCoursesCatalog = true;
+      state.gradeTab = 'exam';
+      render();
       return;
     }
     if (action === 'go-extra-tasks') {
@@ -4118,6 +4220,25 @@ async function main() {
     startAtmosphere(theme);
     bindUi();
 
+    // 1. INSTANT PAINT: Мгновенное восстановление из LocalStorage до сетевых запросов
+    try {
+      const cached = localStorage.getItem('tutor_bootstrap_cache');
+      if (cached) {
+        const data = JSON.parse(cached);
+        if (data.me) state.me = data.me;
+        if (data.stats) state.stats = data.stats;
+        if (data.dashboard) state.dashboard = data.dashboard;
+        if (data.daily) state.daily = data.daily;
+        render();
+        // Моментально скрываем сплэш (через 60мс)
+        setTimeout(() => {
+          if (typeof window.__TUTOR_HIDE_SPLASH__ === 'function') {
+            window.__TUTOR_HIDE_SPLASH__();
+          }
+        }, 60);
+      }
+    } catch (_) {}
+
     // Автопроверка статуса (например, после возврата из оплаты в браузере)
     window.addEventListener('focus', async () => {
       if (state.me && !state.me.is_pro) {
@@ -4135,8 +4256,7 @@ async function main() {
       }
     });
 
-    await loadMe();
-    await loadForRoute();
+    await turboBootstrap();
   } catch (err) {
     console.error('App init error:', err);
     state.error = err.message || 'Ошибка запуска приложения';

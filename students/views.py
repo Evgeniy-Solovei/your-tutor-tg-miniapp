@@ -114,6 +114,208 @@ class MeView(APIView):
         return Response(data)
 
 
+class BootstrapView(APIView):
+    """
+    Турбо-бутстрап: единый эндпоинт, собирающий me + stats + dashboard + daily за один сетевой запрос.
+    Снижает время старта приложения с 4 HTTP-запросов до 1.
+    """
+
+    authentication_classes = [TelegramInitDataAuthentication]
+    permission_classes = []
+
+    async def get(self, request):
+        user = getattr(request, 'telegram_user', None)
+        if not isinstance(user, TelegramWebAppUser):
+            return Response(
+                {
+                    'detail': 'Нужна авторизация Telegram',
+                    'hint': 'Локально: открой /app/?dev_tg_id=ТВОЙ_ID при TELEGRAM_AUTH_BYPASS=True',
+                },
+                status=401,
+            )
+
+        student = await (
+            Student.objects.select_related('subject', 'exam_track', 'city', 'school')
+            .filter(tg_id=user.id, registration_completed=True)
+            .afirst()
+        )
+        from students.models import Parent, ParentChildLink
+
+        parent = await Parent.objects.filter(tg_id=user.id).afirst()
+        is_parent = bool(
+            parent and await ParentChildLink.objects.filter(parent=parent).aexists()
+        )
+
+        if not student:
+            return Response(
+                {
+                    'me': {
+                        'telegram': {
+                            'id': user.id,
+                            'display_name': user.display_name,
+                            'username': user.username,
+                        },
+                        'registered': False,
+                        'is_parent': is_parent,
+                        'can_use_family': True,
+                    },
+                    'stats': None,
+                    'dashboard': None,
+                    'daily': None,
+                }
+            )
+
+        await student.update_activity_streak()
+        serializer = StudentSerializer(student)
+        me_data = await serializer.adata
+        me_data['registered'] = True
+        me_data['telegram'] = {
+            'id': user.id,
+            'display_name': user.display_name,
+            'username': user.username,
+        }
+        me_data['city_name'] = student.city.name if student.city_id and student.city else None
+        me_data['school_name'] = student.school.name if student.school_id and student.school else None
+        me_data['subject_name'] = student.subject.name if student.subject_id and student.subject else None
+        me_data['is_parent'] = is_parent
+        me_data['can_use_family'] = True
+
+        from asgiref.sync import sync_to_async
+        from django.db.models import Max, Sum, Value, Count, Q
+        from django.db.models.functions import Coalesce, TruncDate
+        from django.utils import timezone
+        from learning.models import DailySession, TaskAttempt, TopicMastery
+        from learning.views import serialize_current_task
+
+        @sync_to_async
+        def get_all_aggregates():
+            # 1. Stats aggregates
+            session_agg = DailySession.objects.filter(student_id=student.id).aggregate(
+                best_test=Coalesce(Max('test_score'), Value(0)),
+                total_primary=Coalesce(Sum('primary_score'), Value(0)),
+            )
+
+            # 2. Dashboard aggregates
+            attempts = TaskAttempt.objects.filter(student=student)
+            attempt_totals = attempts.aggregate(
+                total=Count('id'),
+                correct=Count('id', filter=Q(is_correct=True)),
+            )
+            tot_att = attempt_totals['total']
+            cor_att = attempt_totals['correct']
+            acc = round((cor_att / tot_att * 100)) if tot_att > 0 else 0
+
+            # Секции
+            sections_data = []
+            if student.grade:
+                mastery_qs = TopicMastery.objects.filter(
+                    student=student,
+                    topic__section__exam_track=student.exam_track,
+                ).select_related('topic__section')
+                sec_map = {}
+                for m in mastery_qs:
+                    sec = m.topic.section
+                    if sec.id not in sec_map:
+                        sec_map[sec.id] = {'section': sec, 'masteries': []}
+                    sec_map[sec.id]['masteries'].append(m.mastery_score)
+
+                for sid, info in sec_map.items():
+                    scores = info['masteries']
+                    avg_score = sum(scores) / len(scores) if scores else 0.0
+                    sections_data.append({
+                        'id': info['section'].id,
+                        'name': info['section'].name,
+                        'progress': round(avg_score * 100),
+                        'topics_count': len(scores),
+                    })
+
+            # Календарь
+            thirty_days_ago = timezone.localdate() - timezone.timedelta(days=29)
+            calendar_qs = (
+                TaskAttempt.objects.filter(student=student, created_at__date__gte=thirty_days_ago)
+                .annotate(day=TruncDate('created_at'))
+                .values('day')
+                .annotate(count=Count('id'))
+                .order_by('day')
+            )
+            calendar = [{'date': str(row['day']), 'count': row['count']} for row in calendar_qs]
+
+            return session_agg, acc, sections_data, calendar
+
+        session_agg, accuracy, sections_data, calendar = await get_all_aggregates()
+        weak = await get_weak_topics(student, limit=10)
+
+        stats_data = {
+            'xp': student.xp,
+            'streak_days': student.streak_days,
+            'is_pro': student.has_active_pro,
+            'best_test_score': session_agg.get('best_test') or 0,
+            'total_primary': session_agg.get('total_primary') or 0,
+            'weak_topics': [
+                {
+                    'topic_id': m.topic_id,
+                    'topic_name': m.topic.name,
+                    'mastery_score': m.mastery_score,
+                    'wrong_count': m.wrong_count,
+                }
+                for m in weak
+            ],
+        }
+
+        dash_data = {
+            'accuracy': accuracy,
+            'sections': sections_data,
+            'calendar': calendar,
+            'best_test_score': session_agg.get('best_test') or 0,
+        }
+
+        # Daily session
+        can, reason = await student_can_practice(student)
+        daily_data = None
+        if can:
+            today = timezone.localdate()
+            daily_session = await get_or_create_daily_session(student, session_date=today)
+            real_completed = await daily_session.session_tasks.filter(is_answered=True).acount()
+            if daily_session.tasks_completed != real_completed:
+                daily_session.tasks_completed = real_completed
+                await daily_session.asave(update_fields=['tasks_completed'])
+
+            next_task = await get_next_session_task(daily_session)
+            task_data = await serialize_current_task(next_task)
+            content_available = bool(task_data) or (daily_session.tasks_total or 0) > 0
+            empty_reason = ''
+            if not content_available:
+                empty_reason = (
+                    f'Для {student.grade} класса сейчас нет заданий в этой подборке. '
+                    f'Открой «Учёба» → тему → учебник или доп. задания.'
+                )
+
+            daily_data = {
+                'can_practice': True,
+                'content_available': content_available,
+                'empty_reason': empty_reason,
+                'session_id': daily_session.id,
+                'kind': daily_session.kind,
+                'tasks_total': daily_session.tasks_total,
+                'tasks_completed': daily_session.tasks_completed,
+                'primary_score': daily_session.primary_score,
+                'max_primary': daily_session.max_primary,
+                'test_score': daily_session.test_score,
+                'current_task': task_data,
+                'weak_topics_count': len(weak),
+                'streak_days': student.streak_days,
+            }
+        else:
+            daily_data = {'can_practice': False, 'reason': reason}
+
+        return Response({
+            'me': me_data,
+            'stats': stats_data,
+            'dashboard': dash_data,
+            'daily': daily_data,
+        })
+
+
 class StudentProfileView(APIView):
     """Профиль ученика для Mini App."""
 

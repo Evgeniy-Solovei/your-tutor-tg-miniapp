@@ -86,6 +86,10 @@ def miniapp(request, path: str = ''):
         content_type = 'text/css; charset=utf-8'
     elif clean_path.endswith('.html'):
         content_type = 'text/html; charset=utf-8'
+    elif clean_path.endswith('.woff2'):
+        content_type = 'font/woff2'
+    elif clean_path.endswith('.woff'):
+        content_type = 'font/woff'
 
     web_site = bool(getattr(settings, 'WEB_SITE_ENABLED', False))
 
