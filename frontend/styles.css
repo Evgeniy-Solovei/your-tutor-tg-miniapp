@@ -2445,6 +2445,18 @@ button.learning-step-btn:active {
   padding: 4px;
 }
 
+@media (min-width: 900px) {
+  .exam-grid {
+    grid-template-columns: repeat(20, 1fr);
+    max-height: none;
+    gap: 8px;
+    padding: 8px;
+    background: rgba(255, 255, 255, 0.02);
+    border-radius: 14px;
+    border: 1px solid var(--card-border);
+  }
+}
+
 .exam-grid-btn {
   aspect-ratio: 1;
   border-radius: 10px;

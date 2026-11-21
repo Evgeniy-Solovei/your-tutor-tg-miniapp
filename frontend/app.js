@@ -267,7 +267,8 @@ function updateTopbarBadges() {
 
   // Section header on desktop
   const isExamVariants =
-    state.route === 'courses' && state.inCoursesCatalog && state.gradeTab === 'exam';
+    (state.route === 'courses' && state.gradeTab === 'exam') ||
+    state.route === 'exam';
   const meta = isExamVariants
     ? { title: 'Варианты ЦТ / ЦЭ', icon: '🎟', sub: 'Официальные экзаменационные варианты РИКЗ' }
     : (SECTION_META[state.route] || SECTION_META.home);
@@ -282,7 +283,8 @@ function updateTopbarBadges() {
 
 function syncTabbar() {
   const isExamVariants =
-    state.route === 'courses' && state.inCoursesCatalog && state.gradeTab === 'exam';
+    (state.route === 'courses' && state.gradeTab === 'exam') ||
+    state.route === 'exam';
 
   document.querySelectorAll('.sidebar-btn').forEach((btn) => {
     if (btn.dataset.action === 'open-exam-variants') {
@@ -2236,7 +2238,160 @@ function renderGradeCurriculum() {
   `;
 }
 
+function renderExamCenter() {
+  return `
+    <div class="exam-center-page">
+      <section class="desktop-hero-banner" style="margin-bottom: 24px;">
+        <div class="desktop-hero-info">
+          <div class="desktop-hero-pill" style="border-color: #10b981; color: #10b981;">
+            <span>🇧🇾</span>
+            <span>Официальный экзаменационный центр · РИКЗ · ЦТ / ЦЭ</span>
+          </div>
+          <h1 class="desktop-hero-title">Центр подготовки к ЦТ и ЦЭ 🎓</h1>
+          <p class="desktop-hero-sub">
+            13 345 официальных тестовых заданий Министерства образования РБ и Республиканского института контроля знаний. Подготовка к вступительным испытаниям в ВУЗы Беларуси.
+          </p>
+          <div class="desktop-hero-stats">
+            <span class="desktop-stat-chip"><span>📑</span> <span>40 заданий в билете</span></span>
+            <span class="desktop-stat-chip"><span>⏱️</span> <span>180 минут</span></span>
+            <span class="desktop-stat-chip"><span>🎯</span> <span>Шкала 0–100 баллов</span></span>
+            <span class="desktop-stat-chip"><span>✅</span> <span>Мгновенный пересчёт РИКЗ</span></span>
+          </div>
+        </div>
+
+        <div class="desktop-target-card" style="border-color: #10b981;">
+          <div class="desktop-target-header">
+            <span>⏱️ Экспресс-старт симулятора</span>
+            <span style="color:#10b981">40 вопросов · 180 мин</span>
+          </div>
+          <p class="muted small" style="margin: 6px 0 12px; line-height: 1.4;">
+            Полная имитация реального экзаменационного бланка ЦТ/ЦЭ с таймером и переводом в 100 баллов.
+          </p>
+          <button type="button" class="btn block" data-action="start-exam" style="background: linear-gradient(135deg, #10b981, #059669); color: #fff; padding: 13px 18px; font-weight: 700; box-shadow: 0 4px 18px rgba(16,185,129,0.35);">
+            🚀 Запустить симулятор ЦТ / ЦЭ
+          </button>
+        </div>
+      </section>
+
+      <div class="desktop-home-columns">
+        <div class="desktop-main-col">
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+            <div class="card" style="border-left: 4px solid var(--accent); display:flex; flex-direction:column; justify-content:space-between;">
+              <div>
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                  <h3 style="margin:0; font-size:1.05rem;">🔘 Часть А: Тесты</h3>
+                  <span class="sidebar-badge" style="background:rgba(200,255,61,0.15); color:var(--accent);">9 631 зад.</span>
+                </div>
+                <p class="muted small" style="margin-bottom:12px; line-height:1.45;">
+                  Задания закрытого типа с выбором одного или нескольких правильных ответов. Оцениваются в 1–2 первичных балла.
+                </p>
+              </div>
+              <button type="button" class="btn primary block" data-action="start-mode-practice" data-grade="11" data-mode="part_a">
+                Тренировать Часть А
+              </button>
+            </div>
+
+            <div class="card" style="border-left: 4px solid #38bdf8; display:flex; flex-direction:column; justify-content:space-between;">
+              <div>
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                  <h3 style="margin:0; font-size:1.05rem;">✍️ Часть Б: Открытые</h3>
+                  <span class="sidebar-badge" style="background:rgba(56,189,248,0.15); color:#38bdf8;">3 714 зад.</span>
+                </div>
+                <p class="muted small" style="margin-bottom:12px; line-height:1.45;">
+                  Задания открытого типа с кратким текстовым ответом (слово, форма слова или основа). Проверяют точное знание правил.
+                </p>
+              </div>
+              <button type="button" class="btn secondary block" data-action="start-mode-practice" data-grade="11" data-mode="part_b" style="border-color:#38bdf8; color:#38bdf8;">
+                Тренировать Часть Б
+              </button>
+            </div>
+          </div>
+
+          <section class="card" style="margin-top: 4px;">
+            <h2>📋 Спецификация экзаменационной работы</h2>
+            <p class="muted small" style="margin-bottom: 14px;">
+              Структура теста по русскому языку в соответствии с официальными критериями РИКЗ:
+            </p>
+            <div style="display: flex; flex-direction: column; gap: 10px;">
+              <div style="display:flex; justify-content:space-between; align-items:center; padding:10px 14px; background:rgba(255,255,255,0.03); border:1px solid var(--card-border); border-radius:12px;">
+                <div>
+                  <strong>Фонетика, орфоэпия и состав слова</strong>
+                  <div class="muted small">Задания А1–А3 · Ударения, морфемы, чередования</div>
+                </div>
+                <span class="chip active">100% в базе</span>
+              </div>
+              <div style="display:flex; justify-content:space-between; align-items:center; padding:10px 14px; background:rgba(255,255,255,0.03); border:1px solid var(--card-border); border-radius:12px;">
+                <div>
+                  <strong>Орфография: гласные, согласные, слитно/раздельно</strong>
+                  <div class="muted small">Задания А4–А10, Б1–Б4 · Правописание приставок, суффиксов, НЕ/НИ</div>
+                </div>
+                <span class="chip active">100% в базе</span>
+              </div>
+              <div style="display:flex; justify-content:space-between; align-items:center; padding:10px 14px; background:rgba(255,255,255,0.03); border:1px solid var(--card-border); border-radius:12px;">
+                <div>
+                  <strong>Пунктуация простого и сложного предложения</strong>
+                  <div class="muted small">Задания А11–А18, Б5–Б10 · Однородные, обособленные, СПП, ССП, БСП</div>
+                </div>
+                <span class="chip active">100% в базе</span>
+              </div>
+              <div style="display:flex; justify-content:space-between; align-items:center; padding:10px 14px; background:rgba(255,255,255,0.03); border:1px solid var(--card-border); border-radius:12px;">
+                <div>
+                  <strong>Текст, культура речи, стилистика и нормы</strong>
+                  <div class="muted small">Задания Б11–Б22 · Анализ текста, лексическая сочетаемость, плеоназмы</div>
+                </div>
+                <span class="chip active">100% в базе</span>
+              </div>
+            </div>
+          </section>
+        </div>
+
+        <div class="desktop-side-col">
+          <section class="card" style="border: 1px solid rgba(16,185,129,0.3);">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+              <h2 style="margin:0; font-size:1.1rem;">🎟 Варианты тестов</h2>
+              <span class="sidebar-badge" style="background:#10b981; color:#fff;">РИКЗ</span>
+            </div>
+            <p class="muted small" style="margin-bottom:12px;">
+              Решай реальные бланки вступительных кампаний с официальной шкалой пересчёта:
+            </p>
+            <div style="display:flex; flex-direction:column; gap:8px;">
+              <button type="button" class="btn secondary block" data-action="start-exam" data-year="2024" style="text-align:left; display:flex; justify-content:space-between; align-items:center;">
+                <span>🎯 ЦТ 2024 (Официальный билет)</span>
+                <span style="font-size:0.75rem; color:var(--accent);">Начать →</span>
+              </button>
+              <button type="button" class="btn secondary block" data-action="start-exam" data-year="2024" style="text-align:left; display:flex; justify-content:space-between; align-items:center;">
+                <span>🎯 ЦЭ 2024 (Единый экзамен)</span>
+                <span style="font-size:0.75rem; color:var(--accent);">Начать →</span>
+              </button>
+              <button type="button" class="btn secondary block" data-action="start-exam" data-year="2023" style="text-align:left; display:flex; justify-content:space-between; align-items:center;">
+                <span>🎯 ЦТ / ЦЭ 2023 (Архивный вариант)</span>
+                <span style="font-size:0.75rem; color:var(--accent);">Начать →</span>
+              </button>
+            </div>
+          </section>
+
+          <section class="card">
+            <h3>🏫 Школьная программа 1–11 классов</h3>
+            <p class="muted small" style="margin-bottom:12px; line-height:1.4;">
+              Изучение тем по школьным учебникам Беларуси, практические упражнения и правила для каждого класса.
+            </p>
+            <button type="button" class="btn secondary block" data-action="courses-return-to-my-grade">
+              ← Перейти к урокам своего класса
+            </button>
+            <button type="button" class="btn secondary block" style="margin-top:8px;" data-action="courses-back-to-catalog">
+              📚 Каталог всех классов (1–11 кл.)
+            </button>
+          </section>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
 function renderCourses() {
+  if (state.gradeTab === 'exam') {
+    return renderExamCenter();
+  }
   if (state.selectedGradeCurriculum && !state.inCoursesCatalog) {
     return renderGradeCurriculum();
   }
@@ -2588,79 +2743,115 @@ function renderStats() {
 
   return `
     <section class="hero">
-      <h1>Статистика & Прогресс</h1>
-      <p>Твой личный дашборд успеваемости</p>
+      <h1>📊 Статистика & Прогресс</h1>
+      <p>Твой персональный образовательный дашборд успеваемости</p>
     </section>
-    <div class="stats-row">
-      <button type="button" class="stat clickable" data-action="open-streak">
-        <strong>🔥 ${streak} дн.</strong>
-        <span>ударный режим</span>
-      </button>
-      <button type="button" class="stat clickable" data-action="open-accuracy">
-        <strong>${accuracy}%</strong>
-        <span>точность ответов</span>
-      </button>
-      <button type="button" class="stat clickable" data-action="open-tariffs">
-        <strong>${esc(tariffShortLabel())}</strong>
-        <span>тариф</span>
-      </button>
-    </div>
 
-    <!-- График активности за 7 дней -->
-    <section class="card" style="margin-top:12px">
-      <h2>📈 Активность за неделю</h2>
-      <p class="muted">Заданий решено по дням</p>
-      <div style="display:flex;align-items:flex-end;justify-content:space-between;height:100px;margin-top:16px;padding:0 8px;gap:8px">
+    <div class="desktop-home-columns" style="margin-top: 14px;">
+      <!-- Левая основная колонка: График активности и Разделы -->
+      <div class="desktop-main-col">
+        <!-- График активности за 7 дней -->
+        <section class="card">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+            <h2 style="margin:0;">📈 Активность за неделю</h2>
+            <span class="chip active">7 дней</span>
+          </div>
+          <p class="muted small">Количество решённых заданий по дням:</p>
+          <div style="display:flex;align-items:flex-end;justify-content:space-between;height:120px;margin-top:18px;padding:0 8px;gap:8px">
+            ${
+              activity.length
+                ? activity.map((a) => {
+                    const h = Math.round((a.total / maxAct) * 85);
+                    return `
+                      <div style="display:flex;flex-direction:column;align-items:center;flex:1;height:100%;justify-content:flex-end">
+                        <span style="font-size:0.75rem;margin-bottom:4px;color:var(--ink);font-weight:700;">${a.total}</span>
+                        <div style="width:100%;max-width:28px;background:var(--accent,#c8ff3d);height:${Math.max(h, 6)}px;border-radius:6px 6px 0 0;opacity:${a.total > 0 ? 1 : 0.25};transition:all 0.2s ease;"></div>
+                        <span style="font-size:0.72rem;margin-top:6px;color:var(--muted);">${a.date}</span>
+                      </div>`;
+                  }).join('')
+                : '<p class="muted">Загружаем график активности…</p>'
+            }
+          </div>
+        </section>
+
+        <!-- Прогресс по разделам предмета -->
         ${
-          activity.length
-            ? activity.map((a) => {
-                const h = Math.round((a.total / maxAct) * 70);
-                return `
-                  <div style="display:flex;flex-direction:column;align-items:center;flex:1;height:100%;justify-content:flex-end">
-                    <span style="font-size:0.7rem;margin-bottom:4px;color:var(--text-muted, #888)">${a.total}</span>
-                    <div style="width:100%;max-width:24px;background:var(--accent,#3b82f6);height:${Math.max(h, 4)}px;border-radius:4px 4px 0 0;opacity:${a.total > 0 ? 1 : 0.25}"></div>
-                    <span style="font-size:0.7rem;margin-top:6px;color:var(--text-muted, #888)">${a.date}</span>
-                  </div>`;
-              }).join('')
-            : '<p class="muted">Загружаем график…</p>'
+          sections.length
+            ? `<section class="card" style="margin-top:4px;">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+                  <h2 style="margin:0;">📚 Освоение программы</h2>
+                  <span class="chip">${sections.length} разделов</span>
+                </div>
+                <p class="muted small" style="margin-bottom:14px;">Уровень владения темами школьного курса и ЦТ:</p>
+                <div style="display:flex;flex-direction:column;gap:14px;">
+                  ${sections.map((s) => `
+                    <div>
+                      <div style="display:flex;justify-content:space-between;font-size:0.9rem;margin-bottom:6px">
+                        <strong>${esc(s.title)}</strong>
+                        <span style="color:var(--accent);font-weight:700;">${s.mastery_percent}%</span>
+                      </div>
+                      <div class="progress" style="height:10px; border-radius:999px;"><i style="width:${s.mastery_percent}%; border-radius:999px;"></i></div>
+                    </div>
+                  `).join('')}
+                </div>
+              </section>`
+            : ''
         }
       </div>
-    </section>
 
-    <!-- Прогресс по разделам предмета -->
-    ${
-      sections.length
-        ? `<section class="card" style="margin-top:12px">
-            <h2>📚 Освоение разделов</h2>
-            <div style="display:flex;flex-direction:column;gap:12px;margin-top:12px">
-              ${sections.map((s) => `
-                <div>
-                  <div style="display:flex;justify-content:space-between;font-size:0.88rem;margin-bottom:4px">
-                    <strong>${esc(s.title)}</strong>
-                    <span class="muted">${s.mastery_percent}%</span>
-                  </div>
-                  <div class="progress" style="height:8px"><i style="width:${s.mastery_percent}%"></i></div>
-                </div>
-              `).join('')}
+      <!-- Правая боковая колонка: Карточки метрик и слабые темы -->
+      <div class="desktop-side-col">
+        <div class="stats-row" style="grid-template-columns: 1fr; gap: 10px;">
+          <button type="button" class="stat clickable" data-action="open-streak" style="display:flex; align-items:center; justify-content:space-between; padding:14px 18px;">
+            <div style="text-align:left;">
+              <span style="display:block; font-size:0.75rem; color:var(--muted);">Ударный режим</span>
+              <strong>🔥 ${streak} дн.</strong>
             </div>
-          </section>`
-        : ''
-    }
+            <span style="font-size:0.8rem; color:var(--accent);">Подробнее →</span>
+          </button>
+          <button type="button" class="stat clickable" data-action="open-accuracy" style="display:flex; align-items:center; justify-content:space-between; padding:14px 18px;">
+            <div style="text-align:left;">
+              <span style="display:block; font-size:0.75rem; color:var(--muted);">Точность ответов</span>
+              <strong>🎯 ${accuracy}%</strong>
+            </div>
+            <span style="font-size:0.8rem; color:var(--accent);">Аналитика →</span>
+          </button>
+          <button type="button" class="stat clickable" data-action="open-tariffs" style="display:flex; align-items:center; justify-content:space-between; padding:14px 18px;">
+            <div style="text-align:left;">
+              <span style="display:block; font-size:0.75rem; color:var(--muted);">Тарифный план</span>
+              <strong>💎 ${esc(tariffShortLabel())}</strong>
+            </div>
+            <span style="font-size:0.8rem; color:var(--accent);">Улучшить →</span>
+          </button>
+        </div>
 
-    <!-- Слабые темы -->
-    <section class="card" style="margin-top:12px">
-      <h2>⚠️ Слабые темы</h2>
-      ${
-        weak.length
-          ? `<ul class="list">${weak
-              .map(
-                (t) =>
-                  `<li><span>${esc(t.topic_name)}</span><span class="muted">${Math.round(t.mastery_score * 100)}% · ошибок ${t.wrong_count}</span></li>`,
-              )
-              .join('')}</ul>`
-          : `<p class="muted">Пока мало данных — реши несколько заданий.</p>`
-      }
-    </section>
+        <!-- Слабые темы -->
+        <section class="card" style="margin-top:4px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+            <h2 style="margin:0; font-size:1.05rem;">⚠️ Слабые темы</h2>
+            <span class="sidebar-badge" style="background:rgba(239,68,68,0.15); color:#ef4444;">Фокус</span>
+          </div>
+          <p class="muted small" style="margin-bottom:10px;">Темы, в которых чаще всего допускались ошибки:</p>
+          ${
+            weak.length
+              ? `<ul class="list" style="margin-bottom:12px;">${weak
+                  .slice(0, 5)
+                  .map(
+                    (t) =>
+                      `<li style="padding:10px 12px; display:flex; justify-content:space-between; align-items:center;">
+                        <span style="font-size:0.88rem; font-weight:600;">${esc(t.topic_name)}</span>
+                        <span class="muted small" style="color:#ef4444; font-weight:700;">${Math.round(t.mastery_score * 100)}% (${t.wrong_count} ош.)</span>
+                      </li>`,
+                  )
+                  .join('')}</ul>
+                 <button type="button" class="btn primary block small" data-action="go-practice">
+                   ⚡ Закрыть пробелы в тренажёре
+                 </button>`
+              : `<p class="muted small" style="margin:0;">Отличная работа! Ошибок в текущих темах не зафиксировано.</p>`
+          }
+        </section>
+      </div>
+    </div>
   `;
 }
 
@@ -2972,60 +3163,94 @@ function renderRating() {
     filterNote = filters.school_name ? `🏫 Ученики ${esc(filters.school_name)}` : 'Рейтинг твоей школы';
   }
 
+  const leaguePrizesHtml = renderLeaguePrizes(league);
+
   return `
     <section class="hero">
-      <h1>🏆 Рейтинг</h1>
-      <p>Таблица лидеров по заработанному опыту (XP)</p>
+      <h1>🏆 Зал славы & Рейтинг</h1>
+      <p>Таблица лидеров образования Беларуси по заработанному опыту (XP)</p>
     </section>
 
     <!-- Фильтр периода: Неделя / Месяц / Всё время -->
-    <div class="filters" style="margin-bottom:12px;display:flex;gap:6px">
+    <div class="filters" style="margin-bottom:14px;display:flex;gap:8px">
       <button type="button" class="chip${period === 'week' ? ' active' : ''}" data-action="rating-period" data-period="week">⚡ Неделя</button>
       <button type="button" class="chip${period === 'month' ? ' active' : ''}" data-action="rating-period" data-period="month">📅 Месяц</button>
       <button type="button" class="chip${period === 'all' ? ' active' : ''}" data-action="rating-period" data-period="all">🏆 Всё время</button>
     </div>
 
-    ${renderLeaguePrizes(league)}
+    <div class="desktop-home-columns">
+      <!-- Основная колонка: Список лидеров -->
+      <div class="desktop-main-col">
+        <section class="card">
+          <div class="filters" style="display:flex;gap:6px;flex-wrap:wrap">
+            <button type="button" class="chip${scope === 'grade' ? ' active' : ''}" data-action="rating-scope" data-scope="grade">🎒 Мой класс${myGrade ? ` (${myGrade} кл)` : ''}</button>
+            <button type="button" class="chip${scope === 'country' ? ' active' : ''}" data-action="rating-scope" data-scope="country">🌍 Вся страна</button>
+            <button type="button" class="chip${scope === 'city' ? ' active' : ''}" data-action="rating-scope" data-scope="city" ${filters.has_city ? '' : 'disabled'} title="${filters.has_city ? esc(filters.city_name || '') : 'Город не указан в профиле'}">🏙️ Город</button>
+            <button type="button" class="chip${scope === 'school' ? ' active' : ''}" data-action="rating-scope" data-scope="school" ${filters.has_school ? '' : 'disabled'} title="${filters.has_school ? esc(filters.school_name || '') : 'Школа не указана в профиле'}">🏫 Школа</button>
+          </div>
 
-    <section class="card">
-      <div class="filters" style="display:flex;gap:6px;flex-wrap:wrap">
-        <button type="button" class="chip${scope === 'grade' ? ' active' : ''}" data-action="rating-scope" data-scope="grade">🎒 Мой класс${myGrade ? ` (${myGrade} кл)` : ''}</button>
-        <button type="button" class="chip${scope === 'country' ? ' active' : ''}" data-action="rating-scope" data-scope="country">🌍 Вся страна</button>
-        <button type="button" class="chip${scope === 'city' ? ' active' : ''}" data-action="rating-scope" data-scope="city" ${filters.has_city ? '' : 'disabled'} title="${filters.has_city ? esc(filters.city_name || '') : 'Город не указан в профиле'}">🏙️ Город</button>
-        <button type="button" class="chip${scope === 'school' ? ' active' : ''}" data-action="rating-scope" data-scope="school" ${filters.has_school ? '' : 'disabled'} title="${filters.has_school ? esc(filters.school_name || '') : 'Школа не указана в профиле'}">🏫 Школа</button>
+          <p class="filter-note" style="margin:14px 0 12px; font-size:0.88rem; color:var(--muted)">${filterNote}</p>
+
+          ${
+            entries.length
+              ? `<ul class="list">${entries
+                  .map(
+                    (e, i) => {
+                      const rank = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}.`;
+                      const scoreVal = period === 'all' ? (e.xp ?? 0) : (e.period_xp ?? e.xp ?? 0);
+                      const streakHtml = e.streak_days > 1 ? `<span style="font-size:0.75rem; color:#f59e0b; margin-left:5px" title="Серия дней подряд">🔥 ${e.streak_days}</span>` : '';
+                      return `
+                        <li class="${e.is_me ? 'me' : ''}" style="display:flex; align-items:center; justify-content:space-between; padding:12px 14px">
+                          <div style="display:flex; align-items:center; gap:10px; overflow:hidden">
+                            <span style="font-weight:800; min-width:28px; font-size:1.05rem; text-align:center">${rank}</span>
+                            <span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-weight:${e.is_me ? '700' : '600'}; font-size:0.92rem;">
+                              ${esc(e.display_name)}${e.is_me ? ' <strong style="color:var(--accent); font-weight:800">(ты)</strong>' : ''}${streakHtml}
+                            </span>
+                          </div>
+                          <span style="font-weight:800; color:var(--accent); flex-shrink:0; margin-left:8px; font-size:0.95rem;">
+                            ⚡ ${scoreVal} XP
+                          </span>
+                        </li>
+                      `;
+                    }
+                  )
+                  .join('')}</ul>`
+              : `<div class="empty" style="padding:24px 16px; border-radius:12px">
+                   <p class="muted">${esc(state.rating?.empty_reason || 'Пока в этом рейтинге нет активных учеников. Реши пару заданий и займи 1-е место!')}</p>
+                 </div>`
+          }
+        </section>
       </div>
 
-      <p class="filter-note" style="margin:12px 0 10px; font-size:0.86rem; color:var(--muted)">${filterNote}</p>
+      <!-- Боковая колонка: Призы лиги и правила XP -->
+      <div class="desktop-side-col">
+        ${leaguePrizesHtml}
 
-      ${
-        entries.length
-          ? `<ul class="list">${entries
-              .map(
-                (e, i) => {
-                  const rank = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}.`;
-                  const scoreVal = period === 'all' ? (e.xp ?? 0) : (e.period_xp ?? e.xp ?? 0);
-                  const streakHtml = e.streak_days > 1 ? `<span style="font-size:0.75rem; color:#f59e0b; margin-left:5px" title="Серия дней подряд">🔥 ${e.streak_days}</span>` : '';
-                  return `
-                    <li class="${e.is_me ? 'me' : ''}" style="display:flex; align-items:center; justify-content:space-between; padding:10px 12px">
-                      <div style="display:flex; align-items:center; gap:8px; overflow:hidden">
-                        <span style="font-weight:700; min-width:24px; text-align:center">${rank}</span>
-                        <span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-weight:${e.is_me ? '700' : '500'}">
-                          ${esc(e.display_name)}${e.is_me ? ' <strong style="color:var(--accent); font-weight:700">(ты)</strong>' : ''}${streakHtml}
-                        </span>
-                      </div>
-                      <span style="font-weight:700; color:var(--accent); flex-shrink:0; margin-left:8px">
-                        ⚡ ${scoreVal} XP
-                      </span>
-                    </li>
-                  `;
-                }
-              )
-              .join('')}</ul>`
-          : `<div class="empty" style="padding:20px 12px; border-radius:10px">
-               <p class="muted">${esc(state.rating?.empty_reason || 'Пока в этом рейтинге нет активных учеников. Реши пару заданий и займи 1-е место!')}</p>
-             </div>`
-      }
-    </section>
+        <section class="card">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+            <h3 style="margin:0; font-size:1.05rem;">⚡ Как получать больше XP</h3>
+            <span class="chip active">Бонусы</span>
+          </div>
+          <div style="display:flex; flex-direction:column; gap:8px; font-size:0.86rem; line-height:1.45;">
+            <div style="padding:8px 12px; background:rgba(255,255,255,0.03); border-radius:10px; border:1px solid var(--card-border);">
+              <strong>+10 XP</strong> за каждое правильно решённое задание
+            </div>
+            <div style="padding:8px 12px; background:rgba(255,255,255,0.03); border-radius:10px; border:1px solid var(--card-border);">
+              <strong>+25 XP</strong> за серию из 5 заданий подряд без ошибок
+            </div>
+            <div style="padding:8px 12px; background:rgba(255,255,255,0.03); border-radius:10px; border:1px solid var(--card-border);">
+              <strong>+50 XP</strong> за закрытие ежедневной цели дня
+            </div>
+            <div style="padding:8px 12px; background:rgba(255,255,255,0.03); border-radius:10px; border:1px solid var(--card-border);">
+              <strong>+100 XP</strong> за прохождение полного варианта ЦТ / ЦЭ
+            </div>
+          </div>
+          <button type="button" class="btn primary block" style="margin-top:14px;" data-action="go-practice">
+            🚀 Зарабатывать опыт в тренажёре
+          </button>
+        </section>
+      </div>
+    </div>
   `;
 }
 async function startExamSimulator(variantId = null, year = null) {
@@ -3346,6 +3571,7 @@ function render() {
 
     if (state.route === 'home') root.innerHTML = renderHome();
     else if (state.route === 'courses') root.innerHTML = renderCourses();
+    else if (state.route === 'exam') root.innerHTML = renderExamSimulator();
     else if (state.route === 'extra-tasks') root.innerHTML = renderExtraTasks();
     else if (state.route === 'practice') root.innerHTML = renderPractice();
     else if (state.route === 'stats') root.innerHTML = renderStats();
@@ -3537,7 +3763,11 @@ async function handleAction(action, t, e) {
       await openPanel('scores');
       return;
     }
-    if (action === 'open-streak' || action === 'go-rating') {
+    if (action === 'open-streak') {
+      await openPanel('streak');
+      return;
+    }
+    if (action === 'go-rating') {
       state.panel = null;
       setRoute('rating');
       return;
@@ -3887,19 +4117,14 @@ async function handleAction(action, t, e) {
 
     if (action === 'start-mode-practice') {
       const mode = t.dataset.mode;
-      const grade = Number(t.dataset.grade);
+      const targetGrade = Number(t.dataset.grade) || 11;
       const year = t.dataset.year ? Number(t.dataset.year) : (state.selectedExamYear || null);
       const id = tgId();
       if (!id) return;
-      const myGrade = Number(state.me?.grade) || null;
-      if (myGrade && grade && grade !== myGrade) {
-        toast(`Этот раздел для ${grade} класса. Твой класс — ${myGrade}.`);
-        return;
-      }
       state.loading = true;
       render();
       try {
-        state.daily = await api.startTopicPractice(id, null, mode, myGrade || grade, year);
+        state.daily = await api.startTopicPractice(id, null, mode, targetGrade, year);
         if (state.daily?.current_task?.options) {
           state.daily.current_task.options = shuffleArray(state.daily.current_task.options);
         }
@@ -4290,13 +4515,10 @@ async function handleAction(action, t, e) {
       return;
     }
     if (action === 'start-exam') {
-      const myGrade = Number(state.me?.grade) || null;
-      if (myGrade && myGrade !== 11) {
-        toast('Симулятор ЦТ/ЦЭ доступен ученикам 11 класса.');
-        return;
-      }
       const year = t.dataset.year ? Number(t.dataset.year) : (state.selectedExamYear || null);
       state.route = 'exam';
+      syncTabbar();
+      render();
       await startExamSimulator(null, year);
       return;
     }
