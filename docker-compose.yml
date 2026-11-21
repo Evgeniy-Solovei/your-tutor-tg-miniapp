@@ -43,6 +43,7 @@ services:
     ports:
       - "127.0.0.1:8005:8005"
     volumes:
+      - .:/app
       - ./media:/app/media
     depends_on:
       tutor_db:
@@ -71,6 +72,7 @@ services:
     ports:
       - "127.0.0.1:8006:8005"
     volumes:
+      - .:/app
       - ./media:/app/media
     depends_on:
       tutor_db:
@@ -94,6 +96,9 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       REDIS_URL: redis://tutor_redis:6379/0
       WEB_APP_URL: ${WEB_APP_URL:-https://your-tutor.live-dev.by}
+    volumes:
+      - .:/app
+      - ./media:/app/media
     depends_on:
       tutor_web:
         condition: service_started
@@ -111,6 +116,9 @@ services:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       REDIS_URL: redis://tutor_redis:6379/0
+    volumes:
+      - .:/app
+      - ./media:/app/media
     depends_on:
       tutor_web:
         condition: service_started
