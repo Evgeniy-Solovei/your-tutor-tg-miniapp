@@ -4220,7 +4220,6 @@ async function handleAction(action, t, e) {
       }
     }
   }
-}
 
 function bindUi() {
   document.addEventListener('click', async (e) => {
