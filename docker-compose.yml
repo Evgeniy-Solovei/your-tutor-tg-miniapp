@@ -39,6 +39,7 @@ services:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       REDIS_URL: redis://tutor_redis:6379/0
+      WEB_APP_URL: ${WEB_APP_URL:-https://your-tutor.live-dev.by}
     ports:
       - "127.0.0.1:8005:8005"
     volumes:
@@ -65,6 +66,7 @@ services:
       REDIS_URL: redis://tutor_redis:6379/0
       WEB_SITE_ENABLED: "1"
       TELEGRAM_AUTH_BYPASS: "1"
+      WEB_APP_URL: ${WEB_APP_URL:-https://your-tutor.live-dev.by}
       # при необходимости задай в .env: WEB_DEMO_TG_ID=123456789
     ports:
       - "127.0.0.1:8006:8005"
@@ -91,6 +93,7 @@ services:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       REDIS_URL: redis://tutor_redis:6379/0
+      WEB_APP_URL: ${WEB_APP_URL:-https://your-tutor.live-dev.by}
     depends_on:
       tutor_web:
         condition: service_started
