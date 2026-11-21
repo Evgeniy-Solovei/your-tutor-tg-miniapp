@@ -198,8 +198,6 @@
           <button type="button" class="nav-link" data-route="stats">Статистика</button>
           <button type="button" class="nav-link" data-route="rating">Рейтинг</button>
           <button type="button" class="nav-link" data-route="profile">Профиль & Семья</button>
-          <button type="button" class="nav-link nav-highlight" data-route="tariffs">Тарифы</button>
-          <button type="button" class="nav-link" data-route="contacts">Контакты</button>
         </nav>
 
         <div class="topbar-actions">
@@ -211,69 +209,6 @@
 
       <main id="view" class="view"></main>
 
-      <!-- Подвал сайта со всеми обязательными реквизитами для платёжных систем (ЮKassa / Банки) -->
-      <footer class="app-footer" id="app-footer">
-        <div class="footer-container">
-          <div class="footer-col footer-brand">
-            <div class="footer-logo">
-              <span class="footer-brand-mark">⚡</span>
-              <span class="footer-brand-name">Твой Репетитор</span>
-            </div>
-            <p class="footer-desc">
-              Интерактивная образовательная онлайн-платформа подготовки к ЦТ, ЦЭ и школьной программе (1–11 классы).
-            </p>
-            <div class="footer-copy">© 2026 «Твой Репетитор». Все права защищены.</div>
-          </div>
-
-          <div class="footer-col">
-            <h4 class="footer-title">Разделы</h4>
-            <ul class="footer-links">
-              <li><button type="button" class="footer-link-btn" data-route="home">Главная</button></li>
-              <li><button type="button" class="footer-link-btn" data-route="courses">Школьная программа</button></li>
-              <li><button type="button" class="footer-link-btn" data-route="practice">Практика и тренажёр</button></li>
-              <li><button type="button" class="footer-link-btn" data-route="tariffs">Тарифные планы</button></li>
-            </ul>
-          </div>
-
-          <div class="footer-col">
-            <h4 class="footer-title">Документы</h4>
-            <ul class="footer-links">
-              <li><button type="button" class="footer-link-btn" data-action="open-legal" data-legal="terms">Публичная оферта</button></li>
-              <li><button type="button" class="footer-link-btn" data-action="open-legal" data-legal="privacy">Политика конфиденциальности</button></li>
-              <li><button type="button" class="footer-link-btn" data-action="open-legal" data-legal="refund">Условия оплаты и возврата</button></li>
-              <li><button type="button" class="footer-link-btn" data-route="contacts">Реквизиты и контакты</button></li>
-            </ul>
-          </div>
-
-          <div class="footer-col footer-contacts">
-            <h4 class="footer-title">Контакты и реквизиты</h4>
-            <div class="footer-info">
-              <p><strong>Исполнитель:</strong> Соловей Евгений Викторович</p>
-              <p><strong>Статус:</strong> Плательщик налога на проф. доход (Самозанятый)</p>
-              <p><strong>ИНН плательщика:</strong> 971305191960</p>
-              <p><strong>Email:</strong> <a href="mailto:live-dev@mail.ru">live-dev@mail.ru</a></p>
-              <p><strong>Телефон:</strong> <a href="tel:+375297778427">+375 (29) 777-84-27</a></p>
-              <p><strong>Telegram:</strong> <a href="https://t.me/tutor_by_bot" target="_blank">@tutor_by_bot</a></p>
-              <p class="footer-workhours">Служба заботы: Пн–Вс с 09:00 до 21:00</p>
-            </div>
-          </div>
-        </div>
-
-        <div class="footer-bottom">
-          <div class="footer-security-note">
-            Безопасная оплата банковскими картами через защищенный платёжный шлюз. Данные передаются по протоколу SSL (TLS 1.3) с соблюдением стандарта безопасности PCI DSS.
-          </div>
-          <div class="footer-badges">
-            <span class="pay-badge badge-mir">МИР</span>
-            <span class="pay-badge badge-visa">VISA</span>
-            <span class="pay-badge badge-mc">Mastercard</span>
-            <span class="pay-badge badge-sbp">СБП</span>
-            <span class="pay-badge badge-yoo">ЮKassa</span>
-            <span class="pay-badge badge-ssl">🔒 SSL 256-bit</span>
-          </div>
-        </div>
-      </footer>
-
       <nav class="tabbar">
         <button type="button" class="tab active" data-route="home">Главная</button>
         <button type="button" class="tab" data-route="courses">Учёба</button>
@@ -284,21 +219,6 @@
       </nav>
     </div>
 
-    <!-- Модальное окно оформления заказа (In-site Checkout) -->
-    <div id="checkout-modal" class="modal-backdrop hidden" aria-hidden="true">
-      <div class="modal-card checkout-modal-card">
-        <button type="button" class="modal-close-btn" data-action="close-checkout" aria-label="Закрыть">✕</button>
-        <div id="checkout-content"></div>
-      </div>
-    </div>
-
-    <!-- Модальное окно документов (Оферта, Политика, Возврат) -->
-    <div id="legal-modal" class="modal-backdrop hidden" aria-hidden="true">
-      <div class="modal-card legal-modal-card">
-        <button type="button" class="modal-close-btn" data-action="close-legal" aria-label="Закрыть">✕</button>
-        <div id="legal-modal-content"></div>
-      </div>
-    </div>
     <!-- Telegram SDK локально: не зависит от telegram.org, грузится мгновенно -->
     <script src="./telegram-web-app.js"></script>
     <script>
@@ -307,6 +227,6 @@
         if (_tg) { _tg.ready(); _tg.expand(); }
       } catch (e) {}
     </script>
-    <script type="module" src="./app.js?v=20261110-smz"></script>
+    <script type="module" src="./app.js?v=20261121-clean"></script>
   </body>
 </html>
