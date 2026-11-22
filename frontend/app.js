@@ -1,4 +1,4 @@
-import { api } from './api.js?v=20261122-v14-perf';
+import { api } from './api.js?v=20261122-v16-fast';
 import { startAtmosphere } from './atmosphere.js';
 import {
   emptyRegForm,
@@ -17,7 +17,7 @@ import {
 } from './telegram.js';
 import { THEMES, getTheme, initTheme, toggleTheme } from './theme.js';
 import { LEGAL_DOCS, REQUISITES } from './legal.js';
-import { renderLandingPresentation } from './landing.js';
+import { renderLandingPresentation } from './landing.js?v=20261122-v16-fast';
 
 const initialRoute = (() => {
   try {
