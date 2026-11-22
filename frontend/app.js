@@ -10,6 +10,7 @@ import {
 import {
   bootTelegram,
   getDevTgId,
+  getInitData,
   getUnsafeUser,
   isWebChannel,
   setDevTgId,
