@@ -1,4 +1,4 @@
-import { api } from './api.js';
+import { api } from './api.js?v=20261122-v9-fiximport';
 import { startAtmosphere } from './atmosphere.js';
 import {
   emptyRegForm,
