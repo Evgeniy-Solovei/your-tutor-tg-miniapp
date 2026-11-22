@@ -6,8 +6,12 @@ function authHeaders() {
   const headers = { 'Content-Type': 'application/json' };
   // Официальный способ ngrok free не показывать warning на API-запросах
   headers['ngrok-skip-browser-warning'] = 'true';
+  const webToken = localStorage.getItem('tutor_web_token');
   const initData = getInitData();
-  if (initData) {
+
+  if (webToken) {
+    headers.Authorization = `Bearer ${webToken}`;
+  } else if (initData) {
     headers['Telegram-Init-Data'] = initData;
     headers.Authorization = `tma ${initData}`;
   } else if (isDevBypass()) {
@@ -45,6 +49,13 @@ async function request(path, options = {}) {
 }
 
 export const api = {
+  authRegister: (payload) =>
+    request('/auth/register/', { method: 'POST', body: JSON.stringify(payload) }),
+  authLogin: (payload) =>
+    request('/auth/login/', { method: 'POST', body: JSON.stringify(payload) }),
+  authLogout: () => request('/auth/logout/', { method: 'POST' }),
+  issueTelegramLink: () => request('/auth/telegram-link/', { method: 'POST' }),
+  unlinkTelegram: () => request('/auth/telegram-unlink/', { method: 'POST' }),
   bootstrap: () => request('/bootstrap/'),
   me: () => request('/me/'),
   register: (payload) =>

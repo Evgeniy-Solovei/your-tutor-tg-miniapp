@@ -103,21 +103,51 @@ def validate_init_data(
 
 class TelegramInitDataAuthentication(authentication.BaseAuthentication):
     """
-    Ожидает заголовок Telegram-Init-Data (как в skillbox middleware).
-    В DEBUG можно включить TELEGRAM_AUTH_BYPASS=1 и Telegram-Dev-User: <tg_id>.
+    Аутентификация для:
+    1. Веб-пользователей: Authorization: Bearer <web_token>
+    2. Telegram Mini App: Telegram-Init-Data или Authorization: tma <initData>
+    3. Локальной разработки: только при DEBUG=True и TELEGRAM_AUTH_BYPASS=True
     """
 
     header = 'HTTP_TELEGRAM_INIT_DATA'
     bypass_header = 'HTTP_TELEGRAM_DEV_USER'
 
     def authenticate(self, request):
+        # 1. Проверяем веб-токен (Bearer)
+        auth = request.headers.get('Authorization', '') or request.META.get('HTTP_AUTHORIZATION', '')
+        if auth.lower().startswith('bearer '):
+            token = auth[7:].strip()
+            if token:
+                from django.core.cache import cache
+                from students.models import Student
+
+                cache_key = f'web_token:{token}'
+                cached = cache.get(cache_key)
+                if cached:
+                    user_id, display_name, username = cached
+                else:
+                    student = Student.objects.filter(web_token=token).first()
+                    if not student:
+                        raise exceptions.AuthenticationFailed('Сессия недействительна. Войдите снова.')
+                    user_id = student.tg_id
+                    display_name = student.display_name
+                    username = student.username or ''
+                    cache.set(cache_key, (user_id, display_name, username), timeout=86400 * 30)
+
+                user = TelegramWebAppUser(
+                    id=user_id,
+                    first_name=display_name,
+                    username=username,
+                )
+                request.telegram_user = user
+                return (user, f'token:{token[:8]}')
+
+        # 2. Локальный bypass ТОЛЬКО при DEBUG=True
         bypass = (
             getattr(settings, 'TELEGRAM_AUTH_BYPASS', False)
             or os.getenv('TELEGRAM_AUTH_BYPASS', '').lower() in {'1', 'true', 'yes'}
         )
-        # Mini App: bypass только в DEBUG. Веб-сайт (tutor_site): WEB_SITE_ENABLED.
-        web_site = bool(getattr(settings, 'WEB_SITE_ENABLED', False))
-        if bypass and (settings.DEBUG or web_site):
+        if bypass and settings.DEBUG:
             raw = request.META.get(self.bypass_header) or request.query_params.get('dev_tg_id')
             if raw:
                 try:
@@ -126,15 +156,14 @@ class TelegramInitDataAuthentication(authentication.BaseAuthentication):
                     raise exceptions.AuthenticationFailed('Invalid Telegram-Dev-User') from exc
                 user = TelegramWebAppUser(
                     id=tg_id,
-                    first_name='Демо' if web_site else 'Dev',
+                    first_name='Dev',
                 )
                 request.telegram_user = user
-                return (user, 'web-demo' if web_site else 'dev-bypass')
+                return (user, 'dev-bypass')
 
+        # 3. Telegram initData
         init_data = request.META.get(self.header) or request.headers.get('Telegram-Init-Data')
         if not init_data:
-            # Также принимаем Authorization: tma <initData> (удобно для фронта)
-            auth = request.headers.get('Authorization', '')
             if auth.lower().startswith('tma '):
                 init_data = auth[4:].strip()
 

@@ -59,6 +59,10 @@ const state = {
   feedback: null,
   loading: false,
   error: '',
+  authTab: 'login',
+  authError: '',
+  tgLinkCode: '',
+  tgLinkDeeplink: '',
   devUsers: null,
   izloCatalog: null,
   izloQuery: '',
@@ -384,29 +388,13 @@ async function loadScoresPage(page) {
 }
 
 async function turboBootstrap() {
-  if (!getDevTgId() && !getUnsafeUser()?.id) {
-    try {
-      const pack = await api.devUsers();
-      state.devUsers = pack.users || [];
-      const preferred =
-        (pack.demo_tg_id &&
-          state.devUsers.find((u) => String(u.tg_id) === String(pack.demo_tg_id))) ||
-        state.devUsers[0];
-      if (preferred) setDevTgId(preferred.tg_id);
-      else if (!isWebChannel()) setDevTgId(777842796);
-    } catch (_) {
-      if (!isWebChannel()) setDevTgId(777842796);
-    }
-  }
+  const token = localStorage.getItem('tutor_web_token');
+  const initData = getInitData();
+  const devId = getDevTgId() || getUnsafeUser()?.id;
 
-  if (!getDevTgId() && !getUnsafeUser()?.id) {
-    state.error = isWebChannel()
-      ? 'Выбери демо-ученика, чтобы открыть приложение'
-      : 'Нет пользователя для входа';
-    try {
-      const pack = await api.devUsers();
-      state.devUsers = pack.users || [];
-    } catch (_) {}
+  if (!token && !initData && !devId) {
+    state.loading = false;
+    state.me = null;
     render();
     return;
   }
@@ -445,7 +433,10 @@ async function turboBootstrap() {
     }
   } catch (err) {
     console.warn('Bootstrap API fallback:', err);
-    if (!state.me) {
+    if (err?.status === 401 || err?.status === 403) {
+      localStorage.removeItem('tutor_web_token');
+      state.me = null;
+    } else if (!state.me) {
       await loadMe();
       await loadForRoute();
     }
@@ -460,38 +451,23 @@ async function turboBootstrap() {
 
 
 async function loadMe() {
+  const token = localStorage.getItem('tutor_web_token');
+  const initData = getInitData();
+  const devId = getDevTgId() || getUnsafeUser()?.id;
+
+  if (!token && !initData && !devId) {
+    state.loading = false;
+    state.me = null;
+    render();
+    return;
+  }
+
   if (!state.me) {
     state.loading = true;
     state.error = '';
     render();
   }
   try {
-    if (!getDevTgId() && !getUnsafeUser()?.id) {
-      try {
-        const pack = await api.devUsers();
-        state.devUsers = pack.users || [];
-        const preferred =
-          (pack.demo_tg_id &&
-            state.devUsers.find((u) => String(u.tg_id) === String(pack.demo_tg_id))) ||
-          state.devUsers[0];
-        if (preferred) setDevTgId(preferred.tg_id);
-        else if (!isWebChannel()) setDevTgId(777842796);
-      } catch (_) {
-        if (!isWebChannel()) setDevTgId(777842796);
-      }
-    }
-    if (!getDevTgId() && !getUnsafeUser()?.id) {
-      state.error = isWebChannel()
-        ? 'Выбери демо-ученика, чтобы открыть приложение'
-        : 'Нет пользователя для входа';
-      try {
-        const pack = await api.devUsers();
-        state.devUsers = pack.users || [];
-      } catch (_) {
-        /* ignore */
-      }
-      return;
-    }
     state.me = await api.me();
     if (state.me && state.me.registered === false) {
       const suggested = state.me.telegram?.display_name || '';
@@ -512,12 +488,11 @@ async function loadMe() {
       }
     }
   } catch (e) {
-    state.error = e.message || 'Не удалось авторизоваться';
-    try {
-      const pack = await api.devUsers();
-      state.devUsers = pack.users || [];
-    } catch (_) {
-      /* ignore */
+    if (e?.status === 401 || e?.status === 403) {
+      localStorage.removeItem('tutor_web_token');
+      state.me = null;
+    } else {
+      state.error = e.message || 'Не удалось авторизоваться';
     }
   } finally {
     state.loading = false;
@@ -3100,6 +3075,43 @@ function renderProfileAndFamily() {
     </section>
   `;
 
+  const isLinked = Boolean(state.me?.is_telegram_linked);
+  const tgUser = state.me?.username ? `@${state.me.username}` : (state.me?.telegram?.username ? `@${state.me.telegram.username}` : '');
+
+  const telegramLinkCard = `
+    <section class="card" style="margin-bottom:12px; border-left: 4px solid ${isLinked ? '#10b981' : '#3b82f6'}">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+        <h2>✈️ Связь с Telegram</h2>
+        <span class="chip ${isLinked ? 'active' : ''}" style="font-size:0.75rem; ${isLinked ? 'background:rgba(16,185,129,0.15);color:#10b981' : 'background:rgba(239,68,68,0.15);color:#ef4444'}">
+          ${isLinked ? '✓ Связан' : 'Не привязан'}
+        </span>
+      </div>
+      <p class="muted" style="margin:4px 0 10px; font-size:0.86rem; line-height:1.4">
+        ${isLinked
+          ? `Ваш аккаунт связан с Telegram <strong>${esc(tgUser || 'ID: ' + state.me.tg_id)}</strong>. Все результаты, баллы и статистика синхронизируются в реальном времени.`
+          : 'Свяжите аккаунт с Telegram-ботом, чтобы открывать платформу прямо в мессенджере и получать уведомления о занятиях.'
+        }
+      </p>
+      ${isLinked ? `
+        <div style="margin-top:10px">
+          <button type="button" class="btn danger sm" data-action="unlink-telegram">Отвязать Telegram</button>
+        </div>
+      ` : state.tgLinkCode ? `
+        <div style="background:rgba(59,130,246,0.08); border:1.5px dashed #3b82f6; border-radius:12px; padding:12px; text-align:center; margin:10px 0">
+          <div style="font-size:12px; color:var(--text-muted, #94a3b8); margin-bottom:4px">Одноразовый код привязки (15 минут):</div>
+          <div style="font-size:24px; font-weight:800; letter-spacing:2px; color:#38bdf8; margin-bottom:8px">${esc(state.tgLinkCode)}</div>
+          <div style="display:flex; gap:8px; justify-content:center; flex-wrap:wrap">
+            <a href="${escAttr(state.tgLinkDeeplink || '#')}" target="_blank" class="btn primary sm" style="text-decoration:none">🚀 Открыть бота</a>
+            <button type="button" class="btn secondary sm" data-action="copy-tg-code" data-code="${escAttr(state.tgLinkCode)}">📋 Скопировать</button>
+          </div>
+          <p class="muted" style="font-size:11px; margin:8px 0 0">Или напишите боту в чат: <code>/link ${esc(state.tgLinkCode)}</code></p>
+        </div>
+      ` : `
+        <button type="button" class="btn primary sm" style="margin-top:6px" data-action="request-telegram-link">🔗 Получить код привязки</button>
+      `}
+    </section>
+  `;
+
   const regFormHtml = state.reg
     ? renderRegForm(state.reg, {
         title: '⚙️ Настройки профиля',
@@ -3119,6 +3131,7 @@ function renderProfileAndFamily() {
         ${regFormHtml}
       </div>
       <div class="profile-col-right">
+        ${telegramLinkCard}
         ${parentCard}
         ${notifCard}
       </div>
@@ -3485,6 +3498,102 @@ function renderExamProtocol() {
   `;
 }
 
+function renderAuthScreen() {
+  const isReg = state.authTab === 'register';
+  return `
+    <div class="auth-screen-container" style="display:flex;align-items:center;justify-content:center;min-height:68vh;padding:24px 16px">
+      <div class="card" style="width:100%;max-width:440px;padding:32px 28px;border-radius:20px;box-shadow:0 20px 50px rgba(0,0,0,0.18);border:1px solid rgba(255,255,255,0.08)">
+        <div style="text-align:center;margin-bottom:24px">
+          <div style="font-size:42px;margin-bottom:8px">🎓</div>
+          <h1 style="font-size:24px;font-weight:800;margin:0 0 6px 0;letter-spacing:-0.5px">Твой Репетитор</h1>
+          <p class="muted" style="margin:0;font-size:13.5px;line-height:1.4">
+            Единая образовательная платформа: подготовка к ЦТ, ЦЭ и школьная программа Беларуси
+          </p>
+        </div>
+
+        <div style="display:flex;gap:6px;background:rgba(255,255,255,0.06);padding:5px;border-radius:12px;margin-bottom:22px">
+          <button type="button" class="btn ${!isReg ? 'primary' : 'secondary'}" data-action="set-auth-tab" data-tab="login" style="flex:1;border-radius:9px;padding:9px;font-weight:600">Вход</button>
+          <button type="button" class="btn ${isReg ? 'primary' : 'secondary'}" data-action="set-auth-tab" data-tab="register" style="flex:1;border-radius:9px;padding:9px;font-weight:600">Регистрация</button>
+        </div>
+
+        ${state.authError ? `
+          <div class="alert danger" style="margin-bottom:18px;padding:12px 14px;border-radius:10px;font-size:13.5px;line-height:1.4">
+            ⚠️ ${esc(state.authError)}
+          </div>
+        ` : ''}
+
+        ${isReg ? `
+          <form id="auth-register-form">
+            <div style="margin-bottom:14px">
+              <label style="display:block;font-size:13px;font-weight:600;margin-bottom:5px;color:var(--text-muted, #94a3b8)">Логин</label>
+              <input type="text" id="reg-login" required minlength="3" maxlength="50" placeholder="Придумайте логин (например, student2026)" class="input" style="width:100%;box-sizing:border-box;padding:11px 14px;border-radius:10px;font-size:14px" autocomplete="username" />
+            </div>
+
+            <div style="margin-bottom:14px">
+              <label style="display:block;font-size:13px;font-weight:600;margin-bottom:5px;color:var(--text-muted, #94a3b8)">Пароль</label>
+              <input type="password" id="reg-password" required minlength="6" placeholder="Минимум 6 символов" class="input" style="width:100%;box-sizing:border-box;padding:11px 14px;border-radius:10px;font-size:14px" autocomplete="new-password" />
+            </div>
+
+            <div style="margin-bottom:14px">
+              <label style="display:block;font-size:13px;font-weight:600;margin-bottom:5px;color:var(--text-muted, #94a3b8)">Имя или никнейм</label>
+              <input type="text" id="reg-name" required maxlength="100" placeholder="Как вас называть в рейтинге" class="input" style="width:100%;box-sizing:border-box;padding:11px 14px;border-radius:10px;font-size:14px" />
+            </div>
+
+            <div style="display:flex;gap:10px;margin-bottom:22px">
+              <div style="flex:1">
+                <label style="display:block;font-size:13px;font-weight:600;margin-bottom:5px;color:var(--text-muted, #94a3b8)">Класс</label>
+                <select id="reg-grade" class="input" style="width:100%;box-sizing:border-box;padding:11px 10px;border-radius:10px;font-size:13.5px">
+                  <option value="11" selected>11 класс</option>
+                  <option value="10">10 класс</option>
+                  <option value="9">9 класс</option>
+                  <option value="8">8 класс</option>
+                  <option value="7">7 класс</option>
+                  <option value="6">6 класс</option>
+                  <option value="5">5 класс</option>
+                </select>
+              </div>
+              <div style="flex:1.4">
+                <label style="display:block;font-size:13px;font-weight:600;margin-bottom:5px;color:var(--text-muted, #94a3b8)">Цель обучения</label>
+                <select id="reg-goal" class="input" style="width:100%;box-sizing:border-box;padding:11px 10px;border-radius:10px;font-size:13.5px">
+                  <option value="ct" selected>Подготовка к ЦТ</option>
+                  <option value="ce">Подготовка к ЦЭ</option>
+                  <option value="attestat">Экзамен (9 кл.)</option>
+                  <option value="improve">Подтянуть предмет</option>
+                </select>
+              </div>
+            </div>
+
+            <button type="submit" class="btn primary block" style="padding:13px;font-size:15px;font-weight:700;border-radius:12px;width:100%">
+              Создать аккаунт
+            </button>
+          </form>
+        ` : `
+          <form id="auth-login-form">
+            <div style="margin-bottom:16px">
+              <label style="display:block;font-size:13px;font-weight:600;margin-bottom:6px;color:var(--text-muted, #94a3b8)">Логин</label>
+              <input type="text" id="login-username" required placeholder="Введите ваш логин" class="input" style="width:100%;box-sizing:border-box;padding:12px 14px;border-radius:10px;font-size:14px" autocomplete="username" />
+            </div>
+
+            <div style="margin-bottom:24px">
+              <label style="display:block;font-size:13px;font-weight:600;margin-bottom:6px;color:var(--text-muted, #94a3b8)">Пароль</label>
+              <input type="password" id="login-password" required placeholder="Введите пароль" class="input" style="width:100%;box-sizing:border-box;padding:12px 14px;border-radius:10px;font-size:14px" autocomplete="current-password" />
+            </div>
+
+            <button type="submit" class="btn primary block" style="padding:13px;font-size:15px;font-weight:700;border-radius:12px;width:100%">
+              Войти на платформу
+            </button>
+          </form>
+        `}
+
+        <div style="margin-top:24px;padding-top:18px;border-top:1px solid rgba(255,255,255,0.08);text-align:center">
+          <p class="muted" style="font-size:12.5px;margin:0 0 4px 0">Занимаетесь в Telegram-боте?</p>
+          <p class="muted" style="font-size:12px;margin:0">После входа вы сможете привязать аккаунт Telegram в один клик в разделе «Профиль».</p>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
 function render() {
   const root = view();
   if (!root) return;
@@ -3508,53 +3617,26 @@ function render() {
     // Обновляем состояние полноформатного десктоп-сайдбара
     const sidebarNameEl = document.getElementById('sidebar-user-name');
     if (sidebarNameEl) {
-      sidebarNameEl.textContent = state.me?.display_name || 'Ученик';
+      sidebarNameEl.textContent = state.me?.display_name || (state.loading ? 'Загрузка…' : 'Вход в аккаунт');
     }
     const sidebarGradeEl = document.getElementById('sidebar-user-grade');
     if (sidebarGradeEl) {
-      const g = state.me?.grade ? `${state.me.grade} класс` : 'Беларусь';
+      const g = state.me?.grade ? `${state.me.grade} класс` : (state.me ? 'Беларусь' : 'Гость');
       const pro = state.me?.is_pro ? ' · Pro ✅' : '';
       sidebarGradeEl.textContent = `${g}${pro}`;
     }
     const sidebarAvatarEl = document.getElementById('sidebar-user-avatar');
-    if (sidebarAvatarEl && state.me?.display_name) {
-      sidebarAvatarEl.textContent = state.me.display_name.charAt(0).toUpperCase();
+    if (sidebarAvatarEl) {
+      sidebarAvatarEl.textContent = state.me?.display_name ? state.me.display_name.charAt(0).toUpperCase() : '👤';
     }
 
     if (state.loading && !state.me) {
-      root.innerHTML = `<div class="card empty">${
-        isWebChannel() ? 'Загрузка…' : 'Подключаем Telegram…'
-      }</div>`;
+      root.innerHTML = `<div class="card empty" style="max-width:400px;margin:80px auto;text-align:center">Загрузка платформы…</div>`;
       return;
     }
 
-    if (state.error && !state.me) {
-      const users = state.devUsers || [];
-      const web = isWebChannel();
-      root.innerHTML = `
-        <section class="card">
-          <h2>${web ? 'Демо-вход' : 'Локальный вход'}</h2>
-          <p class="muted">${esc(
-            web
-              ? 'Веб-версия «Твой Репетитор» — тот же продукт, что в Telegram. Выбери ученика, чтобы посмотреть функционал.'
-              : state.error,
-          )}</p>
-          ${
-            users.length
-              ? `<p class="muted">Выбери ученика:</p>
-                 ${users
-                   .map(
-                     (u) =>
-                       `<button class="btn block secondary" style="margin-top:8px" data-action="dev-login" data-tg="${u.tg_id}">${esc(u.display_name)}${
-                         u.grade ? ` · ${u.grade} кл.` : ''
-                       }</button>`,
-                   )
-                   .join('')}`
-              : web
-                ? `<p class="muted">Нет зарегистрированных учеников в БД — сначала создай демо-аккаунт или укажи WEB_DEMO_TG_ID.</p>`
-                : `<p class="muted">Включи TELEGRAM_AUTH_BYPASS=True и открой <code>/app/?dev_tg_id=...</code></p>`
-          }
-        </section>`;
+    if (!state.me) {
+      root.innerHTML = renderAuthScreen();
       return;
     }
 
@@ -3739,7 +3821,67 @@ async function handleAction(action, t, e) {
     render();
     return;
   }
-    if (action === 'dev-login') {
+  if (action === 'set-auth-tab') {
+    state.authTab = t.dataset.tab;
+    state.authError = '';
+    render();
+    return;
+  }
+  if (action === 'auth-logout') {
+    if (confirm('Вы уверены, что хотите выйти из аккаунта?')) {
+      try {
+        await api.authLogout();
+      } catch (_) {}
+      localStorage.removeItem('tutor_web_token');
+      localStorage.removeItem('tutor_bootstrap_cache');
+      state.me = null;
+      state.authTab = 'login';
+      state.authError = '';
+      render();
+      toast('Вы вышли из аккаунта');
+    }
+    return;
+  }
+  if (action === 'request-telegram-link') {
+    t.disabled = true;
+    t.textContent = 'Генерация кода…';
+    try {
+      const res = await api.issueTelegramLink();
+      state.tgLinkCode = res.code;
+      state.tgLinkDeeplink = res.deeplink;
+      render();
+    } catch (e) {
+      toast(e.message || 'Ошибка генерации кода');
+      t.disabled = false;
+      t.textContent = '🔗 Получить код привязки';
+    }
+    return;
+  }
+  if (action === 'copy-tg-code') {
+    const code = t.dataset.code;
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(code);
+      toast(`Код ${code} скопирован в буфер!`);
+    } else {
+      toast(`Код: ${code}`);
+    }
+    return;
+  }
+  if (action === 'unlink-telegram') {
+    if (confirm('Вы действительно хотите отвязать Telegram от этого аккаунта?')) {
+      try {
+        await api.unlinkTelegram();
+        if (state.me) state.me.is_telegram_linked = false;
+        state.tgLinkCode = '';
+        toast('Telegram успешно отвязан.');
+        render();
+      } catch (e) {
+        toast(e.message || 'Ошибка при отвязке');
+      }
+    }
+    return;
+  }
+  if (action === 'dev-login') {
       setDevTgId(t.dataset.tg);
       state.error = '';
       await loadMe();
@@ -4688,6 +4830,77 @@ function bindUi() {
     if (e.target && e.target.id === 'extra-task-text' && e.key === 'Enter') {
       e.preventDefault();
       await submitExtraTaskAnswer();
+    }
+  });
+
+  // Global delegated submit listener for Web Login and Registration
+  document.addEventListener('submit', async (e) => {
+    if (e.target && e.target.id === 'auth-login-form') {
+      e.preventDefault();
+      const login = document.getElementById('login-username')?.value.trim();
+      const password = document.getElementById('login-password')?.value.trim();
+      if (!login || !password) {
+        state.authError = 'Заполните логин и пароль';
+        render();
+        return;
+      }
+      state.loading = true;
+      state.authError = '';
+      render();
+      try {
+        const res = await api.authLogin({ login, password });
+        localStorage.setItem('tutor_web_token', res.token);
+        state.me = res.student;
+        state.loading = false;
+        await turboBootstrap();
+      } catch (err) {
+        state.loading = false;
+        state.authError = err.message || 'Неверный логин или пароль';
+        render();
+      }
+      return;
+    }
+
+    if (e.target && e.target.id === 'auth-register-form') {
+      e.preventDefault();
+      const login = document.getElementById('reg-login')?.value.trim();
+      const password = document.getElementById('reg-password')?.value.trim();
+      const name = document.getElementById('reg-name')?.value.trim();
+      const grade = document.getElementById('reg-grade')?.value;
+      const goal = document.getElementById('reg-goal')?.value;
+
+      if (!login || !password || !name) {
+        state.authError = 'Пожалуйста, заполните все обязательные поля';
+        render();
+        return;
+      }
+      if (password.length < 6) {
+        state.authError = 'Пароль должен быть не менее 6 символов';
+        render();
+        return;
+      }
+
+      state.loading = true;
+      state.authError = '';
+      render();
+      try {
+        const res = await api.authRegister({
+          login,
+          password,
+          display_name: name,
+          grade: Number(grade) || 11,
+          goal: goal || 'ct',
+        });
+        localStorage.setItem('tutor_web_token', res.token);
+        state.me = res.student;
+        state.loading = false;
+        await turboBootstrap();
+      } catch (err) {
+        state.loading = false;
+        state.authError = err.message || 'Ошибка регистрации';
+        render();
+      }
+      return;
     }
   });
 }

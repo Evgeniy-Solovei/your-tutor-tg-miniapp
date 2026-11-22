@@ -65,8 +65,8 @@
       })();
     </script>
     <!-- Локальные шрифты Onest & Unbounded и стили: нулевая задержка, без внешних запросов к Google -->
-    <link rel="stylesheet" href="./fonts.css?v=20261122-v7-billgates" />
-    <link rel="stylesheet" href="./styles.css?v=20261122-v7-billgates" />
+    <link rel="stylesheet" href="./fonts.css?v=20261122-v8-auth-security" />
+    <link rel="stylesheet" href="./styles.css?v=20261122-v8-auth-security" />
 
     <!-- Глобальный перехватчик JS-ошибок → логи контейнера через бэкенд -->
     <script>
@@ -213,14 +213,15 @@
           </button>
         </nav>
 
-        <div class="sidebar-footer">
-          <div class="sidebar-user" id="sidebar-user-card" data-route="profile">
+        <div class="sidebar-footer" style="display:flex;align-items:center;gap:8px">
+          <div class="sidebar-user" id="sidebar-user-card" data-route="profile" style="flex:1">
             <div class="sidebar-avatar" id="sidebar-user-avatar">👤</div>
             <div class="sidebar-user-info">
               <span class="sidebar-user-name" id="sidebar-user-name">Ученик</span>
               <span class="sidebar-user-grade" id="sidebar-user-grade">11 класс</span>
             </div>
           </div>
+          <button type="button" class="btn secondary sm" data-action="auth-logout" title="Выйти из аккаунта" style="padding:8px 10px;border-radius:10px;font-size:14px;cursor:pointer">🚪</button>
         </div>
       </aside>
 
@@ -291,6 +292,6 @@
         if (_tg) { _tg.ready(); _tg.expand(); }
       } catch (e) {}
     </script>
-    <script type="module" src="./app.js?v=20261122-v7-billgates"></script>
+    <script type="module" src="./app.js?v=20261122-v8-auth-security"></script>
   </body>
 </html>

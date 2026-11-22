@@ -196,7 +196,7 @@ class SubmitAnswerView(APIView):
 
 
 class AIExplainView(APIView):
-    """Запрос ИИ-разбора для последней попытки."""
+    """Запрос ИИ-разбора для последней попытки с лимитом 5 запросов в минуту."""
 
     authentication_classes = telegram_auth_classes()
 
@@ -204,6 +204,22 @@ class AIExplainView(APIView):
         student, err = await aget_student_by_tg(request, tg_id)
         if err:
             return err
+
+        from django.core.cache import cache
+
+        rate_key = f'ai_explain_rate_{student.id}'
+        count = await cache.aget(rate_key, 0)
+        if count >= 5:
+            return Response(
+                {
+                    'detail': 'Превышен лимит запросов к ИИ-разбору: максимум 5 запросов в минуту. Пожалуйста, сделайте небольшую паузу.'
+                },
+                status=status.HTTP_429_TOO_MANY_REQUESTS,
+            )
+        try:
+            await cache.aset(rate_key, count + 1, timeout=60)
+        except Exception:
+            pass
 
         can, use_llm, reason = await student_can_request_ai(student)
         if not can:

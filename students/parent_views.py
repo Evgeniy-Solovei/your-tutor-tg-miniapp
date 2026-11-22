@@ -118,7 +118,7 @@ class ParentInviteIssueView(APIView):
 
 
 class ParentLinkChildView(APIView):
-    """Родитель вводит код ребёнка."""
+    """Родитель вводит код ребёнка с защитой от подбора (rate-limit)."""
 
     authentication_classes = [TelegramInitDataAuthentication]
     permission_classes = []
@@ -127,10 +127,32 @@ class ParentLinkChildView(APIView):
         parent, err = await _aget_parent_from_request(request)
         if err:
             return err
+
+        from django.core.cache import cache
+
+        ip = request.META.get('HTTP_X_FORWARDED_FOR', request.META.get('REMOTE_ADDR', '127.0.0.1')).split(',')[0].strip()
+        limit_key = f'parent_link_fails_{parent.id}_{ip}'
+        fails = await cache.aget(limit_key, 0)
+        if fails >= 5:
+            return Response(
+                {'detail': 'Слишком много неверных попыток привязки. Подождите 15 минут перед повтором.'},
+                status=status.HTTP_429_TOO_MANY_REQUESTS,
+            )
+
         code = (request.data.get('code') or '').strip()
         link, message = await parent_service.link_parent_by_code(parent, code)
         if not link:
+            try:
+                await cache.aset(limit_key, fails + 1, timeout=900)
+            except Exception:
+                pass
             return Response({'detail': message}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            await cache.adelete(limit_key)
+        except Exception:
+            pass
+
         child = await Student.objects.select_related('city', 'school').aget(pk=link.student_id)
         return Response(
             {

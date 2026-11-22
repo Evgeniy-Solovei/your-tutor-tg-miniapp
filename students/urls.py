@@ -8,6 +8,13 @@ from learning.views import (
     IzlozheniyaStartView,
     SubmitAnswerView,
 )
+from students.auth_views import (
+    TelegramLinkIssueView,
+    TelegramUnlinkView,
+    WebLoginView,
+    WebLogoutView,
+    WebRegisterView,
+)
 from students.geo_views import (
     CitySearchView,
     ProfileUpdateView,
@@ -45,6 +52,11 @@ from students.views import (
 app_name = 'students'
 
 urlpatterns = [
+    path('auth/register/', WebRegisterView.as_view(), name='web-register'),
+    path('auth/login/', WebLoginView.as_view(), name='web-login'),
+    path('auth/logout/', WebLogoutView.as_view(), name='web-logout'),
+    path('auth/telegram-link/', TelegramLinkIssueView.as_view(), name='telegram-link-issue'),
+    path('auth/telegram-unlink/', TelegramUnlinkView.as_view(), name='telegram-unlink'),
     path('logs/client-error/', ClientErrorLogView.as_view(), name='client-error-log'),
     path('dev/users/', DevUsersView.as_view(), name='dev-users'),
     path('me/', MeView.as_view(), name='me'),

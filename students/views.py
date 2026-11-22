@@ -23,35 +23,13 @@ from students.serializers import StudentSerializer
 
 
 class DevUsersView(APIView):
-    """Список учеников для локального / веб-демо входа."""
+    """Отключено для безопасности: реальные данные учеников никогда не отдаются наружу."""
 
     authentication_classes = []
     permission_classes = []
 
     async def get(self, request):
-        from django.conf import settings as dj_settings
-
-        bypass = bool(getattr(dj_settings, 'TELEGRAM_AUTH_BYPASS', False))
-        web_site = bool(getattr(dj_settings, 'WEB_SITE_ENABLED', False))
-        if not (bypass and (dj_settings.DEBUG or web_site)):
-            return Response({'detail': 'Только для локальной отладки / веб-демо'}, status=404)
-
-        users = [
-            {
-                'tg_id': s.tg_id,
-                'display_name': s.display_name,
-                'registered': s.registration_completed,
-                'grade': s.grade,
-            }
-            async for s in Student.objects.filter(registration_completed=True)
-            .order_by('display_name')[:50]
-        ]
-        return Response({
-            'users': users,
-            'bypass': True,
-            'channel': 'web' if web_site else 'dev',
-            'demo_tg_id': getattr(dj_settings, 'WEB_DEMO_TG_ID', '') or '',
-        })
+        return Response({'detail': 'Эндпоинт отключён в целях безопасности.'}, status=404)
 
 
 class MeView(APIView):
@@ -1268,22 +1246,36 @@ class PingSessionView(APIView):
 
 
 class ClientErrorLogView(APIView):
-    """Принимает ошибки JavaScript из браузера / Telegram Mini App и выводит их в логи контейнера."""
+    """Принимает ошибки JavaScript из браузера / Telegram Mini App и выводит их в логи контейнера с защитой от флуда и инъекций."""
 
     authentication_classes = []
     permission_classes = []
 
     async def post(self, request):
+        from django.core.cache import cache
+
+        ip = request.META.get('HTTP_X_FORWARDED_FOR', request.META.get('REMOTE_ADDR', '127.0.0.1')).split(',')[0].strip()
+        limit_key = f'client_err_log_rate_{ip}'
+        count = await cache.aget(limit_key, 0)
+        if count >= 10:
+            return Response({'logged': False, 'detail': 'Rate limit exceeded'}, status=429)
+
+        try:
+            await cache.aset(limit_key, count + 1, timeout=60)
+        except Exception:
+            pass
+
         data = request.data if isinstance(request.data, dict) else {}
-        message = data.get('message', 'Unknown JS error')
-        stack = data.get('stack', '')
-        source = data.get('source', '')
-        lineno = data.get('lineno', '')
-        colno = data.get('colno', '')
-        url = data.get('url', '')
-        route = data.get('route', '')
-        tg_id = data.get('tg_id', 'anonymous')
-        user_agent = request.META.get('HTTP_USER_AGENT', '')
+        # Ограничиваем длину и удаляем управляющие символы
+        message = str(data.get('message') or 'Unknown JS error')[:300].replace('\r', ' ').replace('\n', ' ')
+        stack = str(data.get('stack') or '')[:1000]
+        source = str(data.get('source') or '')[:150]
+        lineno = str(data.get('lineno') or '')[:10]
+        colno = str(data.get('colno') or '')[:10]
+        url = str(data.get('url') or '')[:200]
+        route = str(data.get('route') or '')[:50]
+        tg_id = str(data.get('tg_id') or 'anonymous')[:32]
+        user_agent = str(request.META.get('HTTP_USER_AGENT') or '')[:200]
 
         logger.error(
             "\n" + "=" * 70 + "\n"

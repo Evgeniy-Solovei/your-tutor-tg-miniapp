@@ -60,13 +60,89 @@ def _is_cancel(text: str | None) -> bool:
     return (text or '').strip() == '❌ Отмена'
 
 
+async def handle_telegram_link(message: types.Message, code: str):
+    code = code.strip().upper()
+    now = timezone.now()
+    web_student = await Student.objects.filter(
+        telegram_link_code=code,
+        telegram_link_expires__gte=now,
+    ).afirst()
+    if not web_student:
+        await message.answer(
+            "⚠️ Код привязки не найден или истёк срок его действия (15 минут).\n\n"
+            "Зайдите в личный кабинет на сайте (раздел «Профиль») и нажмите кнопку «Связать с Telegram», чтобы получить свежий код.",
+        )
+        return
+
+    existing_student = await Student.objects.filter(tg_id=message.from_user.id).afirst()
+    if existing_student and existing_student.id != web_student.id:
+        existing_student.web_login = web_student.web_login
+        existing_student.password_hash = web_student.password_hash
+        existing_student.web_token = web_student.web_token
+        existing_student.username = message.from_user.username or existing_student.username
+        if web_student.xp > existing_student.xp:
+            existing_student.xp = web_student.xp
+            existing_student.streak_days = max(existing_student.streak_days, web_student.streak_days)
+        await existing_student.asave()
+        await web_student.adelete()
+        target = existing_student
+    else:
+        web_student.tg_id = message.from_user.id
+        web_student.username = message.from_user.username or ''
+        web_student.telegram_link_code = ''
+        web_student.telegram_link_expires = None
+        await web_student.asave(
+            update_fields=['tg_id', 'username', 'telegram_link_code', 'telegram_link_expires', 'updated_at']
+        )
+        target = web_student
+
+    if target.web_token:
+        from django.core.cache import cache
+        try:
+            await cache.aset(
+                f'web_token:{target.web_token}',
+                (target.tg_id, target.display_name, target.username),
+                timeout=86400 * 30,
+            )
+        except Exception:
+            pass
+
+    await message.answer(
+        f"🎉 <b>Аккаунт успешно связан с сайтом!</b>\n\n"
+        f"👤 Ученик: <b>{target.display_name}</b> ({target.grade} класс)\n"
+        f"🔑 Логин на сайте: <b>{target.web_login}</b>\n\n"
+        f"Теперь ваш прогресс, тесты и баллы синхронизированы между веб-порталом и Telegram-ботом!",
+        parse_mode="HTML",
+        reply_markup=main_menu_keyboard(),
+    )
+
+
+@router.message(Command('link'))
+async def cmd_link(message: types.Message, command: CommandObject = None):
+    if not command or not command.args:
+        await message.answer(
+            "ℹ️ Чтобы привязать аккаунт сайта к Telegram, введите команду с кодом:\n"
+            "<code>/link TUT-XXXX</code>\n\n"
+            "Код привязки можно сгенерировать на сайте в разделе «Профиль».",
+            parse_mode="HTML",
+        )
+        return
+    await handle_telegram_link(message, command.args.strip())
+
+
 @router.message(CommandStart())
 async def cmd_start(message: types.Message, state: FSMContext, command: CommandObject = None):
     await state.clear()
 
-    # Проверка диплинка для привязки родителя: /start parent_CODE или /start CODE
+    # Проверка диплинка для связывания веб-аккаунта: /start link_TUT-XXXX или /start TUT-XXXX
     if command and command.args:
         raw_arg = command.args.strip()
+        if raw_arg.startswith('link_') or raw_arg.startswith('TUT-'):
+            code = raw_arg.replace('link_', '').strip()
+            await handle_telegram_link(message, code)
+            return
+
+        # Проверка диплинка для привязки родителя: /start parent_CODE или /start CODE
         if raw_arg.startswith('parent_') or (len(raw_arg) == 6 and raw_arg.isalnum()):
             code = raw_arg.replace('parent_', '').strip().upper()
             parent = await get_or_create_parent(

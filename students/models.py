@@ -69,6 +69,37 @@ class Student(models.Model):
     registration_completed = models.BooleanField(default=False, verbose_name='Регистрация завершена')
     notifications_enabled = models.BooleanField(default=True, verbose_name='Ежедневные уведомления')
     tg_blocked = models.BooleanField(default=False, verbose_name='Бот заблокирован')
+    web_login = models.CharField(
+        max_length=150,
+        unique=True,
+        null=True,
+        blank=True,
+        verbose_name='Логин на сайте',
+    )
+    password_hash = models.CharField(
+        max_length=255,
+        blank=True,
+        verbose_name='Хэш пароля',
+    )
+    web_token = models.CharField(
+        max_length=64,
+        unique=True,
+        null=True,
+        blank=True,
+        db_index=True,
+        verbose_name='Токен сессии на сайте',
+    )
+    telegram_link_code = models.CharField(
+        max_length=16,
+        blank=True,
+        db_index=True,
+        verbose_name='Код привязки Telegram',
+    )
+    telegram_link_expires = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name='Срок действия кода привязки',
+    )
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='Дата регистрации')
     updated_at = models.DateTimeField(auto_now=True, verbose_name='Обновлено')
 
@@ -94,6 +125,21 @@ class Student(models.Model):
         if self.pro_until and self.pro_until < timezone.now():
             return False
         return True
+
+    @property
+    def is_telegram_linked(self) -> bool:
+        """Связан ли аккаунт с реальным Telegram-пользователем (id < 8_000_000_000_000)."""
+        return bool(self.tg_id and self.tg_id < 8_000_000_000_000)
+
+    def set_password(self, raw_password: str) -> None:
+        from django.contrib.auth.hashers import make_password
+        self.password_hash = make_password(raw_password)
+
+    def check_password(self, raw_password: str) -> bool:
+        from django.contrib.auth.hashers import check_password
+        if not self.password_hash:
+            return False
+        return check_password(raw_password, self.password_hash)
 
     async def update_activity_streak(self):
         today = timezone.localdate()
