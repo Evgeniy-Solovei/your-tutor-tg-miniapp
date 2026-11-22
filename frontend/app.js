@@ -1,4 +1,4 @@
-import { api } from './api.js?v=20261122-v13-landing';
+import { api } from './api.js?v=20261122-v14-perf';
 import { startAtmosphere } from './atmosphere.js';
 import {
   emptyRegForm,
@@ -324,6 +324,21 @@ function syncTabbar() {
 }
 
 let _routeLoadSeq = 0;
+let _loadingCount = 0;
+
+export function showLoading() {
+  _loadingCount++;
+  const bar = document.getElementById('global-progress-bar');
+  if (bar) bar.classList.add('active');
+}
+
+export function hideLoading() {
+  _loadingCount = Math.max(0, _loadingCount - 1);
+  if (_loadingCount === 0) {
+    const bar = document.getElementById('global-progress-bar');
+    if (bar) bar.classList.remove('active');
+  }
+}
 
 function setRoute(route, force = false) {
   if (!state.me) return;
@@ -338,8 +353,13 @@ function setRoute(route, force = false) {
   }
   syncTabbar();
   render();
-  loadForRoute();
+  showLoading();
+  loadForRoute().finally(() => {
+    hideLoading();
+  });
   try {
+    const viewEl = document.getElementById('view');
+    if (viewEl) viewEl.scrollTo({ top: 0, behavior: 'smooth' });
     window.scrollTo({ top: 0, behavior: 'smooth' });
   } catch (_) {}
 }
@@ -505,8 +525,7 @@ async function loadMe() {
 
 async function loadFamily() {
   if (!state.family) {
-    state.loading = true;
-    render();
+    showLoading();
   }
   state.familyError = '';
   try {
@@ -517,7 +536,7 @@ async function loadFamily() {
     state.familyError = e.message || 'Не удалось загрузить семью';
     toast(e.message);
   } finally {
-    state.loading = false;
+    hideLoading();
     render();
   }
 }
@@ -538,8 +557,7 @@ async function loadForRoute() {
     const myGrade = Number(state.me?.grade) || 11;
     if (!state.inCoursesCatalog) {
       if (!state.selectedGradeCurriculum || state.selectedGradeCurriculum.grade !== myGrade) {
-        state.loading = true;
-        render();
+        showLoading();
         try {
           const cur = await api.getGradeCurriculum(myGrade, id);
           if (currentSeq === _routeLoadSeq) {
@@ -548,8 +566,8 @@ async function loadForRoute() {
         } catch (e) {
           toast(e.message || 'Не удалось загрузить программу твоего класса');
         } finally {
+          hideLoading();
           if (currentSeq === _routeLoadSeq) {
-            state.loading = false;
             render();
           }
         }
@@ -564,8 +582,7 @@ async function loadForRoute() {
     const id = tgId();
     const grade = state.extraTasksGrade || Number(state.me?.grade) || 1;
     if (!state.extraTasksSummary || state.extraTasksSummary.grade !== grade) {
-      state.loading = true;
-      render();
+      showLoading();
     }
     try {
       const summary = await api.getExtraTasksSummary(grade, id);
@@ -575,8 +592,8 @@ async function loadForRoute() {
     } catch (e) {
       toast(e.message || 'Ошибка загрузки заданий');
     } finally {
+      hideLoading();
       if (currentSeq === _routeLoadSeq) {
-        state.loading = false;
         render();
       }
     }
@@ -656,8 +673,7 @@ async function loadForRoute() {
 
 async function loadCatalog() {
   if (!state.catalog) {
-    state.loading = true;
-    render();
+    showLoading();
   }
   try {
     state.catalog = await api.catalog();
@@ -671,10 +687,8 @@ async function loadCatalog() {
   } catch (e) {
     toast(e.message);
   } finally {
-    if (state.loading) {
-      state.loading = false;
-      render();
-    }
+    hideLoading();
+    render();
   }
 }
 
@@ -2366,6 +2380,26 @@ function renderExamCenter() {
   `;
 }
 
+function renderSkeletonCourses() {
+  return `
+    <div class="skeleton-grid" style="max-width:960px;margin:0 auto;width:100%">
+      <div class="card skeleton-card">
+        <div class="skeleton-line title"></div>
+        <div class="skeleton-line text"></div>
+        <div class="skeleton-line text short"></div>
+      </div>
+      <div class="card skeleton-card">
+        <div class="skeleton-line title"></div>
+        <div class="skeleton-line text"></div>
+      </div>
+      <div class="card skeleton-card">
+        <div class="skeleton-line title"></div>
+        <div class="skeleton-line text"></div>
+      </div>
+    </div>
+  `;
+}
+
 function renderCourses() {
   if (state.gradeTab === 'exam') {
     return renderExamCenter();
@@ -2373,9 +2407,12 @@ function renderCourses() {
   if (state.selectedGradeCurriculum && !state.inCoursesCatalog) {
     return renderGradeCurriculum();
   }
+  if (!state.selectedGradeCurriculum && !state.inCoursesCatalog) {
+    return renderSkeletonCourses();
+  }
   const catalog = state.catalog;
   if (!catalog) {
-    return `<div class="card empty">${state.loading ? 'Загружаем курсы…' : 'Не удалось загрузить каталог'}</div>`;
+    return renderSkeletonCourses();
   }
   const items = catalog.items || catalog.subjects || [];
   const subject =
@@ -3736,12 +3773,12 @@ function render() {
       sidebarAvatarEl.textContent = state.me?.display_name ? state.me.display_name.charAt(0).toUpperCase() : '👤';
     }
 
-    if (state.loading && !state.me) {
-      root.innerHTML = `<div class="card empty" style="max-width:400px;margin:80px auto;text-align:center">Загрузка платформы…</div>`;
-      return;
-    }
-
     if (!state.me) {
+      const authAnchor = document.getElementById('auth-card-anchor');
+      if (authAnchor) {
+        authAnchor.innerHTML = renderAuthCard(state);
+        return;
+      }
       root.innerHTML = renderAuthScreen();
       return;
     }
@@ -3982,6 +4019,8 @@ async function handleAction(action, t, e) {
       state.authTab = 'login';
       state.authError = '';
       document.body.classList.add('unauthenticated');
+      const root = view();
+      if (root) root.innerHTML = '';
       render();
       toast('Вы вышли из аккаунта');
     }

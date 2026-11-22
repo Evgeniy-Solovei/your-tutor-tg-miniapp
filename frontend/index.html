@@ -65,8 +65,8 @@
       })();
     </script>
     <!-- Локальные шрифты Onest & Unbounded и стили: нулевая задержка, без внешних запросов к Google -->
-    <link rel="stylesheet" href="./fonts.css?v=20261122-v13-landing" />
-    <link rel="stylesheet" href="./styles.css?v=20261122-v13-landing" />
+    <link rel="stylesheet" href="./fonts.css?v=20261122-v14-perf" />
+    <link rel="stylesheet" href="./styles.css?v=20261122-v14-perf" />
 
     <!-- Глобальный перехватчик JS-ошибок → логи контейнера через бэкенд -->
     <script>
@@ -139,6 +139,9 @@
     </script>
   </head>
   <body class="unauthenticated">
+    <!-- Глобальный неоновый индикатор фоновой загрузки (без рывков и пустоты) -->
+    <div id="global-progress-bar" class="global-progress-bar" aria-hidden="true"></div>
+
     <!-- Сплэш сразу в body — виден до загрузки JS/шрифтов -->
     <div id="app-splash" class="app-splash">
       <div class="splash-gears">
@@ -302,6 +305,6 @@
         if (_tg) { _tg.ready(); _tg.expand(); }
       } catch (e) {}
     </script>
-    <script type="module" src="./app.js?v=20261122-v13-landing"></script>
+    <script type="module" src="./app.js?v=20261122-v14-perf"></script>
   </body>
 </html>
