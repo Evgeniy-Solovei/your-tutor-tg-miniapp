@@ -607,9 +607,10 @@ class TopicExtraTaskSubmitView(APIView):
             return Response({'detail': 'tg_id обязателен'}, status=400)
 
         from core.api import aget_student_by_tg
+        from students.models import Student
+
         student, err = await aget_student_by_tg(request, int(tg_id))
         if (err or not student) and settings.DEBUG:
-            from students.models import Student
             student = await Student.objects.filter(tg_id=int(tg_id)).afirst()
             err = None
         if err or not student:

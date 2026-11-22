@@ -50,7 +50,7 @@ def validate_init_data(
     secret = HMAC_SHA256(key=\"WebAppData\", msg=bot_token)
     hash = HMAC_SHA256(key=secret, msg=data_check_string)
     """
-    token = (bot_token or get_bot_token()).strip()
+    token = (bot_token if bot_token is not None else get_bot_token()).strip()
     if not token:
         raise exceptions.AuthenticationFailed('Bot token не настроен')
 

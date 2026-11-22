@@ -457,7 +457,7 @@ class TrainSessionModesTests(TestCase):
 
         # Первый ответ принимается
         res1 = self.client.post(
-            f'/api/tutor/submit/{self.student.tg_id}/',
+            f'/api/tutor/submit-answer/{self.student.tg_id}/',
             data=json.dumps({'session_task_id': st_id, 'answer_text': '2'}),
             content_type='application/json',
             HTTP_TELEGRAM_DEV_USER=str(self.student.tg_id),
@@ -470,7 +470,7 @@ class TrainSessionModesTests(TestCase):
 
         # Повторная отправка в той же сессии должна быть отклонена (400)
         res2 = self.client.post(
-            f'/api/tutor/submit/{self.student.tg_id}/',
+            f'/api/tutor/submit-answer/{self.student.tg_id}/',
             data=json.dumps({'session_task_id': st_id, 'answer_text': '2'}),
             content_type='application/json',
             HTTP_TELEGRAM_DEV_USER=str(self.student.tg_id),
@@ -488,7 +488,7 @@ class TrainSessionModesTests(TestCase):
 
         # Первый ответ
         self.client.post(
-            f'/api/tutor/submit/{self.student.tg_id}/',
+            f'/api/tutor/submit-answer/{self.student.tg_id}/',
             data=json.dumps({'session_task_id': st_id, 'answer_text': '1'}),
             content_type='application/json',
             HTTP_TELEGRAM_DEV_USER=str(self.student.tg_id),
@@ -496,7 +496,7 @@ class TrainSessionModesTests(TestCase):
 
         # Мгновенная отправка следующего ответа (< 1.0 сек) должна вернуть 429
         res_fast = self.client.post(
-            f'/api/tutor/submit/{self.student.tg_id}/',
+            f'/api/tutor/submit-answer/{self.student.tg_id}/',
             data=json.dumps({'session_task_id': st_id, 'answer_text': '1'}),
             content_type='application/json',
             HTTP_TELEGRAM_DEV_USER=str(self.student.tg_id),
@@ -509,7 +509,7 @@ class TrainSessionModesTests(TestCase):
         self.student.save()
 
         res = self.client.post(
-            f'/api/tutor/submit/{self.student.tg_id}/',
+            f'/api/tutor/submit-answer/{self.student.tg_id}/',
             data=json.dumps({'session_task_id': 1, 'answer_text': '1'}),
             content_type='application/json',
             HTTP_TELEGRAM_DEV_USER=str(self.student.tg_id),
