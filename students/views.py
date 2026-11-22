@@ -587,7 +587,7 @@ class LeaderboardView(APIView):
                 **extra,
             }
 
-        qs = Student.objects.filter(registration_completed=True)
+        qs = Student.objects.filter(registration_completed=True, is_banned=False)
         title = 'Беларусь'
         empty_reason = ''
 

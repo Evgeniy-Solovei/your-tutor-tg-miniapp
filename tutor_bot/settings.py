@@ -179,7 +179,8 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # HTTPS завершается на nginx, поэтому Django должен доверять forwarded-заголовку.
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 USE_X_FORWARDED_HOST = True
-SECURE_SSL_REDIRECT = not DEBUG
+IS_TESTING = any('test' in arg for arg in sys.argv)
+SECURE_SSL_REDIRECT = not DEBUG and not IS_TESTING
 SESSION_COOKIE_SECURE = not DEBUG
 CSRF_COOKIE_SECURE = not DEBUG
 SECURE_CONTENT_TYPE_NOSNIFF = True

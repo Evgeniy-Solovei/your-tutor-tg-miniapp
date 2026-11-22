@@ -593,7 +593,7 @@ async def _count_unique_extra_attempts(student_id: int, limit: int = 26) -> int:
 
 
 class TopicExtraTaskSubmitView(APIView):
-    """Проверка ответа на дополнительное задание по теме."""
+    """Проверка ответа на дополнительное задание по теме с защитой от накрутки (Anti-Cheat)."""
 
     authentication_classes = telegram_auth_classes()
 
@@ -615,6 +615,14 @@ class TopicExtraTaskSubmitView(APIView):
         if err or not student:
             return err or Response({'detail': 'Ученик не найден'}, status=404)
 
+        # 1. Anti-Cheat: проверка скорости и частоты отправки
+        from learning.anti_cheat import check_submission_velocity
+        from rest_framework.exceptions import Throttled
+        try:
+            await check_submission_velocity(student.id)
+        except Throttled as exc:
+            return Response({'detail': exc.detail}, status=429)
+
         task = await TopicExtraTask.objects.select_related('topic').filter(id=task_id, is_active=True).afirst()
         if not task:
             return Response({'detail': 'Задание не найдено'}, status=404)
@@ -622,7 +630,7 @@ class TopicExtraTaskSubmitView(APIView):
         FREE_LIMIT = 25
         is_pro = bool(student.is_pro)
         if not is_pro:
-            # Не гоняем полный DISTINCT COUNT по всей истории — хватает первых 11 id.
+            # Не гоняем полный DISTINCT COUNT по всей истории — хватает первых 26 id.
             total_completed = await _count_unique_extra_attempts(student.pk, limit=FREE_LIMIT + 1)
             if total_completed >= FREE_LIMIT:
                 return Response({
@@ -649,11 +657,40 @@ class TopicExtraTaskSubmitView(APIView):
                     is_correct = True
                     break
 
-        xp_earned = 10 if is_correct else 2
-        student.xp = (student.xp or 0) + xp_earned
-        await student.asave(update_fields=['xp'])
-
         from learning.models import TaskAttempt, TopicMastery
+        from django.utils import timezone
+        from django.db.models import F
+
+        # 2. Anti-Cheat: проверка повторного решения задачи
+        already_solved = await TaskAttempt.objects.filter(
+            student=student,
+            extra_task=task,
+            is_correct=True,
+        ).aexists()
+
+        # 3. Расчёт XP: баллы начисляются ТОЛЬКО за правильный ответ и только при первом решении
+        xp_earned = 0
+        if is_correct and not already_solved:
+            # Проверяем совпадение класса задания и ученика
+            student_grade = student.grade or 11
+            task_grade = task.topic.grade_level if task.topic else 11
+            is_grade_match = (task_grade == student_grade)
+
+            if is_grade_match:
+                # Суточный лимит XP для доп. заданий (максимум 50 заданий * 10 XP = 500 XP/день)
+                today_start = timezone.now().replace(hour=0, minute=0, second=0, microsecond=0)
+                today_extra_count = await TaskAttempt.objects.filter(
+                    student=student,
+                    extra_task__isnull=False,
+                    is_correct=True,
+                    created_at__gte=today_start,
+                ).acount()
+
+                if today_extra_count < 50:
+                    xp_earned = 10
+                    await Student.objects.filter(pk=student.pk).aupdate(xp=F('xp') + xp_earned)
+                    student.xp = await Student.objects.filter(pk=student.pk).values_list('xp', flat=True).aget()
+
         await TaskAttempt.objects.acreate(
             student=student,
             task=None,

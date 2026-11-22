@@ -100,23 +100,41 @@ class SubmitAnswerView(APIView):
         if err:
             return err
 
+        # 1. Anti-Cheat: проверка скорости и частоты отправки
+        from learning.anti_cheat import check_submission_velocity
+        from rest_framework.exceptions import Throttled
+        try:
+            await check_submission_velocity(student.id)
+        except Throttled as exc:
+            return Response({'detail': exc.detail}, status=status.HTTP_429_TOO_MANY_REQUESTS)
+
         session_task_id = request.data.get('session_task_id')
         answer_text = str(request.data.get('answer_text', '') or '').strip()
+        time_spent_seconds = int(request.data.get('time_spent_seconds') or 0)
         raw_selected_ids = request.data.get('selected_option_ids') or []
         if not session_task_id or (not answer_text and not raw_selected_ids):
             return Response({'detail': 'session_task_id и (answer_text или selected_option_ids) обязательны'}, status=status.HTTP_400_BAD_REQUEST)
 
-        session_task = await SessionTask.objects.select_related(
-            'task', 'task__topic', 'session'
-        ).aget(
-            id=session_task_id,
-            session__student=student,
-        )
+        try:
+            session_task = await SessionTask.objects.select_related(
+                'task', 'task__topic', 'session'
+            ).aget(
+                id=session_task_id,
+                session__student=student,
+            )
+        except SessionTask.DoesNotExist:
+            return Response({'detail': 'Задание не найдено в этой сессии'}, status=status.HTTP_404_NOT_FOUND)
 
-        if not session_task.is_answered:
-            can, reason = await student_can_practice(student)
-            if not can:
-                return Response({'detail': reason}, status=status.HTTP_403_FORBIDDEN)
+        # 2. Anti-Cheat: запрет повторного прохождения задания в одной сессии
+        if session_task.is_answered:
+            return Response(
+                {'detail': 'Это задание уже выполнено в текущей сессии.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        can, reason = await student_can_practice(student)
+        if not can:
+            return Response({'detail': reason}, status=status.HTTP_403_FORBIDDEN)
 
         task = session_task.task
         options = []
@@ -149,7 +167,7 @@ class SubmitAnswerView(APIView):
                     for option in selected_options
                 )
 
-        attempt = await submit_answer(student, session_task, answer_text)
+        attempt = await submit_answer(student, session_task, answer_text, time_spent_seconds=time_spent_seconds)
         can_ai, use_llm, ai_reason = await student_can_request_ai(student)
 
         response = {
@@ -378,7 +396,7 @@ class ExamStartView(APIView):
 
 
 class ExamSubmitView(APIView):
-    """Сдача бланка ответов симулятора ЦТ/ЦЭ."""
+    """Сдача бланка ответов симулятора ЦТ/ЦЭ с защитой от race conditions."""
 
     authentication_classes = telegram_auth_classes()
 
@@ -391,17 +409,21 @@ class ExamSubmitView(APIView):
         answers = request.data.get('answers') or []
         time_spent_seconds = int(request.data.get('time_spent_seconds') or 0)
 
-        try:
-            session = await DailySession.objects.aget(
-                id=session_id,
-                student=student,
-                kind=DailySession.Kind.EXAM,
-            )
-        except DailySession.DoesNotExist:
-            return Response({'detail': 'Сессия симулятора не найдена'}, status=status.HTTP_404_NOT_FOUND)
+        # 1. Anti-Cheat & Concurrency: атомарный перевод статуса в COMPLETED
+        updated = await DailySession.objects.filter(
+            id=session_id,
+            student=student,
+            kind=DailySession.Kind.EXAM,
+            status__in=[DailySession.Status.PENDING, DailySession.Status.IN_PROGRESS],
+        ).aupdate(status=DailySession.Status.COMPLETED)
 
-        if session.status == DailySession.Status.COMPLETED:
-            return Response({'detail': 'Сессия уже отправлена'}, status=status.HTTP_400_BAD_REQUEST)
+        if updated == 0:
+            # Сессия не существует или уже отправлена другим параллельным запросом
+            exists = await DailySession.objects.filter(id=session_id, student=student, kind=DailySession.Kind.EXAM).aexists()
+            if not exists:
+                return Response({'detail': 'Сессия симулятора не найдена'}, status=status.HTTP_404_NOT_FOUND)
+            return Response({'detail': 'Сессия уже была отправлена и проверена'}, status=status.HTTP_400_BAD_REQUEST)
 
+        session = await DailySession.objects.aget(id=session_id, student=student)
         protocol = await submit_exam_simulator(student, session, answers, time_spent_seconds=time_spent_seconds)
         return Response(protocol)

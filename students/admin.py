@@ -16,11 +16,13 @@ class StudentAdmin(ExportActionMixin, ModelAdmin):
         'exam_track',
         'city',
         'is_pro',
+        'is_banned',
         'xp',
         'streak_days',
         'registration_completed',
     ]
     list_filter = [
+        'is_banned',
         'is_pro',
         'registration_completed',
         'grade',
@@ -28,8 +30,19 @@ class StudentAdmin(ExportActionMixin, ModelAdmin):
         'subject',
         'city',
     ]
-    search_fields = ['display_name', 'tg_id', 'username']
+    search_fields = ['display_name', 'tg_id', 'username', 'web_login']
     readonly_fields = ['created_at', 'updated_at']
+    actions = ['ban_students', 'unban_students']
+
+    @admin.action(description='Заблокировать за накрутку (Anti-Cheat)')
+    def ban_students(self, request, queryset):
+        count = queryset.update(is_banned=True)
+        self.message_user(request, f'Заблокировано учеников: {count}')
+
+    @admin.action(description='Разблокировать выбранных учеников')
+    def unban_students(self, request, queryset):
+        count = queryset.update(is_banned=False)
+        self.message_user(request, f'Разблокировано учеников: {count}')
 
 
 @admin.register(Parent)

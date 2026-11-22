@@ -507,6 +507,9 @@ async def submit_answer(
     session_task.is_answered = True
     await session_task.asave(update_fields=['is_answered'])
 
+    from learning.anti_cheat import record_answer_speed_and_detect_anomaly
+    await record_answer_speed_and_detect_anomaly(student.id, is_correct, spent)
+
     session = getattr(session_task, '_state', None) and session_task._state.fields_cache.get('session')
     if session is None:
         session = await DailySession.objects.aget(pk=session_task.session_id)
@@ -519,6 +522,8 @@ async def submit_answer(
     if task_topic is None:
         task_topic = await Topic.objects.filter(id=task.topic_id).afirst()
     task_grade = task_topic.grade_level if task_topic else 11
+    student_grade = student.grade or 11
+    is_grade_match = (task_grade == student_grade)
 
     if points > 0:
         # --- ПРАВИЛА НАЧИСЛЕНИЯ XP И ЗАЩИТА ОТ НАКРУТКИ ---
@@ -554,14 +559,20 @@ async def submit_answer(
                 created_at__gte=today_start,
                 is_correct=True,
             ).exclude(id=attempt.id).aaggregate(total=Sum('points_earned'))
-            
+
             today_points = today_attempts.get('total') or 0
             if today_points * base_unit >= max_daily:
                 earned = 0
                 logger.info('Превышен суточный лимит XP (%s) для %s', max_daily, student.tg_id)
 
         student.xp += earned
-        session.xp_earned += earned
+        if is_grade_match:
+            session.xp_earned += earned
+        else:
+            logger.info(
+                'XP=%s добавлен только в профиль (класс задания %s != класс ученика %s)',
+                earned, task_grade, student_grade
+            )
 
     if not was_answered:
         student.daily_tasks_completed += 1
@@ -572,19 +583,8 @@ async def submit_answer(
     await session.asave(update_fields=['tasks_completed', 'xp_earned', 'status'])
     await recompute_session_scores(session)
 
-    if earned > 0:
-        # --- ИЗОЛЯЦИЯ ТУРНИРНОГО XP ПО КЛАССАМ ---
-        # В турнирную таблицу (weekly_xp) идут только баллы за задания ТЕКУЩЕГО класса ученика (или ЦТ/ЦЭ для 9–11 классов).
-        # Задания других классов добавляют XP только в общий профиль ученика.
-        student_grade = student.grade or 11
-        is_grade_match = (task_grade == student_grade)
-        if is_grade_match:
-            await add_weekly_xp(student, earned)
-        else:
-            logger.info(
-                'XP=%s добавлен только в профиль (класс задания %s != класс ученика %s)',
-                earned, task_grade, student_grade
-            )
+    if earned > 0 and is_grade_match:
+        await add_weekly_xp(student, earned)
 
     return attempt
 

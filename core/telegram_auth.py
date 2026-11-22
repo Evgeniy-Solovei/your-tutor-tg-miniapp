@@ -122,17 +122,14 @@ class TelegramInitDataAuthentication(authentication.BaseAuthentication):
                 from students.models import Student
 
                 cache_key = f'web_token:{token}'
-                cached = cache.get(cache_key)
-                if cached:
-                    user_id, display_name, username = cached
-                else:
-                    student = Student.objects.filter(web_token=token).first()
-                    if not student:
-                        raise exceptions.AuthenticationFailed('Сессия недействительна. Войдите снова.')
-                    user_id = student.tg_id
-                    display_name = student.display_name
-                    username = student.username or ''
-                    cache.set(cache_key, (user_id, display_name, username), timeout=86400 * 30)
+                student = Student.objects.filter(web_token=token).first()
+                if not student:
+                    raise exceptions.AuthenticationFailed('Сессия недействительна. Войдите снова.')
+                if getattr(student, 'is_banned', False):
+                    raise exceptions.AuthenticationFailed('Аккаунт заблокирован за нарушение правил честной игры.')
+                user_id = student.tg_id
+                display_name = student.display_name
+                username = student.username or ''
 
                 user = TelegramWebAppUser(
                     id=user_id,

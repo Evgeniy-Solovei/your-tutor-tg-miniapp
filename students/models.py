@@ -69,6 +69,12 @@ class Student(models.Model):
     registration_completed = models.BooleanField(default=False, verbose_name='Регистрация завершена')
     notifications_enabled = models.BooleanField(default=True, verbose_name='Ежедневные уведомления')
     tg_blocked = models.BooleanField(default=False, verbose_name='Бот заблокирован')
+    is_banned = models.BooleanField(
+        default=False,
+        db_index=True,
+        verbose_name='Заблокирован (чит/накрутка)',
+        help_text='Исключает пользователя из рейтингов и турниров, блокирует отправку ответов',
+    )
     web_login = models.CharField(
         max_length=150,
         unique=True,

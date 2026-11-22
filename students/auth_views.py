@@ -36,6 +36,15 @@ class WebRegisterView(APIView):
     permission_classes = []
 
     async def post(self, request):
+        ip = _get_client_ip(request)
+        reg_rate_key = f'web_reg_rate_{ip}'
+        reg_count = await cache.aget(reg_rate_key, 0)
+        if reg_count >= 5:
+            return Response(
+                {'detail': 'Слишком много регистраций с вашего IP-адреса. Пожалуйста, подождите 15 минут.'},
+                status=status.HTTP_429_TOO_MANY_REQUESTS,
+            )
+
         data = request.data if isinstance(request.data, dict) else {}
         login = str(data.get('login') or '').strip()
         password = str(data.get('password') or '').strip()
@@ -110,6 +119,7 @@ class WebRegisterView(APIView):
                 (student.tg_id, student.display_name, student.username or ''),
                 timeout=86400 * 30,
             )
+            await cache.aset(reg_rate_key, reg_count + 1, timeout=900)
         except Exception:
             pass
 

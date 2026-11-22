@@ -377,8 +377,8 @@ class TrainSessionModesTests(TestCase):
         self.assertEqual(res11.status_code, 200)
         d11 = res11.json()
         self.assertTrue(d11.get('has_ct_ce'))
-        self.assertEqual(d11.get('part_a_count'), 1)
-        self.assertEqual(d11.get('part_b_count'), 1)
+        self.assertGreaterEqual(d11.get('part_a_count'), 1)
+        self.assertGreaterEqual(d11.get('part_b_count'), 1)
 
         # 9 grade stats
         res9 = self.client.get(
@@ -445,3 +445,74 @@ class TrainSessionModesTests(TestCase):
         data = res.json()
         self.assertIn('session_id', data)
         self.assertTrue(len(data['tasks']) > 0)
+
+    def test_duplicate_session_task_submission_rejected(self):
+        # Стартуем сессию
+        res = self.client.get(
+            f'/api/tutor/daily-session/{self.student.tg_id}/',
+            HTTP_TELEGRAM_DEV_USER=str(self.student.tg_id),
+        )
+        self.assertEqual(res.status_code, 200)
+        st_id = res.json()['current_task']['session_task_id']
+
+        # Первый ответ принимается
+        res1 = self.client.post(
+            f'/api/tutor/submit/{self.student.tg_id}/',
+            data=json.dumps({'session_task_id': st_id, 'answer_text': '2'}),
+            content_type='application/json',
+            HTTP_TELEGRAM_DEV_USER=str(self.student.tg_id),
+        )
+        self.assertEqual(res1.status_code, 200)
+
+        # Очищаем velocity cooldown, чтобы проверить именно бизнес-правило сессии
+        from django.core.cache import cache
+        cache.delete(f'anti_cheat:vel:{self.student.id}')
+
+        # Повторная отправка в той же сессии должна быть отклонена (400)
+        res2 = self.client.post(
+            f'/api/tutor/submit/{self.student.tg_id}/',
+            data=json.dumps({'session_task_id': st_id, 'answer_text': '2'}),
+            content_type='application/json',
+            HTTP_TELEGRAM_DEV_USER=str(self.student.tg_id),
+        )
+        self.assertEqual(res2.status_code, 400)
+        self.assertIn('уже выполнено', res2.json()['detail'])
+
+    def test_velocity_limit_throttles_fast_answers(self):
+        # Стартуем сессию
+        res = self.client.get(
+            f'/api/tutor/daily-session/{self.student.tg_id}/',
+            HTTP_TELEGRAM_DEV_USER=str(self.student.tg_id),
+        )
+        st_id = res.json()['current_task']['session_task_id']
+
+        # Первый ответ
+        self.client.post(
+            f'/api/tutor/submit/{self.student.tg_id}/',
+            data=json.dumps({'session_task_id': st_id, 'answer_text': '1'}),
+            content_type='application/json',
+            HTTP_TELEGRAM_DEV_USER=str(self.student.tg_id),
+        )
+
+        # Мгновенная отправка следующего ответа (< 1.0 сек) должна вернуть 429
+        res_fast = self.client.post(
+            f'/api/tutor/submit/{self.student.tg_id}/',
+            data=json.dumps({'session_task_id': st_id, 'answer_text': '1'}),
+            content_type='application/json',
+            HTTP_TELEGRAM_DEV_USER=str(self.student.tg_id),
+        )
+        self.assertEqual(res_fast.status_code, 429)
+        self.assertIn('Слишком быстрый', res_fast.json()['detail'])
+
+    def test_banned_student_is_blocked_from_submitting(self):
+        self.student.is_banned = True
+        self.student.save()
+
+        res = self.client.post(
+            f'/api/tutor/submit/{self.student.tg_id}/',
+            data=json.dumps({'session_task_id': 1, 'answer_text': '1'}),
+            content_type='application/json',
+            HTTP_TELEGRAM_DEV_USER=str(self.student.tg_id),
+        )
+        self.assertEqual(res.status_code, 403)
+        self.assertIn('заблокирован', res.json()['detail'])

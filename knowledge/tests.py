@@ -160,6 +160,35 @@ class ExtraTasksTests(TestCase):
         self.assertIsNotNone(attempt)
         self.assertTrue(attempt.is_correct)
 
+    def test_submit_extra_task_repeat_gives_zero_xp(self):
+        # Первый раз — получает 10 XP
+        self.client.post(
+            f'/api/tutor/knowledge/extra-tasks/{self.extra_task.id}/answer/',
+            data={'answer': 'И', 'tg_id': self.student.tg_id},
+            content_type='application/json',
+            HTTP_TELEGRAM_DEV_USER=str(self.student.tg_id),
+        )
+        self.student.refresh_from_db()
+        self.assertEqual(self.student.xp, 10)
+
+        # Очищаем временную задержку для теста
+        from django.core.cache import cache
+        cache.delete(f'anti_cheat:vel:{self.student.id}')
+
+        # Второй раз с тем же правильным ответом — защита от накрутки (0 XP)
+        res2 = self.client.post(
+            f'/api/tutor/knowledge/extra-tasks/{self.extra_task.id}/answer/',
+            data={'answer': 'И', 'tg_id': self.student.tg_id},
+            content_type='application/json',
+            HTTP_TELEGRAM_DEV_USER=str(self.student.tg_id),
+        )
+        self.assertEqual(res2.status_code, 200)
+        d2 = res2.json()
+        self.assertTrue(d2['is_correct'])
+        self.assertEqual(d2['xp_earned'], 0)  # 0 XP за повторное решение!
+        self.student.refresh_from_db()
+        self.assertEqual(self.student.xp, 10)  # XP не накрутился
+
     def test_payment_return_page_served(self):
         res = self.client.get('/app/payment-return.html?status=success&bot=tutor_by_bot')
         self.assertEqual(res.status_code, 200)

@@ -19,6 +19,11 @@ async def aget_student_by_tg(request, tg_id: int) -> tuple[Student | None, Respo
             {'detail': 'Ученик не найден. Сначала пройди /start в боте.'},
             status=404,
         )
+    if getattr(student, 'is_banned', False):
+        return None, Response(
+            {'detail': 'Ваш аккаунт заблокирован за нарушение правил сервиса (накрутка баллов/боты).'},
+            status=403,
+        )
     return student, None
 
 
