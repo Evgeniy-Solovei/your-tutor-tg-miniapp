@@ -87,6 +87,30 @@ async def handle_telegram_link(message: types.Message, code: str):
         if web_student.xp > existing_student.xp:
             existing_student.xp = web_student.xp
             existing_student.streak_days = max(existing_student.streak_days, web_student.streak_days)
+        if web_student.is_pro and not existing_student.is_pro:
+            existing_student.is_pro = True
+            existing_student.pro_until = web_student.pro_until
+
+        # Безопасный перенос попыток, сессий, заказов и прогресса перед удалением
+        from learning.models import TaskAttempt, DailySession, TopicMastery
+        from students.models import PaymentOrder
+
+        await TaskAttempt.objects.filter(student=web_student).aupdate(student=existing_student)
+        await DailySession.objects.filter(student=web_student).aupdate(student=existing_student)
+        await PaymentOrder.objects.filter(student=web_student).aupdate(student=existing_student)
+
+        async for wm in TopicMastery.objects.filter(student=web_student):
+            em = await TopicMastery.objects.filter(student=existing_student, topic_id=wm.topic_id).afirst()
+            if em:
+                em.correct_count += wm.correct_count
+                em.wrong_count += wm.wrong_count
+                em.recalculate_score()
+                await em.asave()
+                await wm.adelete()
+            else:
+                wm.student = existing_student
+                await wm.asave()
+
         await existing_student.asave()
         await web_student.adelete()
         target = existing_student

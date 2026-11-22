@@ -27,6 +27,8 @@ class Command(BaseCommand):
             registration_completed=True,
             notifications_enabled=True,
             tg_blocked=False,
+            tg_id__isnull=False,
+            tg_id__lt=9_000_000_000,
         )
 
         items = []
