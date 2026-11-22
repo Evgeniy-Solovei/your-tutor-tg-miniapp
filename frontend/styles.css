@@ -92,12 +92,10 @@ body {
   font-family: var(--font);
   font-size: 16px;
   line-height: 1.5;
-  background: var(--bg-gradient, var(--bg0)) !important;
-  background-attachment: fixed !important;
+  background: var(--bg0);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
-  scroll-behavior: smooth;
 }
 
 body {
@@ -141,7 +139,7 @@ html:has(body.unauthenticated) {
   min-height: 100% !important;
   overflow-y: auto !important;
   overflow-x: hidden !important;
-  background: var(--bg-gradient, var(--bg0)) !important;
+  background: var(--bg0) !important;
 }
 
 body.unauthenticated .desktop-sidebar,
@@ -451,13 +449,7 @@ body.unauthenticated .view {
     display: flex !important;
     flex-direction: column !important;
     gap: 24px !important;
-    scroll-behavior: smooth !important;
     -webkit-overflow-scrolling: touch !important;
-    will-change: scroll-position !important;
-    overscroll-behavior-y: contain !important;
-  }
-    flex-direction: column !important;
-    gap: 24px !important;
   }
 }
 
@@ -1101,8 +1093,6 @@ body.channel-web {
   background: var(--card);
   border: 1px solid var(--card-border);
   box-shadow: var(--shadow);
-  backdrop-filter: blur(20px) saturate(180%);
-  -webkit-backdrop-filter: blur(20px) saturate(180%);
   transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1),
               box-shadow 0.22s cubic-bezier(0.16, 1, 0.3, 1),
               border-color 0.22s ease;
@@ -1739,8 +1729,6 @@ textarea.input {
     background: var(--tab-bg);
     border: 1px solid var(--card-border);
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
     box-sizing: border-box;
   }
 }
@@ -2575,8 +2563,7 @@ button.learning-step-btn:active {
 .app-footer {
   margin-top: 48px;
   border-top: 1px solid var(--card-border);
-  background: rgba(10, 10, 16, 0.85);
-  backdrop-filter: blur(20px);
+  background: rgba(10, 10, 16, 0.98);
   padding: 40px 24px 100px;
   color: var(--muted);
   font-size: 0.9rem;
@@ -2782,7 +2769,6 @@ button.learning-step-btn:active {
   display: flex;
   flex-direction: column;
   transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
-  backdrop-filter: blur(12px);
 }
 .tariff-card:hover {
   transform: translateY(-4px);
@@ -3186,6 +3172,8 @@ button.learning-step-btn:active {
   display: flex;
   flex-direction: column;
   overflow-x: hidden;
+  animation: none !important;
+  transform: none !important;
 }
 
 .landing-header {
@@ -3345,8 +3333,6 @@ button.learning-step-btn:active {
   padding: 76px 0;
   border-top: 1px solid var(--card-border);
   position: relative;
-  content-visibility: auto;
-  contain-intrinsic-size: 600px;
 }
 
 .landing-section-header {
