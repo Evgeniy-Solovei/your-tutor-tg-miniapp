@@ -3263,7 +3263,7 @@ button.learning-step-btn:active {
   line-height: 1.14;
   letter-spacing: -0.03em;
   margin: 0 0 20px;
-  max-width: 920px;
+  max-width: 980px;
   color: var(--ink);
   text-wrap: balance;
 }

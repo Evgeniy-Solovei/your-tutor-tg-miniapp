@@ -64,9 +64,13 @@
         } catch(e) {}
       })();
     </script>
-    <!-- Локальные шрифты Onest & Unbounded и стили: нулевая задержка, без внешних запросов к Google -->
-    <link rel="stylesheet" href="./fonts.css?v=20261122-v16-fast" />
-    <link rel="stylesheet" href="./styles.css?v=20261122-v16-fast" />
+    <!-- Предзагрузка ключевых шрифтов для моментального рендера без FOUT и скачков верстки -->
+    <link rel="preload" href="./fonts/unbounded-800-cyrillic.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="./fonts/onest-400-cyrillic.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="./fonts/onest-600-cyrillic.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="./fonts/onest-700-cyrillic.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="stylesheet" href="./fonts.css?v=20261122-v17-fontready" />
+    <link rel="stylesheet" href="./styles.css?v=20261122-v17-fontready" />
 
     <!-- Глобальный перехватчик JS-ошибок → логи контейнера через бэкенд -->
     <script>
@@ -152,20 +156,31 @@
       <div class="splash-loading-text">Загрузка...</div>
     </div>
     <script>
-      // Держим сплэш до готовности приложения. Страховка: максимум 3 с.
+      // Держим сплэш до полной готовности шрифтов и DOM — предотвращает FOUT и скачки верстки
       window.__TUTOR_HIDE_SPLASH__ = function () {
         var splash = document.getElementById('app-splash');
         if (!splash || splash.dataset.done) return;
-        splash.dataset.done = '1';
-        document.documentElement.classList.add('app-ready');
-        splash.classList.add('hidden');
-        setTimeout(function () {
-          if (splash && splash.parentNode) splash.parentNode.removeChild(splash);
-        }, 280);
+
+        function doHide() {
+          if (!splash || splash.dataset.done) return;
+          splash.dataset.done = '1';
+          document.documentElement.classList.add('app-ready');
+          splash.classList.add('hidden');
+          setTimeout(function () {
+            if (splash && splash.parentNode) splash.parentNode.removeChild(splash);
+          }, 280);
+        }
+
+        if (document.fonts && typeof document.fonts.ready === 'object') {
+          document.fonts.ready.then(doHide).catch(doHide);
+          setTimeout(doHide, 350);
+        } else {
+          doHide();
+        }
       };
       setTimeout(function () {
         if (typeof window.__TUTOR_HIDE_SPLASH__ === 'function') window.__TUTOR_HIDE_SPLASH__();
-      }, 3000);
+      }, 2500);
     </script>
     <div id="atmosphere" class="atmosphere" aria-hidden="true"></div>
     <div class="app-shell">
@@ -305,6 +320,6 @@
         if (_tg) { _tg.ready(); _tg.expand(); }
       } catch (e) {}
     </script>
-    <script type="module" src="./app.js?v=20261122-v16-fast"></script>
+    <script type="module" src="./app.js?v=20261122-v17-fontready"></script>
   </body>
 </html>
