@@ -1,4 +1,4 @@
-import { api } from './api.js?v=20261122-v12-tglogin';
+import { api } from './api.js?v=20261122-v13-landing';
 import { startAtmosphere } from './atmosphere.js';
 import {
   emptyRegForm,
@@ -17,6 +17,7 @@ import {
 } from './telegram.js';
 import { THEMES, getTheme, initTheme, toggleTheme } from './theme.js';
 import { LEGAL_DOCS, REQUISITES } from './legal.js';
+import { renderLandingPresentation } from './landing.js';
 
 const initialRoute = (() => {
   try {
@@ -3587,106 +3588,108 @@ function renderTelegramAuthBlock(isReg = false) {
   `;
 }
 
-function renderAuthScreen() {
+function renderAuthCard(state) {
   const isReg = state.authTab === 'register';
   return `
-    <div class="auth-screen-container" style="display:flex;align-items:center;justify-content:center;min-height:75vh;padding:24px 16px">
-      <div class="card" style="width:100%;max-width:440px;padding:32px 28px;border-radius:20px;box-shadow:0 20px 50px rgba(0,0,0,0.18);border:1px solid rgba(255,255,255,0.08)">
-        <div style="text-align:center;margin-bottom:24px">
-          <div style="font-size:42px;margin-bottom:8px">🎓</div>
-          <h1 style="font-size:24px;font-weight:800;margin:0 0 6px 0;letter-spacing:-0.5px">Твой Репетитор</h1>
-          <p class="muted" style="margin:0;font-size:13.5px;line-height:1.4">
-            Единая образовательная платформа: подготовка к ЦТ, ЦЭ и школьная программа Беларуси
-          </p>
-        </div>
+    <div class="card auth-card" style="width:100%;max-width:440px;padding:32px 28px;border-radius:20px;box-shadow:0 20px 50px rgba(0,0,0,0.18);border:1px solid rgba(255,255,255,0.08);background:var(--card);box-sizing:border-box">
+      <div style="text-align:center;margin-bottom:24px">
+        <div style="font-size:42px;margin-bottom:8px">🎓</div>
+        <h2 style="font-size:24px;font-weight:800;margin:0 0 6px 0;letter-spacing:-0.5px">Твой Репетитор</h2>
+        <p class="muted" style="margin:0;font-size:13.5px;line-height:1.4">
+          Единая образовательная платформа: подготовка к ЦТ, ЦЭ и школьная программа Беларуси
+        </p>
+      </div>
 
-        <div style="display:flex;gap:6px;background:rgba(255,255,255,0.06);padding:5px;border-radius:12px;margin-bottom:22px">
-          <button type="button" class="btn ${!isReg ? 'primary' : 'secondary'}" data-action="set-auth-tab" data-tab="login" style="flex:1;border-radius:9px;padding:9px;font-weight:600">Вход</button>
-          <button type="button" class="btn ${isReg ? 'primary' : 'secondary'}" data-action="set-auth-tab" data-tab="register" style="flex:1;border-radius:9px;padding:9px;font-weight:600">Регистрация</button>
-        </div>
+      <div style="display:flex;gap:6px;background:rgba(255,255,255,0.06);padding:5px;border-radius:12px;margin-bottom:22px">
+        <button type="button" class="btn ${!isReg ? 'primary' : 'secondary'}" data-action="set-auth-tab" data-tab="login" style="flex:1;border-radius:9px;padding:9px;font-weight:600">Вход</button>
+        <button type="button" class="btn ${isReg ? 'primary' : 'secondary'}" data-action="set-auth-tab" data-tab="register" style="flex:1;border-radius:9px;padding:9px;font-weight:600">Регистрация</button>
+      </div>
 
-        ${state.authError ? `
-          <div class="alert danger" style="margin-bottom:18px;padding:12px 14px;border-radius:10px;font-size:13.5px;line-height:1.4">
-            ⚠️ ${esc(state.authError)}
+      ${state.authError ? `
+        <div class="alert danger" style="margin-bottom:18px;padding:12px 14px;border-radius:10px;font-size:13.5px;line-height:1.4">
+          ⚠️ ${esc(state.authError)}
+        </div>
+      ` : ''}
+
+      ${renderTelegramAuthBlock(isReg)}
+
+      ${isReg ? `
+        <form id="auth-register-form">
+          <div style="margin-bottom:14px">
+            <label style="display:block;font-size:13px;font-weight:600;margin-bottom:5px;color:var(--text-muted, #94a3b8)">Логин</label>
+            <input type="text" id="reg-login" required minlength="3" maxlength="50" placeholder="Придумайте логин (например, student2026)" class="input" style="width:100%;box-sizing:border-box;padding:11px 14px;border-radius:10px;font-size:14px" autocomplete="username" />
           </div>
-        ` : ''}
 
-        ${renderTelegramAuthBlock(isReg)}
+          <div style="margin-bottom:14px">
+            <label style="display:block;font-size:13px;font-weight:600;margin-bottom:5px;color:var(--text-muted, #94a3b8)">Пароль</label>
+            <input type="password" id="reg-password" required minlength="6" placeholder="Минимум 6 символов" class="input" style="width:100%;box-sizing:border-box;padding:11px 14px;border-radius:10px;font-size:14px" autocomplete="new-password" />
+          </div>
 
-        ${isReg ? `
-          <form id="auth-register-form">
-            <div style="margin-bottom:14px">
-              <label style="display:block;font-size:13px;font-weight:600;margin-bottom:5px;color:var(--text-muted, #94a3b8)">Логин</label>
-              <input type="text" id="reg-login" required minlength="3" maxlength="50" placeholder="Придумайте логин (например, student2026)" class="input" style="width:100%;box-sizing:border-box;padding:11px 14px;border-radius:10px;font-size:14px" autocomplete="username" />
+          <div style="margin-bottom:14px">
+            <label style="display:block;font-size:13px;font-weight:600;margin-bottom:5px;color:var(--text-muted, #94a3b8)">Имя или никнейм</label>
+            <input type="text" id="reg-name" required maxlength="100" placeholder="Как вас называть в рейтинге" class="input" style="width:100%;box-sizing:border-box;padding:11px 14px;border-radius:10px;font-size:14px" />
+          </div>
+
+          <div style="display:flex;gap:10px;margin-bottom:22px">
+            <div style="flex:1">
+              <label style="display:block;font-size:13px;font-weight:600;margin-bottom:5px;color:var(--text-muted, #94a3b8)">Класс</label>
+              <select id="reg-grade" class="input" style="width:100%;box-sizing:border-box;padding:11px 10px;border-radius:10px;font-size:13.5px">
+                <option value="11" selected>11 класс</option>
+                <option value="10">10 класс</option>
+                <option value="9">9 класс</option>
+                <option value="8">8 класс</option>
+                <option value="7">7 класс</option>
+                <option value="6">6 класс</option>
+                <option value="5">5 класс</option>
+              </select>
             </div>
-
-            <div style="margin-bottom:14px">
-              <label style="display:block;font-size:13px;font-weight:600;margin-bottom:5px;color:var(--text-muted, #94a3b8)">Пароль</label>
-              <input type="password" id="reg-password" required minlength="6" placeholder="Минимум 6 символов" class="input" style="width:100%;box-sizing:border-box;padding:11px 14px;border-radius:10px;font-size:14px" autocomplete="new-password" />
+            <div style="flex:1.4">
+              <label style="display:block;font-size:13px;font-weight:600;margin-bottom:5px;color:var(--text-muted, #94a3b8)">Цель обучения</label>
+              <select id="reg-goal" class="input" style="width:100%;box-sizing:border-box;padding:11px 10px;border-radius:10px;font-size:13.5px">
+                <option value="ct" selected>Подготовка к ЦТ</option>
+                <option value="ce">Подготовка к ЦЭ</option>
+                <option value="attestat">Экзамен (9 кл.)</option>
+                <option value="improve">Подтянуть предмет</option>
+              </select>
             </div>
+          </div>
 
-            <div style="margin-bottom:14px">
-              <label style="display:block;font-size:13px;font-weight:600;margin-bottom:5px;color:var(--text-muted, #94a3b8)">Имя или никнейм</label>
-              <input type="text" id="reg-name" required maxlength="100" placeholder="Как вас называть в рейтинге" class="input" style="width:100%;box-sizing:border-box;padding:11px 14px;border-radius:10px;font-size:14px" />
-            </div>
+          <button type="submit" class="btn primary block" style="padding:13px;font-size:15px;font-weight:700;border-radius:12px;width:100%">
+            Создать аккаунт
+          </button>
+        </form>
+      ` : `
+        <form id="auth-login-form">
+          <div style="margin-bottom:16px">
+            <label style="display:block;font-size:13px;font-weight:600;margin-bottom:6px;color:var(--text-muted, #94a3b8)">Логин</label>
+            <input type="text" id="login-username" required placeholder="Введите ваш логин" class="input" style="width:100%;box-sizing:border-box;padding:12px 14px;border-radius:10px;font-size:14px" autocomplete="username" />
+          </div>
 
-            <div style="display:flex;gap:10px;margin-bottom:22px">
-              <div style="flex:1">
-                <label style="display:block;font-size:13px;font-weight:600;margin-bottom:5px;color:var(--text-muted, #94a3b8)">Класс</label>
-                <select id="reg-grade" class="input" style="width:100%;box-sizing:border-box;padding:11px 10px;border-radius:10px;font-size:13.5px">
-                  <option value="11" selected>11 класс</option>
-                  <option value="10">10 класс</option>
-                  <option value="9">9 класс</option>
-                  <option value="8">8 класс</option>
-                  <option value="7">7 класс</option>
-                  <option value="6">6 класс</option>
-                  <option value="5">5 класс</option>
-                </select>
-              </div>
-              <div style="flex:1.4">
-                <label style="display:block;font-size:13px;font-weight:600;margin-bottom:5px;color:var(--text-muted, #94a3b8)">Цель обучения</label>
-                <select id="reg-goal" class="input" style="width:100%;box-sizing:border-box;padding:11px 10px;border-radius:10px;font-size:13.5px">
-                  <option value="ct" selected>Подготовка к ЦТ</option>
-                  <option value="ce">Подготовка к ЦЭ</option>
-                  <option value="attestat">Экзамен (9 кл.)</option>
-                  <option value="improve">Подтянуть предмет</option>
-                </select>
-              </div>
-            </div>
+          <div style="margin-bottom:24px">
+            <label style="display:block;font-size:13px;font-weight:600;margin-bottom:6px;color:var(--text-muted, #94a3b8)">Пароль</label>
+            <input type="password" id="login-password" required placeholder="Введите пароль" class="input" style="width:100%;box-sizing:border-box;padding:12px 14px;border-radius:10px;font-size:14px" autocomplete="current-password" />
+          </div>
 
-            <button type="submit" class="btn primary block" style="padding:13px;font-size:15px;font-weight:700;border-radius:12px;width:100%">
-              Создать аккаунт
-            </button>
-          </form>
-        ` : `
-          <form id="auth-login-form">
-            <div style="margin-bottom:16px">
-              <label style="display:block;font-size:13px;font-weight:600;margin-bottom:6px;color:var(--text-muted, #94a3b8)">Логин</label>
-              <input type="text" id="login-username" required placeholder="Введите ваш логин" class="input" style="width:100%;box-sizing:border-box;padding:12px 14px;border-radius:10px;font-size:14px" autocomplete="username" />
-            </div>
+          <button type="submit" class="btn primary block" style="padding:13px;font-size:15px;font-weight:700;border-radius:12px;width:100%">
+            Войти на платформу
+          </button>
+        </form>
+      `}
 
-            <div style="margin-bottom:24px">
-              <label style="display:block;font-size:13px;font-weight:600;margin-bottom:6px;color:var(--text-muted, #94a3b8)">Пароль</label>
-              <input type="password" id="login-password" required placeholder="Введите пароль" class="input" style="width:100%;box-sizing:border-box;padding:12px 14px;border-radius:10px;font-size:14px" autocomplete="current-password" />
-            </div>
-
-            <button type="submit" class="btn primary block" style="padding:13px;font-size:15px;font-weight:700;border-radius:12px;width:100%">
-              Войти на платформу
-            </button>
-          </form>
-        `}
-
-        <div style="margin-top:22px;padding-top:16px;border-top:1px solid rgba(255,255,255,0.08);text-align:center">
-          <p class="muted" style="font-size:12.5px;margin:0 0 4px 0;font-weight:600;color:var(--text-muted, #94a3b8)">
-            🔒 Единый аккаунт для сайта и Telegram
-          </p>
-          <p class="muted" style="font-size:12px;margin:0;line-height:1.4">
-            Вы можете входить любым удобным способом: через Telegram или по логину и паролю. Все задания, статистика и рейтинг сохраняются.
-          </p>
-        </div>
+      <div style="margin-top:22px;padding-top:16px;border-top:1px solid rgba(255,255,255,0.08);text-align:center">
+        <p class="muted" style="font-size:12.5px;margin:0 0 4px 0;font-weight:600;color:var(--text-muted, #94a3b8)">
+          🔒 Единый аккаунт для сайта и Telegram
+        </p>
+        <p class="muted" style="font-size:12px;margin:0;line-height:1.4">
+          Вы можете входить любым удобным способом: через Telegram или по логину и паролю. Все задания, статистика и рейтинг сохраняются.
+        </p>
       </div>
     </div>
   `;
+}
+
+function renderAuthScreen() {
+  return renderLandingPresentation(state, renderAuthCard(state));
 }
 
 function render() {
@@ -3940,6 +3943,29 @@ async function handleAction(action, t, e) {
     state.tgAuthTimer = null;
     state.authError = '';
     render();
+    return;
+  }
+  if (action === 'landing-nav') {
+    const targetId = t.dataset.target;
+    const el = document.getElementById(targetId);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth' });
+    }
+    return;
+  }
+  if (action === 'landing-scroll-top') {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    return;
+  }
+  if (action === 'landing-go-auth') {
+    const tab = t.dataset.tab || 'login';
+    state.authTab = tab;
+    state.authError = '';
+    render();
+    const anchor = document.getElementById('auth-section');
+    if (anchor) {
+      anchor.scrollIntoView({ behavior: 'smooth' });
+    }
     return;
   }
   if (action === 'auth-logout') {
