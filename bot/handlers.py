@@ -2,6 +2,7 @@
 
 import logging
 import os
+import secrets
 
 import django
 
@@ -11,6 +12,7 @@ django.setup()
 from aiogram import F, Router, types
 from aiogram.filters import Command, CommandObject, CommandStart
 from aiogram.fsm.context import FSMContext
+from django.core.cache import cache
 from django.utils import timezone
 
 from bot.keyboards import (
@@ -43,6 +45,8 @@ from learning.services import (
     submit_answer,
 )
 from students.models import Parent, ParentChildLink, Student
+from students.registration_service import resolve_subject_and_track
+from students.serializers import StudentSerializer
 from students.parent_service import (
     build_parent_report,
     get_active_invite,
@@ -130,13 +134,98 @@ async def cmd_link(message: types.Message, command: CommandObject = None):
     await handle_telegram_link(message, command.args.strip())
 
 
+async def handle_telegram_auth(message: types.Message, session_code: str):
+    session_code = session_code.strip().upper()
+    cache_key = f"tg_auth_session:{session_code}"
+    sess = await cache.aget(cache_key)
+    if not sess or not isinstance(sess, dict) or sess.get('status') != 'pending':
+        await message.answer(
+            "⚠️ Срок действия сессии входа истёк или код недействителен (срок жизни 5 минут).\n\n"
+            "Пожалуйста, нажмите «Войти через Telegram» на сайте ещё раз.",
+            reply_markup=main_menu_keyboard(),
+        )
+        return
+
+    user = message.from_user
+    student = await Student.objects.filter(tg_id=user.id).afirst()
+    if not student:
+        grade = 11
+        goal = Student.Goal.CT
+        subject, track = await resolve_subject_and_track(grade, goal=goal)
+        student = await Student.objects.acreate(
+            tg_id=user.id,
+            username=user.username or '',
+            display_name=user.full_name or 'Ученик',
+            grade=grade,
+            goal=goal,
+            subject=subject,
+            exam_track=track,
+            registration_completed=True,
+        )
+
+    web_token = secrets.token_hex(32)
+    student.web_token = web_token
+    await student.asave(update_fields=['web_token', 'updated_at'])
+
+    token_cache_key = f'web_token:{web_token}'
+    try:
+        await cache.aset(
+            token_cache_key,
+            (student.tg_id, student.display_name, student.username or ''),
+            timeout=86400 * 30,
+        )
+    except Exception:
+        pass
+
+    serializer = StudentSerializer(student)
+    student_data = await serializer.adata
+
+    await cache.aset(
+        cache_key,
+        {
+            'status': 'confirmed',
+            'token': web_token,
+            'student': student_data,
+        },
+        timeout=300,
+    )
+
+    await message.answer(
+        "🎉 <b>Вход на сайт подтверждён!</b>\n\n"
+        f"👤 Вы вошли как: <b>{student.display_name}</b> ({student.grade} класс)\n\n"
+        "💻 Вернитесь во вкладку браузера на компьютере — портал откроется автоматически!",
+        parse_mode="HTML",
+        reply_markup=main_menu_keyboard(),
+    )
+
+
+@router.message(Command('auth'))
+async def cmd_auth(message: types.Message, command: CommandObject = None):
+    if not command or not command.args:
+        await message.answer(
+            "ℹ️ Чтобы подтвердить вход на сайте, укажите код сессии:\n"
+            "<code>/auth AUTH-XXXX</code>\n\n"
+            "Либо просто нажмите кнопку «Войти через Telegram» на сайте.",
+            parse_mode="HTML",
+        )
+        return
+    await handle_telegram_auth(message, command.args.strip())
+
+
 @router.message(CommandStart())
 async def cmd_start(message: types.Message, state: FSMContext, command: CommandObject = None):
     await state.clear()
 
-    # Проверка диплинка для связывания веб-аккаунта: /start link_TUT-XXXX или /start TUT-XXXX
     if command and command.args:
         raw_arg = command.args.strip()
+
+        # Авторизация на веб-сайте через Telegram: /start auth_AUTH-XXXX
+        if raw_arg.startswith('auth_') or raw_arg.startswith('AUTH-'):
+            session_code = raw_arg.replace('auth_', '').strip()
+            await handle_telegram_auth(message, session_code)
+            return
+
+        # Проверка диплинка для связывания веб-аккаунта: /start link_TUT-XXXX или /start TUT-XXXX
         if raw_arg.startswith('link_') or raw_arg.startswith('TUT-'):
             code = raw_arg.replace('link_', '').strip()
             await handle_telegram_link(message, code)

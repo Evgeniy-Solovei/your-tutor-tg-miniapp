@@ -1,4 +1,4 @@
-import { api } from './api.js?v=20261122-v9-fiximport';
+import { api } from './api.js?v=20261122-v12-tglogin';
 import { startAtmosphere } from './atmosphere.js';
 import {
   emptyRegForm,
@@ -325,6 +325,7 @@ function syncTabbar() {
 let _routeLoadSeq = 0;
 
 function setRoute(route, force = false) {
+  if (!state.me) return;
   if (!force && state.route === route && !state.panel) return;
   state.route = route;
   state.panel = null;
@@ -3499,10 +3500,97 @@ function renderExamProtocol() {
   `;
 }
 
+async function startTelegramFastLogin(btn) {
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = 'Подготовка…';
+  }
+  try {
+    const res = await api.createTelegramSession();
+    state.tgAuthSession = res.session_id;
+    state.tgAuthDeeplink = res.deeplink;
+    state.tgAuthCommand = res.command;
+    state.authError = '';
+    render();
+
+    try {
+      window.open(res.deeplink, '_blank');
+    } catch (_) {}
+
+    if (state.tgAuthTimer) clearInterval(state.tgAuthTimer);
+    state.tgAuthTimer = setInterval(async () => {
+      if (!state.tgAuthSession) {
+        clearInterval(state.tgAuthTimer);
+        return;
+      }
+      try {
+        const check = await api.checkTelegramSession(state.tgAuthSession);
+        if (check && check.status === 'confirmed' && check.token) {
+          clearInterval(state.tgAuthTimer);
+          state.tgAuthSession = null;
+          state.tgAuthTimer = null;
+          localStorage.setItem('tutor_web_token', check.token);
+          state.me = check.student;
+          state.loading = false;
+          document.body.classList.remove('unauthenticated');
+          toast('Вход через Telegram успешно выполнен! 🎉');
+          await turboBootstrap();
+        } else if (check && check.status === 'expired') {
+          clearInterval(state.tgAuthTimer);
+          state.tgAuthSession = null;
+          state.tgAuthTimer = null;
+          state.authError = 'Срок действия сессии входа истёк. Попробуйте снова.';
+          render();
+        }
+      } catch (_) {}
+    }, 1500);
+  } catch (err) {
+    state.authError = err.message || 'Ошибка подключения к Telegram';
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = 'Войти через Telegram';
+    }
+    render();
+  }
+}
+
+function renderTelegramAuthBlock(isReg = false) {
+  if (state.tgAuthSession) {
+    return `
+      <div style="background:rgba(34,158,217,0.1);border:1.5px dashed #229ED9;border-radius:14px;padding:16px;text-align:center;margin-bottom:20px">
+        <div style="font-size:14px;font-weight:700;color:#38bdf8;margin-bottom:6px">⏳ Ожидание подтверждения…</div>
+        <p class="muted" style="font-size:12px;margin:0 0 12px;line-height:1.4">
+          Мы открыли Telegram-бота. Нажмите <strong>«Запустить»</strong> в боте для мгновенного входа:
+        </p>
+        <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-bottom:10px">
+          <a href="${escAttr(state.tgAuthDeeplink || '#')}" target="_blank" class="btn primary sm" style="background:#229ED9;text-decoration:none">🚀 Открыть Telegram-бота</a>
+          <button type="button" class="btn secondary sm" data-action="cancel-tg-auth">Войти по паролю</button>
+        </div>
+        <p class="muted" style="font-size:11px;margin:0">
+          Или отправьте команду боту в чат: <code>${esc(state.tgAuthCommand || '')}</code>
+        </p>
+      </div>
+    `;
+  }
+
+  return `
+    <button type="button" class="btn block" data-action="telegram-fast-login" style="background:#229ED9;color:#fff;font-weight:700;padding:12px 16px;border-radius:12px;display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:18px;border:none;cursor:pointer;font-size:14.5px;box-shadow:0 4px 14px rgba(34,158,217,0.3);width:100%;box-sizing:border-box">
+      <span style="font-size:18px;line-height:1">✈️</span>
+      <span>${isReg ? 'Быстрая регистрация через Telegram' : 'Войти через Telegram'}</span>
+    </button>
+
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:18px">
+      <div style="flex:1;height:1px;background:rgba(255,255,255,0.1)"></div>
+      <span class="muted" style="font-size:12px;font-weight:600">${isReg ? 'или заполните форму' : 'или по логину и паролю'}</span>
+      <div style="flex:1;height:1px;background:rgba(255,255,255,0.1)"></div>
+    </div>
+  `;
+}
+
 function renderAuthScreen() {
   const isReg = state.authTab === 'register';
   return `
-    <div class="auth-screen-container" style="display:flex;align-items:center;justify-content:center;min-height:68vh;padding:24px 16px">
+    <div class="auth-screen-container" style="display:flex;align-items:center;justify-content:center;min-height:75vh;padding:24px 16px">
       <div class="card" style="width:100%;max-width:440px;padding:32px 28px;border-radius:20px;box-shadow:0 20px 50px rgba(0,0,0,0.18);border:1px solid rgba(255,255,255,0.08)">
         <div style="text-align:center;margin-bottom:24px">
           <div style="font-size:42px;margin-bottom:8px">🎓</div>
@@ -3522,6 +3610,8 @@ function renderAuthScreen() {
             ⚠️ ${esc(state.authError)}
           </div>
         ` : ''}
+
+        ${renderTelegramAuthBlock(isReg)}
 
         ${isReg ? `
           <form id="auth-register-form">
@@ -3586,9 +3676,13 @@ function renderAuthScreen() {
           </form>
         `}
 
-        <div style="margin-top:24px;padding-top:18px;border-top:1px solid rgba(255,255,255,0.08);text-align:center">
-          <p class="muted" style="font-size:12.5px;margin:0 0 4px 0">Занимаетесь в Telegram-боте?</p>
-          <p class="muted" style="font-size:12px;margin:0">После входа вы сможете привязать аккаунт Telegram в один клик в разделе «Профиль».</p>
+        <div style="margin-top:22px;padding-top:16px;border-top:1px solid rgba(255,255,255,0.08);text-align:center">
+          <p class="muted" style="font-size:12.5px;margin:0 0 4px 0;font-weight:600;color:var(--text-muted, #94a3b8)">
+            🔒 Единый аккаунт для сайта и Telegram
+          </p>
+          <p class="muted" style="font-size:12px;margin:0;line-height:1.4">
+            Вы можете входить любым удобным способом: через Telegram или по логину и паролю. Все задания, статистика и рейтинг сохраняются.
+          </p>
         </div>
       </div>
     </div>
@@ -3613,6 +3707,14 @@ function render() {
       } else {
         brandSubEl.textContent = theme.sub;
       }
+    }
+
+    const isAuth = Boolean(state.me);
+    document.body.classList.toggle('unauthenticated', !isAuth);
+
+    const logoutBtn = document.getElementById('sidebar-logout-btn');
+    if (logoutBtn) {
+      logoutBtn.style.display = isAuth ? 'inline-flex' : 'none';
     }
 
     // Обновляем состояние полноформатного десктоп-сайдбара
@@ -3828,16 +3930,32 @@ async function handleAction(action, t, e) {
     render();
     return;
   }
+  if (action === 'telegram-fast-login') {
+    await startTelegramFastLogin(t);
+    return;
+  }
+  if (action === 'cancel-tg-auth') {
+    if (state.tgAuthTimer) clearInterval(state.tgAuthTimer);
+    state.tgAuthSession = null;
+    state.tgAuthTimer = null;
+    state.authError = '';
+    render();
+    return;
+  }
   if (action === 'auth-logout') {
     if (confirm('Вы уверены, что хотите выйти из аккаунта?')) {
       try {
         await api.authLogout();
       } catch (_) {}
+      if (state.tgAuthTimer) clearInterval(state.tgAuthTimer);
+      state.tgAuthSession = null;
+      state.tgAuthTimer = null;
       localStorage.removeItem('tutor_web_token');
       localStorage.removeItem('tutor_bootstrap_cache');
       state.me = null;
       state.authTab = 'login';
       state.authError = '';
+      document.body.classList.add('unauthenticated');
       render();
       toast('Вы вышли из аккаунта');
     }

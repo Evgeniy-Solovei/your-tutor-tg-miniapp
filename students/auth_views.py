@@ -290,3 +290,86 @@ class TelegramUnlinkView(APIView):
                 pass
 
         return Response({'ok': True, 'is_telegram_linked': False, 'tg_id': new_tg_id})
+
+
+class TelegramWebSessionCreateView(APIView):
+    """Создание временной сессии для авторизации на сайте через Telegram-бота."""
+
+    authentication_classes = []
+    permission_classes = []
+
+    async def post(self, request):
+        ip = _get_client_ip(request)
+        rate_key = f'tg_auth_create_rate:{ip}'
+        try:
+            cnt = await cache.aget(rate_key) or 0
+            if cnt >= 20:
+                return Response(
+                    {'detail': 'Слишком много запросов на вход через Telegram. Попробуйте через минуту.'},
+                    status=status.HTTP_429_TOO_MANY_REQUESTS,
+                )
+            await cache.aset(rate_key, cnt + 1, timeout=60)
+        except Exception:
+            pass
+
+        session_id = f"AUTH-{secrets.token_hex(3).upper()}"
+        cache_key = f"tg_auth_session:{session_id}"
+        session_data = {
+            'status': 'pending',
+            'created_at': time.time(),
+            'ip': ip,
+        }
+        try:
+            await cache.aset(cache_key, session_data, timeout=300)
+        except Exception:
+            return Response(
+                {'detail': 'Сервис кэширования временно недоступен.'},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+
+        bot_username = getattr(settings, 'TELEGRAM_BOT_USERNAME', 'tutor_by_bot') or 'tutor_by_bot'
+        deeplink = f"https://t.me/{bot_username}?start=auth_{session_id}"
+
+        return Response({
+            'session_id': session_id,
+            'bot_username': bot_username,
+            'deeplink': deeplink,
+            'command': f"/auth {session_id}",
+            'expires_in_seconds': 300,
+        })
+
+
+class TelegramWebSessionCheckView(APIView):
+    """Проверка статуса сессии авторизации через Telegram-бота."""
+
+    authentication_classes = []
+    permission_classes = []
+
+    async def get(self, request, session_id: str):
+        session_id = str(session_id or '').strip().upper()
+        if not session_id or len(session_id) > 40:
+            return Response({'status': 'expired'})
+
+        cache_key = f"tg_auth_session:{session_id}"
+        try:
+            session_data = await cache.aget(cache_key)
+        except Exception:
+            session_data = None
+
+        if not session_data or not isinstance(session_data, dict):
+            return Response({'status': 'expired'})
+
+        if session_data.get('status') == 'confirmed':
+            token = session_data.get('token')
+            student = session_data.get('student')
+            try:
+                await cache.adelete(cache_key)
+            except Exception:
+                pass
+            return Response({
+                'status': 'confirmed',
+                'token': token,
+                'student': student,
+            })
+
+        return Response({'status': 'pending'})

@@ -11,6 +11,8 @@ from learning.views import (
 from students.auth_views import (
     TelegramLinkIssueView,
     TelegramUnlinkView,
+    TelegramWebSessionCheckView,
+    TelegramWebSessionCreateView,
     WebLoginView,
     WebLogoutView,
     WebRegisterView,
@@ -55,6 +57,8 @@ urlpatterns = [
     path('auth/register/', WebRegisterView.as_view(), name='web-register'),
     path('auth/login/', WebLoginView.as_view(), name='web-login'),
     path('auth/logout/', WebLogoutView.as_view(), name='web-logout'),
+    path('auth/telegram-session/', TelegramWebSessionCreateView.as_view(), name='telegram-session-create'),
+    path('auth/telegram-session/<str:session_id>/', TelegramWebSessionCheckView.as_view(), name='telegram-session-check'),
     path('auth/telegram-link/', TelegramLinkIssueView.as_view(), name='telegram-link-issue'),
     path('auth/telegram-unlink/', TelegramUnlinkView.as_view(), name='telegram-unlink'),
     path('logs/client-error/', ClientErrorLogView.as_view(), name='client-error-log'),

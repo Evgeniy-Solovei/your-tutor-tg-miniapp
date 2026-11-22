@@ -54,6 +54,9 @@ export const api = {
   authLogin: (payload) =>
     request('/auth/login/', { method: 'POST', body: JSON.stringify(payload) }),
   authLogout: () => request('/auth/logout/', { method: 'POST' }),
+  createTelegramSession: () => request('/auth/telegram-session/', { method: 'POST' }),
+  checkTelegramSession: (sessionId) =>
+    request(`/auth/telegram-session/${encodeURIComponent(sessionId)}/`),
   issueTelegramLink: () => request('/auth/telegram-link/', { method: 'POST' }),
   unlinkTelegram: () => request('/auth/telegram-unlink/', { method: 'POST' }),
   bootstrap: () => request('/bootstrap/'),

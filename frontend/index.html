@@ -65,8 +65,8 @@
       })();
     </script>
     <!-- Локальные шрифты Onest & Unbounded и стили: нулевая задержка, без внешних запросов к Google -->
-    <link rel="stylesheet" href="./fonts.css?v=20261122-v11-profilefix" />
-    <link rel="stylesheet" href="./styles.css?v=20261122-v11-profilefix" />
+    <link rel="stylesheet" href="./fonts.css?v=20261122-v12-tglogin" />
+    <link rel="stylesheet" href="./styles.css?v=20261122-v12-tglogin" />
 
     <!-- Глобальный перехватчик JS-ошибок → логи контейнера через бэкенд -->
     <script>
@@ -138,7 +138,7 @@
       })();
     </script>
   </head>
-  <body>
+  <body class="unauthenticated">
     <!-- Сплэш сразу в body — виден до загрузки JS/шрифтов -->
     <div id="app-splash" class="app-splash">
       <div class="splash-gears">
@@ -221,7 +221,7 @@
               <span class="sidebar-user-grade" id="sidebar-user-grade">11 класс</span>
             </div>
           </div>
-          <button type="button" class="btn secondary sm" data-action="auth-logout" title="Выйти из аккаунта" style="padding:8px 10px;border-radius:10px;font-size:14px;cursor:pointer">🚪</button>
+          <button type="button" class="btn secondary sm" id="sidebar-logout-btn" data-action="auth-logout" title="Выйти из аккаунта" style="padding:8px 10px;border-radius:10px;font-size:14px;cursor:pointer">🚪</button>
         </div>
       </aside>
 
@@ -292,6 +292,6 @@
         if (_tg) { _tg.ready(); _tg.expand(); }
       } catch (e) {}
     </script>
-    <script type="module" src="./app.js?v=20261122-v11-profilefix"></script>
+    <script type="module" src="./app.js?v=20261122-v12-tglogin"></script>
   </body>
 </html>
