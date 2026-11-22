@@ -2928,7 +2928,7 @@ function renderFamily() {
 
 function renderProfileAndFamily() {
   const pack = state.family;
-  const isParent = Boolean(pack?.is_parent || (state.me && state.me.is_parent));
+  const isParent = Boolean((!state.me && pack?.is_parent) || state.me?.is_parent);
 
   // ЭКРАН ДЛЯ РОДИТЕЛЯ
   if (isParent) {
